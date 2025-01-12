@@ -11,6 +11,7 @@ return function (req, res, answer)
     }), 400, {  ["Content-Type"] = "application/json" })
   end
 
+  getIdentifier = require("url").decode(getIdentifier)
   local getQuerySource = getIdentifier:match("([^%s]+):[^%s]+")
   local getQuery = getIdentifier:match("[^%s]+:([^%s]+)")
   local isLink = getIdentifier:find("https://") or getIdentifier:find("http://")

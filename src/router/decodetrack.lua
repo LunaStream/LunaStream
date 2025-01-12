@@ -8,7 +8,7 @@ return function (req, res, answer)
     }), 400, {  ["Content-Type"] = "application/json" })
   end
 
-  local encoded = require("../utils/url.lua").decode(getEncode)
+  local encoded = require("url").decode(getEncode)
 
   local result, err = require("../track/decoder.lua")(encoded)
 

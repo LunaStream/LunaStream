@@ -3,7 +3,7 @@ local required = {
   "author",
   "length",
   "identifier",
-  "is_stream",
+  "isStream",
   "uri"
 }
 

@@ -8,11 +8,12 @@ return {
   homepage = "https://github.com/RainyXeon/LunaStream",
   dependencies = {
     "creationix/coro-http@v3.2.3",
-    "luvit/require@2.2.3",
+    "luvit/luvit@2.2.3",
     "luvit/process@2.1.3",
     "luvit/dns@2.0.4",
     "luvit/secure-socket@1.2.3",
-    "creationix/coro-websocket@3.1.1"
+    "creationix/coro-websocket@3.1.1",
+    "luvit/json@2.5.2"
   },
   files = {
     "**.lua",

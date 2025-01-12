@@ -28,13 +28,18 @@ function LunaStream:setupAddon()
 end
 
 function LunaStream:setupRoutes()
-  self._app.route({ path = "/version" }, function (req, res)
-    requireRoute("./router/version.lua", req, res)
-  end)
+  local route_list = {
+    ["./router/version.lua"] = { path = "/version" },
+    ["./router/info.lua"] = { path = self._prefix .. "/info" },
+    ["./router/encodetrack.lua"] = { path = self._prefix .. "/encodetrack", method = "POST" },
+    ["./router/decodetrack.lua"] = { path = self._prefix .. "/decodetrack" }
+  }
 
-  self._app.route({ path = self._prefix .. "/info" }, function (req, res)
-    requireRoute("./router/info.lua", req, res)
-  end)
+  for key, value in pairs(route_list) do
+    self._app.route(value, function (req, res)
+      requireRoute(key, req, res)
+    end)
+  end
 
   local preload_route_loadtracks = require("./router/loadtracks.lua")
   self._app.route({ path = self._prefix .. "/loadtracks" }, function (req, res)
@@ -46,14 +51,6 @@ function LunaStream:setupRoutes()
       end
     end
     preload_route_loadtracks(req, res, answer)
-  end)
-
-  self._app.route({ path = self._prefix .. "/encodetrack", method = "POST" }, function (req, res)
-    requireRoute("./router/encodetrack.lua", req, res)
-  end)
-
-  self._app.route({ path = self._prefix .. "/decodetrack" }, function (req, res)
-    requireRoute("./router/decodetrack.lua", req, res)
   end)
 
   print('[lunastream]: All router are ready!')

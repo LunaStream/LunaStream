@@ -1,5 +1,5 @@
 local http = require("coro-http")
-local url = require("../utils/url.lua")
+local url = require("url")
 local mod_table = require("../utils/mod_table.lua")
 local json = require("json")
 local AbstractSource = require('./abstract.lua')
@@ -48,6 +48,7 @@ function SoundCloud:setup()
 	local clientId = matched:sub(11, 41 - matched:len())
 	self["_clientId"] = clientId
 	print("[soundcloud]: Setting up clientId for fetch tracks successfully")
+	return self
 end
 
 function SoundCloud:fetchFailed()
