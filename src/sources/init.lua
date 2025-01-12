@@ -9,7 +9,6 @@ local Sources = class('Sources')
 function Sources:__init()
   self._avaliable = {}
   if config.luna.soundcloud then
-    p('Hi')
     soundcloud():setup()
     avaliable["scsearch"] = soundcloud
   end

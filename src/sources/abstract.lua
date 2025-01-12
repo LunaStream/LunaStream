@@ -3,6 +3,10 @@ local encoder = require("../track/encoder.lua")
 
 local AbstractSource = class('AbstractSource')
 
+function AbstractSource.__init()
+	
+end
+
 function AbstractSource:setup()
   error('Missing :setup() function')
 end

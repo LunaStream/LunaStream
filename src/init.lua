@@ -36,8 +36,16 @@ function LunaStream:setupRoutes()
     requireRoute("./router/info.lua", req, res)
   end)
 
+  local preload_route_loadtracks = require("./router/loadtracks.lua")
   self._app.route({ path = self._prefix .. "/loadtracks" }, function (req, res)
-    requireRoute("./router/loadtracks.lua", req, res)
+    local answer = function (body, code, headers)
+      res.body = body
+      res.code = code
+      for key, value in pairs(headers) do
+        res.headers[key] = value
+      end
+    end
+    preload_route_loadtracks(req, res, answer)
   end)
 
   self._app.route({ path = self._prefix .. "/encodetrack", method = "POST" }, function (req, res)

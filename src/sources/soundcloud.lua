@@ -2,7 +2,7 @@ local http = require("coro-http")
 local url = require("../utils/url.lua")
 local mod_table = require("../utils/mod_table.lua")
 local json = require("json")
-local AbstractSource = require('./abstract')
+local AbstractSource = require('./abstract.lua')
 local class = require('class')
 
 local SoundCloud, get = class('SoundCloud', AbstractSource)
