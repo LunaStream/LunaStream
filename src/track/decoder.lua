@@ -1,56 +1,145 @@
-local base64 = require("base64")
+local class = require('class')
+local Buffer = require('buffer').Buffer
+local openssl = require('openssl')
 
-local decoder = {
-  track = nil,
-  start = 1
-}
+local Decoder = class('Decoder')
 
-function decoder.new(input)
-  decoder.track = input
-  return decoder
+function Decoder:__init(track)
+  self._position = 1
+  self._track = track
+  self._buffer = Buffer:new(openssl.base64(self._track, false))
 end
 
-function decoder.read()
-  local point = string.find(decoder.track, "#")
-  if (point == nil) then return error("Out of index") end
-  local res = string.sub(decoder.track, decoder.start, point - 1)
-  decoder.track = string.sub(decoder.track, point + 1 or 1, #decoder.track)
-  return res
+function Decoder:changeBytes(bytes)
+  self._position = self._position + bytes
+  return self._position - bytes
 end
 
-function decoder.version1()
-  local result = {}
-  result.title = base64.decode(decoder.read())
-  result.author = base64.decode(decoder.read())
-  result.length = tonumber(decoder.read())
-  result.identifier = base64.decode(decoder.read())
-  result.is_stream = false
-  if decoder.read() == "1" then
-    result.is_stream = true
-  end
-  result.url = base64.decode(decoder.read())
-  result.artwork_url = nil
-  if decoder.read() == "1" then
-    result.artwork_url = base64.decode(decoder.read())
-  end
-  result.isrc = nil
-  if decoder.read() == "1" then
-    result.isrc = base64.decode(decoder.read())
-  end
-  result.source_name = decoder.read()
+function Decoder:readByte()
+  local byte = self:changeBytes(1)
+  return self._buffer[byte]
+end
+
+function Decoder:readUnsignedShort()
+  local byte = self:changeBytes(2)
+  return self._buffer:readUInt16BE(byte)
+end
+
+function Decoder:readInt()
+  local byte = self:changeBytes(4)
+  return self._buffer:readInt32BE(byte)
+end
+
+function Decoder:readLong()
+  local msb = self:readInt()
+  local lsb =  self:readInt()
+
+  return msb * (2 ^ 32) + lsb
+end
+
+function Decoder:readUTF()
+  local len = self:readUnsignedShort()
+  local start = self:changeBytes(len)
+  local result = self._buffer:toString(start, start + len - 1)
   return result
 end
 
-return function(input)
-  if string.sub(input, 1, 1) ~= "#" then
-    return nil, "Not a LunaStream encoded track"
-  end
-  local encoded = string.sub(input, 2, #input)
-  local newDec = decoder.new(encoded)
-  local version = newDec.read()
-  if version == "1" then
-    return decoder.version1(), nil
+function Decoder:getTrack()
+  local success, result = pcall(Decoder.getTrackUnsafe, self)
+  if not success then return nil end
+  return result
+end
+
+function Decoder:getTrackUnsafe()
+  local isVersioned = bit.band(bit.rshift(self:readInt(), 30), 1) ~= 0
+  local version = isVersioned and self:readByte() or 1
+  if version == 1 then
+    return self:trackVersionOne()
+  elseif version == 2 then
+    return self:trackVersionTwo()
+  elseif version == 3 then
+    return self:trackVersionThree()
   else
-    return nil, "Unknown track version"
+    return nil
   end
+end
+
+function Decoder:trackVersionOne()
+  local success, result = pcall(function ()
+    return {
+      encoded = self._track,
+      info = {
+        title = self:readUTF(),
+        author = self:readUTF(),
+        length = self:readLong(),
+        identifier = self:readUTF(),
+        isSeekable = true,
+        isStream = self:readByte() ~= 0,
+        uri = nil,
+        artworkUrl = nil,
+        isrc = nil,
+        sourceName =  string.lower(self:readUTF()),
+        position = self:readLong(),
+      },
+      pluginInfo = {},
+    }
+  end)
+
+  if not success then return nil end
+  return result
+end
+
+function Decoder:trackVersionTwo()
+  local success, result = pcall(function ()
+    return {
+      encoded = self._track,
+      info = {
+        title = self:readUTF(),
+        author = self:readUTF(),
+        length = self:readLong(),
+        identifier = self:readUTF(),
+        isSeekable = true,
+        isStream = self:readByte() ~= 0,
+        uri = self:readByte() and self:readUTF() or nil,
+        artworkUrl = nil,
+        isrc = nil,
+        sourceName =  string.lower(self:readUTF()),
+        position = self:readLong(),
+      },
+      pluginInfo = {},
+    }
+  end)
+
+  if not success then return nil end
+  return result
+end
+
+function Decoder:trackVersionThree()
+  local success, result = pcall(function ()
+    return {
+      encoded = self._track,
+      info = {
+        title = self:readUTF(),
+        author = self:readUTF(),
+        length = self:readLong(),
+        identifier = self:readUTF(),
+        isSeekable = true,
+        isStream = self:readByte() ~= 0,
+        uri = self:readByte() ~= 0 and self:readUTF() or nil,
+        artworkUrl = self:readByte() ~= 0 and self:readUTF() or nil,
+        isrc = self:readByte() ~= 0 and self:readUTF() or nil,
+        sourceName =  string.lower(self:readUTF()),
+        position = self:readLong(),
+      },
+      pluginInfo = {},
+    }
+  end)
+
+  if not success then return nil end
+  return result
+end
+
+
+return function(input)
+  return Decoder(input):getTrack()
 end

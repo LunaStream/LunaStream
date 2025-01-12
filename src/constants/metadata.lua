@@ -2,9 +2,9 @@ return {
   version = {
 		major = "1",
 		minor = "0",
-		patch = "0",
+		patch = "2",
 		preRelease = "dev",
-		semver = "0.0.1-dev",
+		semver = "1.0.2-dev",
 		build = "",
 	},
 }

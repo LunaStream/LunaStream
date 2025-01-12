@@ -1,37 +1,27 @@
 local json = require("json")
 
-return function (req, res)
+return function (req, res, answer)
   if req.headers["Content-Type"] ~= "application/json" then
-    res.body = json.encode({
-      error = "Missing body"
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    return answer(json.encode({
+      error = "Invalid Content-Type"
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
 
   if not req.body then
-    res.body = json.encode({
+    return answer(json.encode({
       error = "Missing body"
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
+
   local result, err = require("../track/encoder.lua")(
     json.decode(req.body)
   )
 
   if err then
-    res.body = json.encode({
+    return answer(json.encode({
       error = err
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
 
-  res.body = result
-  res.code = 200
-  res.headers["Content-Type"] = "text/plain"
+  answer(result, 200, {  ["Content-Type"] = "text/plain" })
 end

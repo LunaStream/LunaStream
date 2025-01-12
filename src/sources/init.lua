@@ -1,16 +1,22 @@
 local soundcloud = require("../sources/soundcloud.lua")
-local config = require("../utils/config.lua")
+local config = require("../utils/config")
 local avaliable = {}
 
-function Init()
+local class = require('class')
+
+local Sources = class('Sources')
+
+function Sources:__init()
+  self._avaliable = {}
   if config.luna.soundcloud then
-    soundcloud.init()
+    p('Hi')
+    soundcloud():setup()
     avaliable["scsearch"] = soundcloud
   end
 end
 
-function Search(query, source)
-  local getSrc = avaliable[source]
+function Sources:search(query, source)
+  local getSrc = self._avaliable[source]
   if not getSrc then
     return {
 			loadType = "error",
@@ -18,14 +24,15 @@ function Search(query, source)
 			message = "Source invalid or not avaliable"
 		}
   end
-  return getSrc.search(query)
+  return getSrc:search(query)
 end
 
-function LoadForm(link)
+function Sources:loadForm(link)
   for _, src in pairs(avaliable) do
-    local isLinkMatch = src.isLinkMatch(link)
-    if isLinkMatch then return src.loadForm(link) end
+    local isLinkMatch = src:isLinkMatch(link)
+    if isLinkMatch then return src:loadForm(link) end
   end
+
   return {
     loadType = "error",
     tracks = {},
@@ -33,8 +40,4 @@ function LoadForm(link)
   }
 end
 
-return {
-  init = Init,
-  search = Search,
-  loadForm = LoadForm
-}
+return Sources

@@ -1,14 +1,11 @@
 local json = require("json")
 
-return function (req, res)
+return function (req, res, answer)
   local getEncode = req.path:match("?encodedTrack=([^%s]+)")
   if not getEncode then
-    res.body = json.encode({
+    return answer(json.encode({
       error = "Missing encodedTrack field"
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
 
   local encoded = require("../utils/url.lua").decode(getEncode)
@@ -16,15 +13,10 @@ return function (req, res)
   local result, err = require("../track/decoder.lua")(encoded)
 
   if err then
-    res.body = json.encode({
+    return answer(json.encode({
       error = err
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
 
-  res.body = json.encode(result)
-  res.code = 200
-  res.headers["Content-Type"] = "application/json"
+  answer(json.encode(result), 200, {  ["Content-Type"] = "text/plain" })
 end

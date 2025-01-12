@@ -4,3 +4,4 @@ deps/
 config.json
 test.lua
 build/
+app.yml

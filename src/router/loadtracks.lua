@@ -1,16 +1,14 @@
 local json = require("json")
-local source = require("../sources/init.lua")
-source.init()
+local source = require("../sources")
 
-return function (req, res)
+local sourceService = source()
+
+return function (req, res, answer)
   local getIdentifier = req.path:match("?identifier=([^%s]+)")
   if not getIdentifier then
-    res.body = json.encode({
+    return answer(json.encode({
       error = "Missing identifier"
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
 
   local getQuerySource = getIdentifier:match("([^%s]+):[^%s]+")
@@ -22,30 +20,22 @@ return function (req, res)
     and not isLink
     and not getQuerySource
   ) then
-    res.body = json.encode({
+    return answer(json.encode({
       error = "Identifier not in required form like source:query or not a link"
-    })
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    }), 400, {  ["Content-Type"] = "application/json" })
   end
 
   local search_res = nil
 
   if isLink then
-    search_res = source.loadForm(getIdentifier)
+    search_res = sourceService:loadForm(getIdentifier)
   else
-    search_res = source.search(getQuery, getQuerySource)
+    search_res = sourceService:search(getQuery, getQuerySource)
   end
 
   if search_res and search_res.loadType == "error" then
-    res.body = json.encode(search_res)
-    res.code = 400
-    res.headers["Content-Type"] = "application/json"
-    return
+    return answer(json.encode(search_res), 400, {  ["Content-Type"] = "application/json" })
   end
 
-  res.body = json.encode(search_res)
-  res.code = 200
-  res.headers["Content-Type"] = "application/json"
+  answer(json.encode(search_res), 200, {  ["Content-Type"] = "application/json" })
 end

@@ -2,27 +2,37 @@ local http = require("coro-http")
 local url = require("../utils/url.lua")
 local mod_table = require("../utils/mod_table.lua")
 local json = require("json")
+local AbstractSource = require('./abstract')
+local class = require('class')
 
-local soundcloud = {
-	clientId = nil,
-	baseUrl = "https://api-v2.soundcloud.com",
-}
+local SoundCloud, get = class('SoundCloud', AbstractSource)
 
-function soundcloud.init()
+function SoundCloud:__init()
+  AbstractSource.__init(self)
+  self._clientId = nil
+	self._baseUrl = "https://api-v2.soundcloud.com"
+  self._sourceName = "soundcloud"
+end
+
+function get:clientId()
+  return self._clientId
+end
+
+function get:baseUrl()
+  return self._baseUrl
+end
+
+function SoundCloud:setup()
 	print("[soundcloud]: Setting up clientId for fetch tracks...")
 	local _, mainsite_body = http.request("GET", "https://soundcloud.com/")
-	if mainsite_body == nil then
-		return soundcloud.fetchFailed()
-	end
+	if mainsite_body == nil then return self:fetchFailed() end
 
 	local assetId =
 		string.gmatch(
 			mainsite_body,
 			"https://a%-v2%.sndcdn%.com/assets/[^%s]+%.js"
 		)
-	if assetId() == nil then
-		return soundcloud.fetchFailed()
-	end
+	if assetId() == nil then return self:fetchFailed() end
 
 	local call_time = 0
 	while call_time < 4 do
@@ -31,32 +41,28 @@ function soundcloud.init()
 	end
 
 	local _, data_body = http.request("GET", assetId())
-	if data_body == nil then
-		return soundcloud.fetchFailed()
-	end
+	if data_body == nil then return self:fetchFailed() end
 
 	local matched = data_body:match("client_id=[^%s]+")
-	if matched == nil then
-		return soundcloud.fetchFailed()
-	end
+	if matched == nil then self:fetchFailed() end
 	local clientId = matched:sub(11, 41 - matched:len())
-	soundcloud["clientId"] = clientId
+	self["_clientId"] = clientId
 	print("[soundcloud]: Setting up clientId for fetch tracks successfully")
 end
 
-function soundcloud.fetchFailed()
+function SoundCloud:fetchFailed()
 	print("[soundcloud]: Failed to fetch clientId.")
 end
 
-function soundcloud.search(query)
+function SoundCloud:search(query)
 	local query_link =
-		soundcloud.baseUrl
+		self._baseUrl
 		.. "/search"
 		.. "?q=" .. url.encode(query)
 		.. "&variant_ids="
 		.. "&facet=model"
 		.. "&user_id=992000-167630-994991-450103"
-		.. "&client_id=" .. soundcloud.clientId
+		.. "&client_id=" .. self._clientId
 		.. "&limit=" .. "20"
 		.. "&offset=0"
 		.. "&linked_partitioning=1"
@@ -86,7 +92,7 @@ function soundcloud.search(query)
 	for _, value in pairs(decoded.collection) do
 		if value.kind ~= "track" then
 		else
-			res[counter] = soundcloud.buildTrack(value)
+			res[counter] = self:buildTrack(value)
 			counter = counter + 1
 		end
 	end
@@ -97,12 +103,12 @@ function soundcloud.search(query)
 	}
 end
 
-function soundcloud.loadForm(query)
+function SoundCloud:loadForm(query)
 	local query_link =
-		soundcloud.baseUrl
+		self._baseUrl
 		.. "/resolve"
 		.. "?url=" .. url.encode(query)
-		.. "&client_id=" .. url.encode(soundcloud.clientId)
+		.. "&client_id=" .. url.encode(self._clientId)
 
 	local response, res_body = http.request("GET", query_link)
 	if response.code ~= 200 then
@@ -118,7 +124,7 @@ function soundcloud.loadForm(query)
 	if body.kind == "track" then
 		return {
 			loadType = "track",
-			tracks = { soundcloud.buildTrack(body) },
+			tracks = { self:buildTrack(body) },
 		}
 	elseif body.kind == "playlist" then
 		local loaded = {}
@@ -128,7 +134,7 @@ function soundcloud.loadForm(query)
 			if not raw.title then
 				unloaded[#unloaded + 1] = tostring(raw.id)
 			else
-				loaded[#loaded + 1] = soundcloud.buildTrack(raw)
+				loaded[#loaded + 1] = self:buildTrack(raw)
 			end
 		end
 
@@ -152,15 +158,15 @@ function soundcloud.loadForm(query)
 			end
 
 			local unloaded_query_link =
-				soundcloud.baseUrl
+				self._baseUrl
 				.. "/tracks"
-				.. "?ids=" .. soundcloud.merge(notLoadedLimited)
-				.. "&client_id=" .. url.encode(soundcloud.clientId)
+				.. "?ids=" .. self:merge(notLoadedLimited)
+				.. "&client_id=" .. url.encode(self._clientId)
 			local unloaded_response, unloaded_res_body = http.request("GET", unloaded_query_link)
 			if unloaded_response.code == 200 then
 				local unloaded_body = json.decode(unloaded_res_body)
 				for key, raw in pairs(unloaded_body) do
-					loaded[#loaded + 1] = soundcloud.buildTrack(raw)
+					loaded[#loaded + 1] = self:buildTrack(raw)
 					unloaded_body[key] = nil
 				end
 			else end
@@ -186,7 +192,7 @@ function soundcloud.loadForm(query)
   }
 end
 
-function soundcloud.isLinkMatch(query)
+function SoundCloud:isLinkMatch(query)
 	local check1 = query:match("https?://www%.soundcloud%.com/[^%s]+/[^%s]+")
 	local check2 = query:match("https?://soundcloud%.com/[^%s]+/[^%s]+")
 	local check3 = query:match("https?://m%.soundcloud%.com/[^%s]+/[^%s]+")
@@ -194,7 +200,7 @@ function soundcloud.isLinkMatch(query)
 	return false
 end
 
-function soundcloud.merge(unloaded)
+function SoundCloud:merge(unloaded)
 	local res = ""
 
 	for i = 1, #unloaded do
@@ -207,31 +213,4 @@ function soundcloud.merge(unloaded)
 	return res
 end
 
-function soundcloud.buildTrack(data)
-	local isrc = nil
-	if type(data.publisher_metadata) == "table" then
-		isrc = data.publisher_metadata.isrc
-	end
-
-	local info = {
-		title = data.title,
-		author = data.user.permalink,
-		identifier = tostring(data.id),
-		uri = data.permalink_url,
-		is_stream = false,
-		is_seekable = true,
-		source_name = "soundcloud",
-		isrc = isrc,
-		artwork_url = data.artwork_url,
-		length = data.full_duration,
-	}
-
-	local encoded = require("../track/encoder.lua")(info)
-
-	return {
-		encoded = encoded,
-		info = info
-	}
-end
-
-return soundcloud
+return SoundCloud
