@@ -1,4 +1,4 @@
-local metadata = require("../constants/metadata.lua")
+local metadata = require("../../package.lua")
 local json = require("json")
 
 return function (req, res, answer)

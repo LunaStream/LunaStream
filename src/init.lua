@@ -17,7 +17,7 @@ end
 
 function LunaStream:__init()
   self._app = weblit.app
-  self._prefix = "/v" .. require('./constants/metadata.lua').version.major
+  self._prefix = "/v" .. require('../package.lua').versionExtended.major
 end
 
 function LunaStream:setupAddon()
