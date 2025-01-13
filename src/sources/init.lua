@@ -1,6 +1,6 @@
 local soundcloud = require("../sources/soundcloud.lua")
 local config = require("../utils/config")
-local avaliable = {}
+local avaliables = {}
 
 local class = require('class')
 
@@ -8,7 +8,7 @@ local Sources = class('Sources')
 
 function Sources:__init()
   if config.luna.soundcloud then
-    avaliable["scsearch"] = soundcloud():setup()
+    avaliables["scsearch"] = soundcloud():setup()
   end
 end
 
