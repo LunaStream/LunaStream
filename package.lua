@@ -14,7 +14,7 @@ return {
     luvit = "2.18.1",
     luvi = "2.14.0",
   },
-  description = "A simple description of my little package.",
+  description = "A lavalink alternative focus on stability, decent speed and modulize like FrequenC",
   tags = { "lavalink audio" },
   license = "MIT",
   author = { name = "RainyXeon", email = "minh15052008@gmail.com" },
