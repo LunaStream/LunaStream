@@ -24,7 +24,7 @@ function LunaStream:setupAddon()
   self._app.use(require("./addon/auth.lua"))
   self._app.use(require("./addon/req_logger.lua"))
   self._app.use(weblit.autoHeaders)
-  print('[lunastream]: All addon are ready!')
+  print('[LunaStream]: All addon are ready!')
 end
 
 function LunaStream:setupRoutes()
@@ -53,7 +53,7 @@ function LunaStream:setupRoutes()
     preload_route_loadtracks(req, res, answer)
   end)
 
-  print('[lunastream]: All router are ready!')
+  print('[LunaStream]: All router are ready!')
 end
 
 function LunaStream:setupWebsocket()
@@ -69,7 +69,7 @@ function LunaStream:setupWebsocket()
     -- End the stream
     write()
   end)
-  print('[lunastream]: Websocket is ready!')
+  print('[LunaStream]: Websocket is ready!')
 end
 
 function LunaStream:start()
@@ -79,7 +79,7 @@ function LunaStream:start()
   })
   self._app.start()
   print(string.format(
-    '[lunastream]: Currently running server [%s] at port: %s',
+    '[LunaStream]: Currently running server [%s] at port: %s',
     config.server.host,
     config.server.port
   ))

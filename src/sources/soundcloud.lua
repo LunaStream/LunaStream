@@ -23,7 +23,7 @@ function get:baseUrl()
 end
 
 function SoundCloud:setup()
-	print("[soundcloud]: Setting up clientId for fetch tracks...")
+	print("[SoundCloud]: Setting up clientId for fetch tracks...")
 	local _, mainsite_body = http.request("GET", "https://soundcloud.com/")
 	if mainsite_body == nil then return self:fetchFailed() end
 
@@ -47,12 +47,12 @@ function SoundCloud:setup()
 	if matched == nil then self:fetchFailed() end
 	local clientId = matched:sub(11, 41 - matched:len())
 	self["_clientId"] = clientId
-	print("[soundcloud]: Setting up clientId for fetch tracks successfully")
+	print("[SoundCloud]: Setting up clientId for fetch tracks successfully")
 	return self
 end
 
 function SoundCloud:fetchFailed()
-	print("[soundcloud]: Failed to fetch clientId.")
+	print("[SoundCloud]: Failed to fetch clientId.")
 end
 
 function SoundCloud:search(query)
