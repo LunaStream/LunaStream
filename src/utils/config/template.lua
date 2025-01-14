@@ -6,9 +6,11 @@ server:
 
 luna:
   soundcloud: true
+  bandcamp: true
 
 sources:
   fallbackSearchSource: 'bandcamp'
+  maxSearchResults: 25
   soundcloud:
     fallbackIfSnipped: false
 

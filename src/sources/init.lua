@@ -1,4 +1,5 @@
 local soundcloud = require("../sources/soundcloud.lua")
+local bandcamp = require("../sources/bandcamp.lua")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 
@@ -16,6 +17,11 @@ function Sources:__init(luna)
   if config.luna.soundcloud then
     self._source_avaliables["soundcloud"] = soundcloud():setup()
     self._search_avaliables["scsearch"] = "soundcloud"
+  end
+
+  if config.luna.bandcamp then
+    self._source_avaliables["bandcamp"] = bandcamp(luna):setup()
+    self._search_avaliables["bcsearch"] = "bandcamp"
   end
 end
 

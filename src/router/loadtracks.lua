@@ -9,8 +9,8 @@ return function (req, res, answer, luna)
   end
 
   getIdentifier = require("url").decode(getIdentifier)
-  local getQuerySource = getIdentifier:match("([^%s]+):[^%s]+")
-  local getQuery = getIdentifier:match("[^%s]+:([^%s]+)")
+  local getQuerySource = getIdentifier:match("(.+):[^%s]+")
+  local getQuery = getIdentifier:match("[^%s]+:(.+)")
   local isLink = getIdentifier:find("https://") or getIdentifier:find("http://")
 
   if (
