@@ -1,0 +1,64 @@
+name: Nightly build
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  linux-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dev tools
+        run: sudo apt-get install -y curl
+
+      - name: Install luvit
+        run: curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
+
+      - name: Install dependencies
+        run: ./lit install
+
+      - name: Build binaries
+        run: ./lit make
+
+      - name: Make build folder
+        run: mkdir build
+
+      - name: Move binaries
+        run: mv ./LunaStream ./build/LunaStream
+
+      - name: Push LunaticSea binaries to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'LunaStream-linux-amd64'
+          path: build/
+
+  win-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install luvit
+        shell: pwsh
+        run: PowerShell -NoProfile -ExecutionPolicy unrestricted -Command "[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; iex ((new-object net.webclient).DownloadString('https://github.com/luvit/lit/raw/master/get-lit.ps1'))"
+
+      - name: Install dependencies
+        run: ./lit install
+
+      - name: Build bot
+        run: ./lit make
+
+      - name: Make build folder
+        run: mkdir build
+
+      - name: Move binaries
+        run: Move-Item -Path ./LunaStream.exe -Destination ./build/LunaStream.exe
+
+      - name: Push LunaticSea binaries to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'LunaStream-win-amd64'
+          path: build/

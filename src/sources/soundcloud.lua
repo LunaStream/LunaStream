@@ -1,9 +1,11 @@
 local http = require("coro-http")
 local url = require("url")
-local mod_table = require("../utils/mod_table.lua")
 local json = require("json")
+
+local mod_table = require("../utils/mod_table.lua")
 local AbstractSource = require('./abstract.lua')
 local encoder = require("../track/encoder.lua")
+
 local class = require('class')
 
 local SoundCloud, get = class('SoundCloud', AbstractSource)
@@ -53,7 +55,7 @@ function SoundCloud:setup()
 end
 
 function SoundCloud:fetchFailed()
-	print("[SoundCloud]: Failed to fetch clientId.")
+	print("[SoundCloud] -> [Error]: Failed to fetch clientId.")
 end
 
 function SoundCloud:search(query)
@@ -73,11 +75,11 @@ function SoundCloud:search(query)
 
 	local response, res_body = http.request("GET", query_link)
 	if response.code ~= 200 then
-		return {
-			loadType = "error",
-			tracks = {},
-			message = "Server response error: " .. response.code
-		}, nil
+		print(string.format("[SoundCloud] -> [Error]: Server response error: %s | On query: %s", response.code, query))
+		return self:buildError(
+		"Server response error: " .. response.code,
+		"fault", "SoundCloud Source"
+	)
 	end
 	local decoded = json.decode(res_body)
 
@@ -101,7 +103,7 @@ function SoundCloud:search(query)
 
 	return {
 		loadType = "search",
-		data = res 
+		data = res
 	}
 end
 
@@ -114,11 +116,11 @@ function SoundCloud:loadForm(query)
 
 	local response, res_body = http.request("GET", query_link)
 	if response.code ~= 200 then
-		return {
-			loadType = "error",
-			tracks = {},
-			message = "Server response error: " .. response.code
-		}, nil
+		print(string.format("[SoundCloud] -> [Error]: Server response error: %s | On link: %s", response.code, query))
+		return self:buildError(
+			"Server response error: " .. response.code,
+			"fault", "SoundCloud Source"
+		)
 	end
 
 	local body = json.decode(res_body)
@@ -226,11 +228,11 @@ function SoundCloud:buildTrack(data)
 		author = data.user.permalink,
 		identifier = tostring(data.id),
 		uri = data.permalink_url,
-		is_stream = false,
-		is_seekable = true,
-		source_name = self._sourceName,
+		isStream = false,
+		isSeekable = true,
+		sourceName = self._sourceName,
 		isrc = isrc,
-		artwork_url = data.artwork_url,
+		artworkUrl = data.artwork_url,
 		length = data.full_duration,
 	}
 
@@ -238,6 +240,69 @@ function SoundCloud:buildTrack(data)
 		encoded = encoder(info),
 		info = info
 	}
+end
+
+function SoundCloud:loadStream(track, luna)
+	local template_link = 'https://api-v2.soundcloud.com/resolve?url=https://api.soundcloud.com/tracks/%s&client_id=%s'
+	local response, res_body = http.request("GET", string.format(
+		template_link,
+		url.encode(track.info.identifier),
+		url.encode(self._clientId)
+	))
+	if response.code ~= 200 then
+		print(string.format("[SoundCloud] -> [Error]: Server response error: %s | On link: %s", response.code, track.info.uri))
+		return self:buildError(
+			"Server response error: " .. response.code,
+			"fault", "SoundCloud Source"
+		)
+	end
+
+	local body = json.decode(res_body)
+
+	if body.errors then
+		print("[SoundCloud] -> [Error]: " .. body.errors[1].error_message)
+		return self:buildError(
+			body.errors[1].error_message,
+			"fault", "SoundCloud Source"
+		)
+	end
+
+	local oggOpus = table.find(body.media.transcodings, function (transcoding)
+		return transcoding.format.mime_type == 'audio/ogg; codecs="opus"'
+	end)
+
+  local transcoding = oggOpus or body.media.transcodings[0]
+	local stream_url = string.format("%s?client_id=%s", transcoding.url, url.encode(self._clientId))
+
+  -- if (transcoding.snipped && config.search.sources.soundcloud.fallbackIfSnipped) {
+  --   debugLog('retrieveStream', 4, { type: 3, sourceName: 'SoundCloud', query: title, message: `Track is snipped, falling back to: ${config.search.fallbackSearchSource}.` })
+
+  --   const search = await searchWithDefault(title, true)
+
+  --   if (search.loadType === 'search') {
+  --     const urlInfo = await sources.getTrackURL(search.data[0].info)
+
+  --     return {
+  --       url: urlInfo.url,
+  --       protocol: urlInfo.protocol,
+  --       format: urlInfo.format,
+  --       additionalData: true
+  --     }
+  --   }
+  -- }
+
+  if transcoding.format.protocol == 'hls' then
+		p(stream_url)
+    local _, stream_res_body = http.request("GET", stream_url)
+		local stream_body = json.decode(stream_res_body)
+    stream_url = stream_body.url
+	end
+
+  return {
+    url = stream_url,
+    protocol = transcoding.format.protocol == 'hls' and 'hls_segment' or transcoding.format.protocol,
+    format = oggOpus and 'ogg/opus' or 'arbitrary'
+  }
 end
 
 return SoundCloud

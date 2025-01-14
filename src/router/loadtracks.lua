@@ -1,9 +1,6 @@
 local json = require("json")
-local source = require("../sources")
 
-local sourceService = source()
-
-return function (req, res, answer)
+return function (req, res, answer, luna)
   local getIdentifier = req.path:match("?identifier=([^%s]+)")
   if not getIdentifier then
     return answer(json.encode({
@@ -29,9 +26,9 @@ return function (req, res, answer)
   local search_res = nil
 
   if isLink then
-    search_res = sourceService:loadForm(getIdentifier)
+    search_res = luna.sources:loadForm(getIdentifier)
   else
-    search_res = sourceService:search(getQuery, getQuerySource)
+    search_res = luna.sources:loadTracks(getQuery, getQuerySource)
   end
 
   if search_res and search_res.loadType == "error" then

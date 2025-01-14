@@ -6,6 +6,11 @@ server:
 luna:
   soundcloud: true
 
+sources:
+  fallbackSearchSource: 'bandcamp' ## Not avaliable
+  soundcloud:
+    fallbackIfSnipped: false
+
 logger:
   request:
     enable: true

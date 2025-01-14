@@ -1,10 +1,14 @@
+require('./utils/luaex')
+
 local weblit = require('weblit')
-local config = require('./utils/config')
 local class = require('class')
 
-local LunaStream = class('LunaStream')
+local config = require('./utils/config')
+local source = require("./sources")
 
-local function requireRoute(target, req, res)
+local LunaStream, get = class('LunaStream')
+
+local function requireRoute(target, req, res, luna)
   local answer = function (body, code, headers)
     res.body = body
     res.code = code
@@ -12,12 +16,22 @@ local function requireRoute(target, req, res)
       res.headers[key] = value
     end
   end
-  require(target)(req, res, answer)
+  require(target)(req, res, answer, luna)
 end
 
 function LunaStream:__init()
+  self._sources = source(self)
+  self._config = config
   self._app = weblit.app
   self._prefix = "/v" .. require('../package.lua').versionExtended.major
+end
+
+function get:sources()
+  return self._sources
+end
+
+function get:config()
+  return self._config
 end
 
 function LunaStream:setupAddon()
@@ -32,26 +46,16 @@ function LunaStream:setupRoutes()
     ["./router/version.lua"] = { path = "/version" },
     ["./router/info.lua"] = { path = self._prefix .. "/info" },
     ["./router/encodetrack.lua"] = { path = self._prefix .. "/encodetrack", method = "POST" },
-    ["./router/decodetrack.lua"] = { path = self._prefix .. "/decodetrack" }
+    ["./router/decodetrack.lua"] = { path = self._prefix .. "/decodetrack" },
+    ["./router/trackstream.lua"] = { path = self._prefix .. "/trackstream" },
+    ["./router/loadtracks.lua"] = { path = self._prefix .. "/loadtracks" }
   }
 
   for key, value in pairs(route_list) do
     self._app.route(value, function (req, res)
-      requireRoute(key, req, res)
+      requireRoute(key, req, res, self)
     end)
   end
-
-  local preload_route_loadtracks = require("./router/loadtracks.lua")
-  self._app.route({ path = self._prefix .. "/loadtracks" }, function (req, res)
-    local answer = function (body, code, headers)
-      res.body = body
-      res.code = code
-      for key, value in pairs(headers) do
-        res.headers[key] = value
-      end
-    end
-    preload_route_loadtracks(req, res, answer)
-  end)
 
   print('[LunaStream]: All router are ready!')
 end

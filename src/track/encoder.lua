@@ -3,7 +3,7 @@ local required = {
   "author",
   "length",
   "identifier",
-  "is_stream",
+  "isStream",
   "uri"
 }
 
@@ -71,6 +71,8 @@ local function toBase64(input)
 end
 
 return function (track)
+  if #bufferArray > 0 then bufferArray = {} end
+
   for _, value in pairs(required) do
     if track[value] == nil then
       return nil, "Missing field: " .. value
@@ -90,7 +92,7 @@ return function (track)
   writeUTF(track.author)
   writeLong(track.length)
   writeUTF(track.identifier)
-  writeByte(track.is_stream and 1 or 0)
+  writeByte(track.isStream and 1 or 0)
 
   if version >= 2 then
     writeByte(track.uri and 1 or 0)
@@ -110,7 +112,7 @@ return function (track)
     end
   end
   
-  writeUTF(track.source_name)
+  writeUTF(track.sourceName)
   writeLong(track.position or 0)
   return toBase64(table.concat(bufferArray))
 end
