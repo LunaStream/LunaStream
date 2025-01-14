@@ -5,10 +5,12 @@ return {
     port = 1337
   },
   luna = {
-    soundcloud = true
+    soundcloud = true,
+    bandcamp = false
   },
   sources = {
     fallbackSearchSource = 'soundcloud',
+    maxSearchResults = 25,
     soundcloud = {
       fallbackIfSnipped = false
     }

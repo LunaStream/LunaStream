@@ -242,7 +242,7 @@ function SoundCloud:buildTrack(data)
 	}
 end
 
-function SoundCloud:loadStream(track, luna)
+function SoundCloud:loadStream(track)
 	local template_link = 'https://api-v2.soundcloud.com/resolve?url=https://api.soundcloud.com/tracks/%s&client_id=%s'
 	local response, res_body = http.request("GET", string.format(
 		template_link,
@@ -292,7 +292,6 @@ function SoundCloud:loadStream(track, luna)
   -- }
 
   if transcoding.format.protocol == 'hls' then
-		p(stream_url)
     local _, stream_res_body = http.request("GET", stream_url)
 		local stream_body = json.decode(stream_res_body)
     stream_url = stream_body.url
