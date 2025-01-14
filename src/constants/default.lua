@@ -6,7 +6,7 @@ return {
   },
   luna = {
     soundcloud = true,
-    bandcamp = true
+    bandcamp = false
   },
   sources = {
     fallbackSearchSource = 'soundcloud',
