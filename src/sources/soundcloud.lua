@@ -100,7 +100,7 @@ function SoundCloud:search(query)
 
 	return {
 		loadType = "search",
-		tracks = res
+		data = res 
 	}
 end
 
@@ -125,7 +125,7 @@ function SoundCloud:loadForm(query)
 	if body.kind == "track" then
 		return {
 			loadType = "track",
-			tracks = { self:buildTrack(body) },
+			data = self:buildTrack(body),
 		}
 	elseif body.kind == "playlist" then
 		local loaded = {}
@@ -183,7 +183,7 @@ function SoundCloud:loadForm(query)
 				name = body.title,
 				selectedTrack = 0,
 			},
-			tracks = loaded,
+			data = { tracks = loaded },
 		}
 	end
 

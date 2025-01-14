@@ -3,7 +3,7 @@ local required = {
   "author",
   "length",
   "identifier",
-  "isStream",
+  "is_stream",
   "uri"
 }
 
@@ -90,7 +90,7 @@ return function (track)
   writeUTF(track.author)
   writeLong(track.length)
   writeUTF(track.identifier)
-  writeByte(track.isStream and 1 or 0)
+  writeByte(track.is_stream and 1 or 0)
 
   if version >= 2 then
     writeByte(track.uri and 1 or 0)
@@ -109,9 +109,8 @@ return function (track)
       writeUTF(track.isrc)
     end
   end
-
-  writeUTF(track.sourceName)
-  writeLong(track.position)
-
+  
+  writeUTF(track.source_name)
+  writeLong(track.position or 0)
   return toBase64(table.concat(bufferArray))
 end

@@ -1,20 +1,20 @@
 local soundcloud = require("../sources/soundcloud.lua")
 local config = require("../utils/config")
-local avaliable = {}
+local avaliables = {}
 
 local class = require('class')
 
 local Sources = class('Sources')
 
 function Sources:__init()
-  self._avaliable = {}
   if config.luna.soundcloud then
-    avaliable["scsearch"] = soundcloud():setup()
+    avaliables["scsearch"] = soundcloud():setup()
   end
 end
 
 function Sources:search(query, source)
-  local getSrc = self._avaliable[source]
+  print("Searching for: " .. query .. " in " .. source)
+  local getSrc = avaliable[source]
   if not getSrc then
     return {
 			loadType = "error",
