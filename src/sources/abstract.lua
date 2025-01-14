@@ -1,11 +1,8 @@
 local class = require('class')
-local encoder = require("../track/encoder.lua")
 
 local AbstractSource = class('AbstractSource')
 
-function AbstractSource.__init()
-	
-end
+function AbstractSource.__init() end
 
 function AbstractSource:setup()
   error('Missing :setup() function')
@@ -24,28 +21,23 @@ function AbstractSource:loadForm(query, source)
 end
 
 function AbstractSource:buildTrack(data)
-	local isrc = nil
-	if type(data.publisher_metadata) == "table" then
-		isrc = data.publisher_metadata.isrc
-	end
+	error("Missing :buildTrack() function")
+end
 
-	local info = {
-		title = data.title,
-		author = data.user.permalink,
-		identifier = tostring(data.id),
-		uri = data.permalink_url,
-		is_stream = false,
-		is_seekable = true,
-		source_name = self._sourceName,
-		isrc = isrc,
-		artwork_url = data.artwork_url,
-		length = data.full_duration,
-	}
+function AbstractSource:buildError(message, severity, cause)
+  return {
+    loadType = "error",
+    tracks = {},
+    data = {
+      message = message,
+      severity = severity,
+      cause = cause
+    }
+  }, nil
+end
 
-	return {
-		encoded = encoder(info),
-		info = info
-	}
+function AbstractSource:loadStream(track, additionalData)
+	error("Missing :loadStream() function")
 end
 
 return AbstractSource

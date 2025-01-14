@@ -7,6 +7,12 @@ return {
   luna = {
     soundcloud = true
   },
+  sources = {
+    fallbackSearchSource = 'soundcloud',
+    soundcloud = {
+      fallbackIfSnipped = false
+    }
+  },
   logger = {
     request = {
       enable = true,

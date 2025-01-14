@@ -7,6 +7,11 @@ server:
 luna:
   soundcloud: true
 
+sources:
+  fallbackSearchSource: 'bandcamp'
+  soundcloud:
+    fallbackIfSnipped: false
+
 logger:
   request:
     enable: true
