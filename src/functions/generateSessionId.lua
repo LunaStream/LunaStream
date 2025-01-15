@@ -1,4 +1,4 @@
-return function generateSessionId(numLetters)
+return function (numLetters)
     local alphabet = "abcdefghijklmnopqrstuvwxyz"
     local letters = {}
     for letter in alphabet:gmatch(".") do
