@@ -8,7 +8,7 @@ return function (req, res, answer, luna)
     }), 400, {  ["Content-Type"] = "application/json" })
   end
 
-  getIdentifier = require("url").decode(getIdentifier)
+  getIdentifier = require("url-param").decode(getIdentifier)
   local getQuerySource = getIdentifier:match("(.+):[^%s]+")
   local getQuery = getIdentifier:match("[^%s]+:(.+)")
   local isLink = getIdentifier:find("https://") or getIdentifier:find("http://")

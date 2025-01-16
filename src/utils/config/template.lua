@@ -9,7 +9,7 @@ luna:
   bandcamp: true
 
 sources:
-  fallbackSearchSource: 'bandcamp'
+  fallbackSearchSource: 'bcsearch'
   maxSearchResults: 25
   soundcloud:
     fallbackIfSnipped: false

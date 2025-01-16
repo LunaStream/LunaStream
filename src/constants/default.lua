@@ -6,10 +6,10 @@ return {
   },
   luna = {
     soundcloud = true,
-    bandcamp = false
+    bandcamp = true
   },
   sources = {
-    fallbackSearchSource = 'soundcloud',
+    fallbackSearchSource = 'bcsearch',
     maxSearchResults = 25,
     soundcloud = {
       fallbackIfSnipped = false

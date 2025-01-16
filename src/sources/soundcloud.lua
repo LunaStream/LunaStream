@@ -1,5 +1,5 @@
 local http = require("coro-http")
-local url = require("url")
+local urlp = require("url-param")
 local json = require("json")
 
 local mod_table = require("../utils/mod_table.lua")
@@ -60,10 +60,12 @@ function SoundCloud:fetchFailed()
 end
 
 function SoundCloud:search(query)
+	self._luna.logger:debug('SoundCloud', 'Searching: ' .. query)
+
 	local query_link =
 		self._baseUrl
 		.. "/search"
-		.. "?q=" .. url.encode(query)
+		.. "?q=" .. urlp.encode(query)
 		.. "&variant_ids="
 		.. "&facet=model"
 		.. "&user_id=992000-167630-994991-450103"
@@ -87,7 +89,7 @@ function SoundCloud:search(query)
 	if #decoded.collection == 0 then
 		return {
 			loadType = "empty",
-			tracks = { nil }
+			data = {}
 		}
 	end
 
@@ -102,6 +104,8 @@ function SoundCloud:search(query)
 		end
 	end
 
+	self._luna.logger:debug('SoundCloud', 'Found results for %s: ' .. #res, query)
+
 	return {
 		loadType = "search",
 		data = res
@@ -109,11 +113,13 @@ function SoundCloud:search(query)
 end
 
 function SoundCloud:loadForm(query)
+	self._luna.logger:debug('SoundCloud', 'Loading url: ' .. query)
+
 	local query_link =
 		self._baseUrl
 		.. "/resolve"
-		.. "?url=" .. url.encode(query)
-		.. "&client_id=" .. url.encode(self._clientId)
+		.. "?url=" .. urlp.encode(query)
+		.. "&client_id=" .. urlp.encode(self._clientId)
 
 	local response, res_body = http.request("GET", query_link)
 	if response.code ~= 200 then
@@ -127,9 +133,17 @@ function SoundCloud:loadForm(query)
 	local body = json.decode(res_body)
 
 	if body.kind == "track" then
+		local track_data = self:buildTrack(body)
+		self._luna.logger:debug(
+			'SoundCloud',
+			'Loaded track %s by %s from %s',
+			track_data.info.title,
+			track_data.info.author,
+			query
+		)
 		return {
 			loadType = "track",
-			data = self:buildTrack(body),
+			data = track_data,
 		}
 	elseif body.kind == "playlist" then
 		local loaded = {}
@@ -166,7 +180,7 @@ function SoundCloud:loadForm(query)
 				self._baseUrl
 				.. "/tracks"
 				.. "?ids=" .. self:merge(notLoadedLimited)
-				.. "&client_id=" .. url.encode(self._clientId)
+				.. "&client_id=" .. urlp.encode(self._clientId)
 			local unloaded_response, unloaded_res_body = http.request("GET", unloaded_query_link)
 			if unloaded_response.code == 200 then
 				local unloaded_body = json.decode(unloaded_res_body)
@@ -181,19 +195,27 @@ function SoundCloud:loadForm(query)
 			if #unloaded == 1 then is_one = true end
 		end
 
+		self._luna.logger:debug(
+			'SoundCloud',
+			'Loaded playlist %s from %s',
+			body.title,
+			query
+		)
+
 		return {
 			loadType = 'playlist',
 			info = {
 				name = body.title,
 				selectedTrack = 0,
+				tracks = loaded
 			},
-			data = { tracks = loaded },
 		}
 	end
 
+	self._luna.logger:debug('SoundCloud', 'Loaded empty')
 	return {
 		loadType = "empty",
-    tracks = { nil },
+    tracks = {},
   }
 end
 
@@ -244,11 +266,12 @@ function SoundCloud:buildTrack(data)
 end
 
 function SoundCloud:loadStream(track)
+	self._luna.logger:debug('SoundCloud', 'Loading stream url for ' .. track.info.uri)
 	local template_link = 'https://api-v2.soundcloud.com/resolve?url=https://api.soundcloud.com/tracks/%s&client_id=%s'
 	local response, res_body = http.request("GET", string.format(
 		template_link,
-		url.encode(track.info.identifier),
-		url.encode(self._clientId)
+		urlp.encode(track.info.identifier),
+		urlp.encode(self._clientId)
 	))
 	if response.code ~= 200 then
 		self._luna.logger:error('SoundCloud', "Server response error: %s | On query: %s", response.code, track.info.uri)
@@ -273,30 +296,28 @@ function SoundCloud:loadStream(track)
 	end)
 
   local transcoding = oggOpus or body.media.transcodings[0]
-	local stream_url = string.format("%s?client_id=%s", transcoding.url, url.encode(self._clientId))
+	local stream_url = string.format("%s?client_id=%s", transcoding.url, urlp.encode(self._clientId))
 
-  -- if (transcoding.snipped && config.search.sources.soundcloud.fallbackIfSnipped) {
-  --   debugLog('retrieveStream', 4, { type: 3, sourceName: 'SoundCloud', query: title, message: `Track is snipped, falling back to: ${config.search.fallbackSearchSource}.` })
+	if transcoding.snipped and self._luna.config.sources.soundcloud.fallbackIfSnipped then
+		local default = self._luna.config.sources.fallbackSearchSource
+		self._luna.logger:debug('SoundCloud', 'Track is snipped, falling back to: %s.', default)
 
-  --   const search = await searchWithDefault(title, true)
+		local search = self._luna.sources:loadTracks(track.info.title, default)
 
-  --   if (search.loadType === 'search') {
-  --     const urlInfo = await sources.getTrackURL(search.data[0].info)
+    if search.loadType == 'search' then
+      local urlInfo = self._luna.sources:loadStream(track.encoded)
 
-  --     return {
-  --       url: urlInfo.url,
-  --       protocol: urlInfo.protocol,
-  --       format: urlInfo.format,
-  --       additionalData: true
-  --     }
-  --   }
-  -- }
+      return urlInfo
+    end
+	end
 
   if transcoding.format.protocol == 'hls' then
     local _, stream_res_body = http.request("GET", stream_url)
 		local stream_body = json.decode(stream_res_body)
     stream_url = stream_body.url
 	end
+
+	self._luna.logger:debug('SoundCloud', 'Loading stream url success')
 
   return {
     url = stream_url,

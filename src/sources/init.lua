@@ -33,9 +33,8 @@ function Sources:loadTracks(query, source)
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {
       loadType = "error",
-      tracks = {},
       data = {
-        message = getSourceName .. " source not avaliable",
+        message = source .. " not avaliable",
         severity = "common",
         cause = "SourceManager"
       }
@@ -55,7 +54,6 @@ function Sources:loadForm(link)
 
   return {
     loadType = "error",
-    tracks = {},
     data = {
       message = "Link invalid or source not avaliable",
       severity = "common",
@@ -72,7 +70,6 @@ function Sources:loadStream(encodedTrack)
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {
       loadType = "error",
-      tracks = {},
       data = {
         message = track.info.sourceName .. " source not avaliable",
         severity = "common",

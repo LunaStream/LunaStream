@@ -8,26 +8,21 @@ function AbstractSource:setup()
   error('Missing :setup() function')
 end
 
-function AbstractSource:search(query, source)
+function AbstractSource:search(query)
   error('Missing :search() function')
 end
 
-function AbstractSource:isLinkMatch(query, source)
+function AbstractSource:isLinkMatch(query)
   error('Missing :isLinkMatch() function')
 end
 
-function AbstractSource:loadForm(query, source)
+function AbstractSource:loadForm(query)
   error('Missing :loadForm() function')
-end
-
-function AbstractSource:buildTrack(data)
-	error("Missing :buildTrack() function")
 end
 
 function AbstractSource:buildError(message, severity, cause)
   return {
     loadType = "error",
-    tracks = {},
     data = {
       message = message,
       severity = severity,
