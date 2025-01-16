@@ -16,6 +16,7 @@ return {
     }
   },
   logger = {
+    logToFile = true,
     request = {
       enable = true,
       withHeader = false

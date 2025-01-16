@@ -15,7 +15,7 @@ function BandCamp:__init(luna)
 end
 
 function BandCamp:setup()
-  print("[BandCamp]: Setup complete!")
+  self._luna.logger:info('BandCamp', "Setup complete!")
   return self
 end
 

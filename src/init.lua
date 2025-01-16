@@ -21,11 +21,15 @@ local function requireRoute(target, req, res, luna)
 end
 
 function LunaStream:__init()
-  self._sources = source(self)
   self._config = config
   self._app = weblit.app
   self._prefix = "/v" .. require('../package.lua').versionExtended.major
   self._sessions = {}
+  self._logger = require('./utils/logger')(5,
+    '!%Y-%m-%dT%TZ',
+    config.logger.logToFile and 'lunatic.sea.log' or '',
+  13)
+  self._sources = source(self)
 end
 
 function get:sources()
@@ -36,11 +40,26 @@ function get:config()
   return self._config
 end
 
+function get:logger()
+  return self._logger
+end
+
 function LunaStream:setupAddon()
-  self._app.use(require("./addon/auth.lua"))
-  self._app.use(require("./addon/req_logger.lua"))
+  -- Load custom addons
+  local addons_list = {
+    "./addon/auth.lua",
+    "./addon/req_logger.lua",
+  }
+
+  for _, path in pairs(addons_list) do
+    self._app.use(function (req, res, go)
+      require(path)(req, res, go, self)
+    end)
+  end
+
+  -- Load third party addons
   self._app.use(weblit.autoHeaders)
-  print('[LunaStream]: All addons are ready!')
+  self._logger:info('LunaStream', 'All addons are ready!')
 end
 
 function LunaStream:setupRoutes()
@@ -76,7 +95,7 @@ function LunaStream:setupRoutes()
     end)
   end
 
-  print('[LunaStream]: All routes are ready!')
+  self._logger:info('LunaStream', 'All routes are ready!')
 end
 
 function LunaStream:setupWebsocket()
@@ -93,16 +112,16 @@ function LunaStream:setupWebsocket()
       payload = string.format('{"op": "ready", "resumed": false, "sessionId": "%s"}', session_id)
     })
 
-    print(string.format('[LunaStream]: Connection established with %s', client_name))
+    self._logger:info('LunaStream', 'Connection established with %s', client_name)
     for message in read do
       write(message)
     end
 
     write()
     self._sessions[session_id] = nil
-    print(string.format('[LunaStream]: Connection closed with %s', client_name))
+    self._logger:info('LunaStream', 'Connection closed with %s', client_name)
   end)
-  print('[LunaStream]: Websocket is ready!')
+  self._logger:info('LunaStream', 'Websocket is ready!')
 end
 
 function LunaStream:start()
@@ -111,11 +130,11 @@ function LunaStream:start()
     port = config.server.port
   })
   self._app.start()
-  print(string.format(
-    '[LunaStream]: Currently running server [%s] at port: %s',
+  self._logger:info('LunaStream',
+    'Currently running server [%s] at port: %s',
     config.server.host,
     config.server.port
-  ))
+  )
 end
 
 return LunaStream

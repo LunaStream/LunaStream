@@ -8,14 +8,14 @@ local class = require('class')
 local Sources = class('Sources')
 
 function Sources:__init(luna)
-  print('[SourceManager]: Setting up all avaliable source...')
-
   self._luna = luna
+  self._luna.logger:info('SourceManager', 'Setting up all avaliable source...')
+
   self._search_avaliables = {}
   self._source_avaliables = {}
 
   if config.luna.soundcloud then
-    self._source_avaliables["soundcloud"] = soundcloud():setup()
+    self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
     self._search_avaliables["scsearch"] = "soundcloud"
   end
 
@@ -26,11 +26,11 @@ function Sources:__init(luna)
 end
 
 function Sources:loadTracks(query, source)
-  print("[SourceManager]: Searching for: " .. query .. " in " .. source)
+  self._luna.logger:info('SourceManager', "Searching for: " .. query .. " in " .. source)
   local getSourceName = self._search_avaliables[source]
   local getSrc = self._source_avaliables[getSourceName]
   if not getSrc then
-    print('[SourceManager] -> [Error]: Source invalid or not avaliable!')
+    self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {
       loadType = "error",
       tracks = {},
@@ -45,13 +45,13 @@ function Sources:loadTracks(query, source)
 end
 
 function Sources:loadForm(link)
-  print('[SourceManager]: Loading form for link: ' .. link)
+  self._luna.logger:info('SourceManager', 'Loading form for link: ' .. link)
   for _, src in pairs(self._source_avaliables) do
     local isLinkMatch = src:isLinkMatch(link)
     if isLinkMatch then return src:loadForm(link) end
   end
 
-  print('[SourceManager] -> [Error]: Link invalid or not avaliable!')
+  self._luna.logger:error('SourceManager', 'Link invalid or not avaliable!')
 
   return {
     loadType = "error",
@@ -69,7 +69,7 @@ function Sources:loadStream(encodedTrack)
   local getSrc = self._source_avaliables[track.info.sourceName]
 
   if not getSrc then
-    print('[SourceManager] -> [Error]: Source invalid or not avaliable!')
+    self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {
       loadType = "error",
       tracks = {},
