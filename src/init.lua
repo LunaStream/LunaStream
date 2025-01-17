@@ -5,7 +5,7 @@ local class = require('class')
 
 local config = require('./utils/config')
 local source = require("./sources")
-local generateSessionId = require('./functions/generatesessionid')
+local generateSessionId = require('./utils/generatesessionid')
 
 local LunaStream, get = class('LunaStream')
 
@@ -21,6 +21,7 @@ local function requireRoute(target, req, res, luna)
 end
 
 function LunaStream:__init(devmode)
+  self._initialRunTime = os.time()
   self._devmode = devmode
   self._manifest = require('./utils/manifest.lua')(devmode)
   self:printInitialInfo()
@@ -33,6 +34,9 @@ function LunaStream:__init(devmode)
     config.logger.logToFile and 'lunatic.sea.log' or '',
   14)
   self._sources = source(self)
+  self._services = {
+    statusMonitor =  require('./services/statusMonitor')(self)
+  }
 end
 
 function get:sources()
@@ -49,6 +53,10 @@ end
 
 function get:manifest()
   return self._manifest
+end
+
+function get:services()
+  return self._services
 end
 
 function LunaStream:printInitialInfo()
@@ -108,6 +116,7 @@ function LunaStream:setupRoutes()
   local route_list = {
     ["./router/version.lua"] = { path = "/version" },
     ["./router/info.lua"] = { path = self._prefix .. "/info" },
+    ["./router/stats.lua"] = { path = self._prefix .. "/stats" },
     ["./router/encodetrack.lua"] = { path = self._prefix .. "/encodetrack", method = "POST" },
     ["./router/decodetrack.lua"] = { path = self._prefix .. "/decodetrack" },
     ["./router/trackstream.lua"] = { path = self._prefix .. "/trackstream" },
