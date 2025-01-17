@@ -1,6 +1,9 @@
 require('./utils/luaex')
 
+local setInterval = require('timer').setInterval
+local clearInterval = require('timer').clearInterval
 local weblit = require('weblit')
+local json = require('json')
 local class = require('class')
 
 local config = require('./utils/config')
@@ -153,24 +156,45 @@ function LunaStream:setupWebsocket()
   self._app.websocket({
     path = self._prefix .. "/websocket",
   }, function (req, read, write)
+    -- Register some infomation
     local user_id = req.headers['User-Id']
     local client_name = req.headers['Client-Name']
     local session_id = generateSessionId(16)
-    self._sessions[session_id] = { write = write, user_id = user_id, players = {} }
+    self._sessions[session_id] = { write = write, user_id = user_id, players = {}, interval = nil }
 
+    -- Write session id
     write({
       opcode = 1,
       payload = string.format('{"op": "ready", "resumed": false, "sessionId": "%s"}', session_id)
     })
 
-    self._logger:info('LunaStream', 'Connection established with %s', client_name)
-    for message in read do
-      write(message)
-    end
+    -- Write current status
+    local currentStats = self._services.statusMonitor:get()
+    currentStats.op = "stats"
+    write({ opcode = 1, payload = json.encode(currentStats) })
 
+    -- Success logger
+    self._logger:info('WebSocket', 'Connection established with %s', client_name)
+
+    -- Setup status monitor
+    self._sessions[session_id].interval = setInterval(60000, function ()
+      coroutine.wrap(function ()
+        local currentStatsCoro = self._services.statusMonitor:get()
+        currentStatsCoro.op = "stats"
+        write({ opcode = 1, payload = json.encode(currentStatsCoro) })
+      end)()
+    end)
+
+    -- Keep connection
+    for message in read do end
+
+    -- End stream
     write()
+
+    -- When disconnected
+    clearInterval(self._sessions[session_id].interval)
     self._sessions[session_id] = nil
-    self._logger:info('LunaStream', 'Connection closed with %s', client_name)
+    self._logger:info('WebSocket', 'Connection closed with %s', client_name)
   end)
   self._logger:info('LunaStream', 'Websocket is ready!')
 end
