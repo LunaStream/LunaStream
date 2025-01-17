@@ -6,7 +6,8 @@ return {
   },
   luna = {
     soundcloud = true,
-    bandcamp = true
+    bandcamp = true,
+    http = true,
   },
   sources = {
     fallbackSearchSource = 'bcsearch',

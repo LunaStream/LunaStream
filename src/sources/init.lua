@@ -1,7 +1,10 @@
-local soundcloud = require("../sources/soundcloud.lua")
-local bandcamp = require("../sources/bandcamp.lua")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
+
+-- Sources
+local soundcloud = require("../sources/soundcloud.lua")
+local bandcamp = require("../sources/bandcamp.lua")
+local httpdirectplay = require("../sources/http.lua")
 
 local class = require('class')
 
@@ -15,13 +18,20 @@ function Sources:__init(luna)
   self._source_avaliables = {}
 
   if config.luna.soundcloud then
+    self._luna.logger:info('SourceManager', 'Registering SoundCloud audio source manager')
     self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
     self._search_avaliables["scsearch"] = "soundcloud"
   end
 
   if config.luna.bandcamp then
+    self._luna.logger:info('SourceManager', 'Registering BandCamp audio source manager')
     self._source_avaliables["bandcamp"] = bandcamp(luna):setup()
     self._search_avaliables["bcsearch"] = "bandcamp"
+  end
+
+  if config.luna.http then
+    self._luna.logger:info('SourceManager', 'Registering HTTPDirectPlay audio source manager')
+    self._source_avaliables["http"] = httpdirectplay(luna):setup()
   end
 end
 

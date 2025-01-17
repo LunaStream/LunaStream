@@ -5,7 +5,8 @@ server:
 
 luna:
   soundcloud: true
-  bandcamp: false
+  bandcamp: true
+  http: true
 
 sources:
   fallbackSearchSource: 'bcsearch'

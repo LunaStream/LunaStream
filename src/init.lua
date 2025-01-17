@@ -28,7 +28,7 @@ function LunaStream:__init()
   self._logger = require('./utils/logger')(5,
     '!%Y-%m-%dT%TZ',
     config.logger.logToFile and 'lunatic.sea.log' or '',
-  13)
+  14)
   self._sources = source(self)
 end
 

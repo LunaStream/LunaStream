@@ -15,14 +15,21 @@ function BandCamp:__init(luna)
 end
 
 function BandCamp:setup()
-  self._luna.logger:info('BandCamp', "Setup complete!")
   return self
 end
 
 function BandCamp:search(query)
   self._luna.logger:debug('BandCamp', 'Searching: ' .. query)
 	local query_link = "https://bandcamp.com/search?q=%s&item_type=t&from=results"
-	local _, data = http.request("GET", string.format(query_link, urlp.encode(query)))
+	local response, data = http.request("GET", string.format(query_link, urlp.encode(query)))
+
+  if response.code ~= 200 then
+		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
+		return self:buildError(
+		"Server response error: " .. response.code,
+		"fault", "SoundCloud Source"
+	)
+	end
 
   local names = table.map(
     string.split(data, "<div class=\"heading\">%s+<a.->(.-)</a>"),
@@ -115,8 +122,16 @@ end
 
 function BandCamp:loadForm(query)
   self._luna.logger:debug('BandCamp', 'Loading url: ' .. query)
-  local _, data = http.request("GET", query)
+  local response, data = http.request("GET", query)
   local matches = data:match('<script type="application/ld%+json">(.-)</script>'):gsub("^%s+", ""):gsub("%s+$", "")
+
+  if response.code ~= 200 then
+		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
+		return self:buildError(
+		"Server response error: " .. response.code,
+		"fault", "SoundCloud Source"
+	)
+	end
 
   if not matches then
     self._luna.logger:debug('BandCamp', 'No matches found.')
@@ -237,8 +252,16 @@ function BandCamp:loadForm(query)
 end
 
 function BandCamp:loadStream(track)
-  local _, data = http.request("GET", track.info.uri)
+  local response, data = http.request("GET", track.info.uri)
   local streamURL = data:match('https?://t4%.bcbits%.com/stream/[a-zA-Z0-9]+/mp3%-128/%d+?p=%d+%&.-%&quot;')
+
+  if response.code ~= 200 then
+		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, track)
+		return self:buildError(
+		"Server response error: " .. response.code,
+		"fault", "SoundCloud Source"
+	)
+	end
 
   if not streamURL then
 		self._luna.logger:error('BandCamp', "Failed to get stream")
