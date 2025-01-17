@@ -148,11 +148,11 @@ function make.doc()
 end
 
 function make.is_github()
-	if binary_format == 'dll' then
-		return false, 'lit make'
-	end
 	if process.env['GITHUB_BUILD'] then
 		return true, './lit make'
+	end
+	if binary_format == 'dll' then
+		return false, 'lit make'
 	end
 	return false, 'lit make'
 end
