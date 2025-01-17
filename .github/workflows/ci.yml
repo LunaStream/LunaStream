@@ -21,13 +21,7 @@ jobs:
         run: ./lit install
 
       - name: Build binaries
-        run: ./lit make
-
-      - name: Make build folder
-        run: mkdir build
-
-      - name: Move binaries
-        run: mv ./LunaStream ./build/LunaStream
+        run: ./luvit make
 
       - name: Push LunaticSea binaries to artifact
         uses: actions/upload-artifact@v4
@@ -48,14 +42,8 @@ jobs:
       - name: Install dependencies
         run: ./lit install
 
-      - name: Build bot
-        run: ./lit make
-
-      - name: Make build folder
-        run: mkdir build
-
-      - name: Move binaries
-        run: Move-Item -Path ./LunaStream.exe -Destination ./build/LunaStream.exe
+      - name: Build binaries
+        run: ./luvit make
 
       - name: Push LunaticSea binaries to artifact
         uses: actions/upload-artifact@v4

@@ -20,10 +20,13 @@ local function requireRoute(target, req, res, luna)
   require(target)(req, res, answer, luna)
 end
 
-function LunaStream:__init()
+function LunaStream:__init(devmode)
+  self._devmode = devmode
+  self._manifest = require('./utils/manifest.lua')(devmode)
+  self:printInitialInfo()
   self._config = config
   self._app = weblit.app
-  self._prefix = "/v" .. require('../package.lua').versionExtended.major
+  self._prefix = "/v" .. self._manifest.version.major
   self._sessions = {}
   self._logger = require('./utils/logger')(5,
     '!%Y-%m-%dT%TZ',
@@ -42,6 +45,45 @@ end
 
 function get:logger()
   return self._logger
+end
+
+function get:manifest()
+  return self._manifest
+end
+
+function LunaStream:printInitialInfo()
+  local table_data = {
+    self._manifest.version.semver,
+    self._manifest.buildTime,
+    os.date('%F %T', self._manifest.buildTime),
+    self._manifest.git.branch,
+    self._manifest.git.commit,
+    os.date('%F %T', tonumber(self._manifest.git.commitTime)),
+    self._manifest.runtime.luvit,
+    self._manifest.runtime.luvi,
+    self._manifest.runtime.libuv,
+  }
+  local template = string.format([[
+                                                               __________________
+ _                      ____  _                               / ______________  /
+| |   _   _ _ __   __ _/ ___|| |_ _ __ ___  __ _ _ __ ___    / /   _/\__     / /
+| |  | | | | '_ \ / _` \___ \| __| '__/ _ \/ _` | '_ ` _ \  / /   \    /    / / 
+| |__| |_| | | | | (_| |___) | |_| | |  __/ (_| | | | | | |/ /    /_  _\   / /  
+|_____\__,_|_| |_|\__,_|____/ \__|_|  \___|\__,_|_| |_| |_/ /_______\/____/ /
+=========================================================/_________________/
+
+    - Version:          %s
+    - Build:            %s
+    - Build time:       %s
+    - Branch:           %s
+    - Commit:           %s
+    - Commit time:      %s
+    - Luvit:            %s
+    - Luvi:             %s
+    - Libuv:            %s
+]], table.unpack(table_data))
+
+  print(template)
 end
 
 function LunaStream:setupAddon()

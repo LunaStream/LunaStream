@@ -1,5 +1,6 @@
 return {
   name = "LunaStream",
+  ------ Bot custom props ------
   codename = "IA",
   version = "0.0.1",
   versionExtended = {
@@ -10,10 +11,7 @@ return {
 		semver = "1.0.2-dev",
 		build = "",
   },
-  runtime = {
-    luvit = "2.18.1",
-    luvi = "2.14.0",
-  },
+  ------ Bot custom props ------
   description = "A lavalink alternative focus on stability, decent speed and modulize like FrequenC",
   tags = { "lavalink audio" },
   license = "MIT",
@@ -30,6 +28,10 @@ return {
   },
   files = {
     "**.lua",
-    "!test*"
+    "!test*",
+    "manifest.json",
+    "!make.lua",
+    "!dev.lua",
+    "!test.lua",
   }
 }

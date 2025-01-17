@@ -1,0 +1,7 @@
+return require('./wrapper.lua')(function (...)
+  local LunaStream = require("./src")(true)
+  LunaStream:setupAddon()
+  LunaStream:setupRoutes()
+  LunaStream:setupWebsocket()
+  LunaStream:start()
+end, ...)
