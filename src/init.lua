@@ -156,11 +156,44 @@ function LunaStream:setupWebsocket()
   self._app.websocket({
     path = self._prefix .. "/websocket",
   }, function (req, read, write)
-    -- Register some infomation
+    -- Getting some infomation
     local user_id = req.headers['User-Id']
     local client_name = req.headers['Client-Name']
+
+    if not client_name then
+      self._logger:info('WebSocket', 'Connection closed with unknown client name')
+      return write()
+    end
+
+    -- Check client name
+    local client_name_with_url_match = client_name:match('[^%s]+/[^%s]+ %([^%s]+%)')
+    local client_name_match = client_name:match('[^%s]+/[^%s]+')
+
+    if not client_name_with_url_match and not client_name_match then
+      self._logger:info('WebSocket', 'Connection closed with %s (Invalid Client-Name)', client_name)
+      return write()
+    end
+
+    -- Check user Id
+    if not user_id then
+      self._logger:info('WebSocket', 'Connection closed with %s (Missing userId)', client_name)
+      return write()
+    end
+
+    -- Register session
+    local client_info = string.split(client_name, '%S+')
     local session_id = generateSessionId(16)
-    self._sessions[session_id] = { write = write, user_id = user_id, players = {}, interval = nil }
+    self._sessions[session_id] = {
+      client = {
+        name = client_info[1]:match('(.+)/[^%s]+'),
+        version = client_info[1]:match('[^%s]+/(.+)'),
+        link = client_info[2]:sub(1, -2):sub(2)
+      },
+      write = write,
+      user_id = user_id,
+      players = {},
+      interval = nil
+    }
 
     -- Write session id
     write({
