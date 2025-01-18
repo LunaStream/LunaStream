@@ -5,8 +5,12 @@ on:
     branches: ['main']
 
 jobs:
-  linux-build:
-    runs-on: ubuntu-latest
+  build-macos:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-13, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,14 +29,60 @@ jobs:
         env:
           DOT_ENABLE: true
 
+      - name: Fetch System Name
+        run: |
+          OS=$(uname -s)
+          ARCH=$(uname -m)
+          echo "ARTIFACT=LunaticSea-$OS-$ARCH" >> $GITHUB_ENV
+
       - name: Push LunaticSea binaries to artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 'LunaStream-linux-amd64'
+          name: ${{ env.ARTIFACT }}
+          path: build/
+    
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, i686, aarch64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dev tools
+        run: sudo apt-get install -y curl
+
+      - name: Install luvit
+        run: curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
+
+      - name: Install dependencies
+        run: ./lit install
+
+      - name: Build binaries
+        run: ./luvit make
+        env:
+          DOT_ENABLE: true
+
+      - name: Fetch System Name
+        run: |
+          OS=$(uname -s)
+          ARCH=${{ matrix.arch }}
+          echo "ARTIFACT=LunaticSea-$OS-$ARCH" >> $GITHUB_ENV
+
+      - name: Push LunaticSea binaries to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
           path: build/
 
-  win-build:
+  build-win:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, x86]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,6 +98,11 @@ jobs:
       - name: Build binaries
         shell: pwsh
         run: ./luvit make
+
+    - name: Fetch System Name
+      run: |
+        $ARCH="${{ matrix.arch }}"
+        echo "ARTIFACT=LunaticSea-Windows-$ARCH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Push LunaticSea binaries to artifact
         uses: actions/upload-artifact@v4
