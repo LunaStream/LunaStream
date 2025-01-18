@@ -2,6 +2,7 @@
 set -eu
 LUVI_VERSION=${LUVI_VERSION:-2.15.0}
 LIT_VERSION=${LIT_VERSION:-3.8.5}
+REQ=enable
 
 LUVI_ARCH=`uname -s`-`uname -m`
 LUVI_URL="https://github.com/luvit/luvi/releases/download/v$LUVI_VERSION/luvi-$LUVI_ARCH-luajit-regular"
@@ -15,7 +16,7 @@ chmod +x luvi
 echo "Downloading $LIT_URL to lit.zip"
 curl -L -f -o lit.zip $LIT_URL
 
-if [[ "$TIMEOUT_MODE" == "enable" ]]; then
+if [ "$TIMEOUT_MODE" = "$REQ" ]; then
   echo 'Running timeout mode'
   # Create lit using lit
   timeout 7s ./luvi lit.zip -- make lit.zip lit luvi || echo "Command timed out, skipping..."
