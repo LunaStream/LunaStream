@@ -17,6 +17,8 @@ jobs:
 
       - name: Install luvit
         run: curl -L https://github.com/LunaticSea/get-llit-modded/raw/main/get-lit.sh | sh
+        env:
+          TIMEOUT_MODE: disable
 
       - name: Install dependencies
         run: ./lit install
@@ -54,7 +56,7 @@ jobs:
       - name: Install luvit
         run: curl -L https://github.com/LunaticSea/get-llit-modded/raw/main/get-lit.sh | sh
         env:
-          TIMEOUT_MODE: true
+          TIMEOUT_MODE: enable
 
       - name: Install dependencies
         run: ./lit install
@@ -63,6 +65,7 @@ jobs:
         run: ./luvit make
         env:
           DOT_ENABLE: true
+          TIMEOUT_MODE: true
 
       - name: Fetch System Name
         run: |
