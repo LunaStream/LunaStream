@@ -38,7 +38,7 @@ jobs:
           echo "ARTIFACT=LunaStream-$OS-$ARCH" >> $GITHUB_ENV
 
       - name: Rename binaries
-        run: mv ./build/LunaticSea ./build/${{ env.ARTIFACT }}
+        run: mv ./build/LunaStream ./build/${{ env.ARTIFACT }}
   
       - name: Push LunaStream binaries to artifact
         uses: actions/upload-artifact@v4
@@ -80,7 +80,7 @@ jobs:
           echo "ARTIFACT=LunaStream-$OS-$ARCH" >> $GITHUB_ENV
 
       - name: Rename binaries
-        run: mv ./build/LunaticSea ./build/${{ env.ARTIFACT }}
+        run: mv ./build/LunaStream ./build/${{ env.ARTIFACT }}
 
       - name: Push LunaStream binaries to artifact
         uses: actions/upload-artifact@v4
