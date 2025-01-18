@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install luvit
-        run: curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
+        run: curl -L https://github.com/LunaticSea/get-llit-modded/raw/main/get-lit.sh | sh
 
       - name: Install dependencies
         run: ./lit install
@@ -52,7 +52,7 @@ jobs:
         run: sudo apt-get install -y curl
 
       - name: Install luvit
-        run: curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
+        run: curl -L https://github.com/LunaticSea/get-llit-modded/raw/main/get-lit.sh | sh
 
       - name: Install dependencies
         run: ./lit install
@@ -86,7 +86,7 @@ jobs:
 
       - name: Install luvit
         shell: pwsh
-        run: PowerShell -NoProfile -ExecutionPolicy unrestricted -Command "[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; iex ((new-object net.webclient).DownloadString('https://github.com/luvit/lit/raw/master/get-lit.ps1'))"
+        run: PowerShell -NoProfile -ExecutionPolicy unrestricted -Command "[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; iex ((new-object net.webclient).DownloadString('https://github.com/LunaticSea/get-llit-modded/raw/main/get-lit.ps1'))"
 
       - name: Install dependencies
         shell: pwsh
