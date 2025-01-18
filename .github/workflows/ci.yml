@@ -15,8 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install home brew
+        run: ruby -e “$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)” < /dev/null 2> /dev/null
+
       - name: Install dev tools
-        run: sudo apt-get install -y curl
+        run: brew install curl
 
       - name: Install luvit
         run: curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
@@ -107,5 +110,5 @@ jobs:
       - name: Push LunaticSea binaries to artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 'LunaStream-win-amd64'
+          name: ${{ env.ARTIFACT }}
           path: build/
