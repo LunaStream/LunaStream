@@ -1,14 +1,19 @@
 require('./utils/luaex')
 
-local setInterval = require('timer').setInterval
-local clearInterval = require('timer').clearInterval
 local weblit = require('weblit')
 local json = require('json')
 local class = require('class')
+local timer = require('timer')
 
 local config = require('./utils/config')
 local source = require("./sources")
-local generateSessionId = require('./utils/generatesessionid')
+local generateSessionId = require('./utils/generateSessionId')
+
+local setInterval = timer.setInterval
+local clearInterval = timer.clearInterval
+
+local setTimeout = timer.setTimeout
+local clearTimeout = timer.clearTimeout
 
 local LunaStream, get = class('LunaStream')
 
@@ -32,6 +37,7 @@ function LunaStream:__init(devmode)
   self._app = weblit.app
   self._prefix = "/v" .. self._manifest.version.major
   self._sessions = {}
+  self._waiting_sessions = {}
   self._logger = require('./utils/logger')(5,
     '!%Y-%m-%dT%TZ',
     config.logger.logToFile and 'lunatic.sea.log' or '',
@@ -61,6 +67,11 @@ end
 function get:services()
   return self._services
 end
+
+function get:sessions()
+  return self._sessions
+end
+
 
 function LunaStream:printInitialInfo()
   local table_data = {
@@ -124,7 +135,8 @@ function LunaStream:setupRoutes()
     ["./router/decodetrack.lua"] = { path = self._prefix .. "/decodetrack" },
     ["./router/trackstream.lua"] = { path = self._prefix .. "/trackstream" },
     ["./router/loadtracks.lua"] = { path = self._prefix .. "/loadtracks" },
-    ["./router/sessions.lua"] = { path = self._prefix .. "/sessions/:sessionId/players/:guildId?" }
+    ["./router/sessions/players"] = { path = self._prefix .. "/sessions/:sessionId/players/:guildId?" },
+    ["./router/sessions/update.lua"] = { path = self._prefix .. "/sessions/:sessionId", method = "PATCH" }
   }
 
   local processed_routes = {}
@@ -159,6 +171,7 @@ function LunaStream:setupWebsocket()
     -- Getting some infomation
     local user_id = req.headers['User-Id']
     local client_name = req.headers['Client-Name']
+    local ws_session_id = req.headers['Session-Id']
 
     if not client_name then
       self._logger:info('WebSocket', 'Connection closed with unknown client name')
@@ -182,18 +195,29 @@ function LunaStream:setupWebsocket()
 
     -- Register session
     local client_info = string.split(client_name, '%S+')
-    local session_id = generateSessionId(16)
-    self._sessions[session_id] = {
-      client = {
-        name = client_info[1]:match('(.+)/[^%s]+'),
-        version = client_info[1]:match('[^%s]+/(.+)'),
-        link = client_info[2]:sub(1, -2):sub(2)
-      },
-      write = write,
-      user_id = user_id,
-      players = {},
-      interval = nil
-    }
+    local session_id = ""
+
+    -- Check if session have resuming
+    if ws_session_id and self._waiting_sessions[ws_session_id] then
+      self._waiting_sessions[ws_session_id] = nil
+      session_id = ws_session_id
+      self._sessions[session_id].write = write
+    else
+      session_id = generateSessionId(16)
+      self._sessions[session_id] = {
+        client = {
+          name = client_info[1]:match('(.+)/[^%s]+'),
+          version = client_info[1]:match('[^%s]+/(.+)'),
+          link = client_info[2]:sub(1, -2):sub(2)
+        },
+        write = write,
+        user_id = user_id,
+        players = {},
+        interval = nil,
+        resuming = false,
+        timeout = 0
+      }
+    end
 
     -- Write session id
     write({
@@ -226,8 +250,27 @@ function LunaStream:setupWebsocket()
 
     -- When disconnected
     clearInterval(self._sessions[session_id].interval)
-    self._sessions[session_id] = nil
     self._logger:info('WebSocket', 'Connection closed with %s', client_name)
+
+    -- Check is ressuming enabled
+    if not self._sessions[session_id].resuming then
+      self._sessions[session_id] = nil
+      return
+    end
+
+    -- Start timing out resuming
+    local timeout = self._sessions[session_id].timeout
+    self._logger:info('WebSocket', 'Session %s have resuming, waiting for %s secconds', session_id, timeout)
+
+    setTimeout(timeout, function ()
+      if type(self._waiting_sessions[session_id]) == "nil" then return end
+      self._sessions[session_id] = nil
+      self._waiting_sessions[session_id] = nil
+      self._logger:info('WebSocket', 'Timeout! Session %s deleted!', session_id, timeout)
+    end)
+
+    self._waiting_sessions[session_id] = true
+
   end)
   self._logger:info('LunaStream', 'Websocket is ready!')
 end
