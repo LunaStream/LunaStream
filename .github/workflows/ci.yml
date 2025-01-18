@@ -22,6 +22,8 @@ jobs:
 
       - name: Build binaries
         run: ./luvit make
+        env:
+          DOT_ENABLE: true
 
       - name: Push LunaticSea binaries to artifact
         uses: actions/upload-artifact@v4

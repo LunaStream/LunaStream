@@ -34,7 +34,9 @@ function make.run()
 		return make.install()
 	end
 
-	make.manifest_file(cli_data, 'lit make')
+	make.manifest_file(cli_data,
+		process.env["DOT_ENABLE"] and './lit make' or 'lit make'
+	)
 end
 
 function make.manifest_file(cli_data, curr_cmd)
@@ -63,7 +65,9 @@ function make.manifest_file(cli_data, curr_cmd)
 
   -- Get luvit data
   local runtimeObj = {}
-  local openLuvit = assert(io.popen('luvit --version'))
+  local openLuvit = assert(io.popen(
+		process.env["DOT_ENABLE"] and './luvit --version' or 'luvit --version'
+	))
 	local outputLuvit = openLuvit:read('*all')
 	openLuvit:close()
   outputLuvit = make.split(outputLuvit, '%a+ %a+: v?%d+.%d+.%d+')
