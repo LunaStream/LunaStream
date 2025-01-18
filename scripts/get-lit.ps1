@@ -1,0 +1,41 @@
+
+$LUVI_VERSION = "2.15.0"
+$LIT_VERSION = "3.8.5"
+# Environment variables take precedence
+if (test-path env:LUVI_VERSION) { $LUVI_VERSION = $env:LUVI_VERSION }
+if (test-path env:LIT_VERSION) { $LIT_VERSION = $env:LIT_VERSION }
+
+if (test-path env:LUVI_ARCH) {
+  $LUVI_ARCH = $env:LUVI_ARCH
+} else {
+  if ([System.Environment]::Is64BitProcess) {
+    $LUVI_ARCH = "Windows-amd64"
+  } else {
+    $LUVI_ARCH = "Windows-x86"
+  }
+}
+$LUVI_URL = "https://github.com/luvit/luvi/releases/download/v$LUVI_VERSION/luvi-$LUVI_ARCH-luajit-regular.exe"
+$LIT_URL = "https://lit.luvit.io/packages/luvit/lit/v$LIT_VERSION.zip"
+
+function Download-File {
+  param (
+    [string]$url,
+    [string]$file
+  )
+  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls12;
+  Write-Host "Downloading $url to $file"
+  $downloader = new-object System.Net.WebClient
+  $downloader.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials;
+  $downloader.DownloadFile($url, $file)
+}
+
+# Download Files
+Download-File $LUVI_URL "luvi.exe"
+Download-File $LIT_URL "lit.zip"
+
+# Create lit.exe using lit
+Start-Process ".\luvi.exe" -ArgumentList "lit.zip -- make lit.zip lit.exe luvi.exe" -Wait -NoNewWindow
+# Cleanup
+Remove-Item "lit.zip"
+# Create luvit using lit
+Start-Process ".\lit.exe" -ArgumentList "make lit://luvit/luvit luvit.exe luvi.exe" -Wait -NoNewWindow
