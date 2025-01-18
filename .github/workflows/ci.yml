@@ -1,11 +1,8 @@
-name: Nightly build
+name: CI
 
 on:
   push:
     branches: ['main']
-
-env:
-  GITHUB_BUILD: true
 
 jobs:
   linux-build:

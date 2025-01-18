@@ -1,5 +1,4 @@
 local fs = require('fs')
-local path = require('path')
 local json = require('json')
 local package_file = require('./package.lua')
 local binary_format = package.cpath:match('%p[\\|/]?%p(%a+)')
@@ -27,22 +26,15 @@ local make = {
 }
 
 function make.run()
-	local cli_data, cli_arg = make.get_cli_data()
-	local is_github_action, curr_cmd = make.is_github()
+	local cli_data = make.get_cli_data()
 	make.l('INFO', 'LunaticSea make')
 	make.l('INFO', 'Version: ' .. make.version)
-
-	if is_github_action then
-		make.l('INFO', 'Current mode: Github action ' .. cli_arg)
-	else
-		make.l('INFO', 'Current mode: Internal ' .. cli_arg)
-	end
 
 	if cli_data and cli_data.type == 3 then
 		return make.install()
 	end
 
-	make.manifest_file(cli_data, curr_cmd)
+	make.manifest_file(cli_data, 'lit make')
 end
 
 function make.manifest_file(cli_data, curr_cmd)
@@ -71,9 +63,7 @@ function make.manifest_file(cli_data, curr_cmd)
 
   -- Get luvit data
   local runtimeObj = {}
-  local openLuvit = assert(io.popen(
-    process.env['GITHUB_BUILD'] and './luvit --version' or 'luvit --version'
-  ))
+  local openLuvit = assert(io.popen('luvit --version'))
 	local outputLuvit = openLuvit:read('*all')
 	openLuvit:close()
   outputLuvit = make.split(outputLuvit, '%a+ %a+: v?%d+.%d+.%d+')
@@ -145,16 +135,6 @@ function make.doc()
 	print('')
 	print('')
 	os.exit()
-end
-
-function make.is_github()
-	if process.env['GITHUB_BUILD'] then
-		return true, './lit make'
-	end
-	if binary_format == 'dll' then
-		return false, 'lit make'
-	end
-	return false, 'lit make'
 end
 
 function make.get_cli_data()
