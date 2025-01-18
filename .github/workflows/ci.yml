@@ -5,7 +5,7 @@ on:
     branches: ['main']
 
 jobs:
-  build-macos:
+  macos:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -40,8 +40,8 @@ jobs:
         with:
           name: ${{ env.ARTIFACT }}
           path: build/
-    
-  build-linux:
+
+  linux:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -77,7 +77,7 @@ jobs:
           name: ${{ env.ARTIFACT }}
           path: build/
 
-  build-win:
+  windows:
     runs-on: windows-latest
     strategy:
       fail-fast: false
