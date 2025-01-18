@@ -15,16 +15,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dev tools
-        run: brew install coreutils
-
       - name: Install luvit
         run: sh ./scripts/get-lit.sh
         env:
           TIMEOUT_MODE: disable
 
       - name: Install dependencies
-        run: gtimeout 9s ./lit install
+        run: 9s ./lit install
 
       - name: Build binaries
         run: ./luvit make
