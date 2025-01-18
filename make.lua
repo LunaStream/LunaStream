@@ -36,7 +36,7 @@ function make.run()
 
 	local base_command = process.env["DOT_ENABLE"] and './lit make' or 'lit make'
 	if process.env["TIMEOUT_MODE"] then
-		base_command = 'timeout 7s ' + base_command
+		base_command = 'timeout 7s ' .. base_command
 	end
 
 	make.manifest_file(cli_data, base_command)
