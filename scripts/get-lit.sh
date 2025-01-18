@@ -5,7 +5,7 @@ LIT_VERSION=${LIT_VERSION:-3.8.5}
 REQ=enable
 
 LUVI_ARCH=`uname -s`-`uname -m`
-LUVI_URL="https://github.com/luvit/luvi/releases/download/v$LUVI_VERSION/luvi-$LUVI_ARCH-tiny-regular"
+LUVI_URL="https://github.com/luvit/luvi/releases/download/v$LUVI_VERSION/luvi-$LUVI_ARCH-luajit-regular"
 LIT_URL="https://lit.luvit.io/packages/luvit/lit/v$LIT_VERSION.zip"
 
 # Download Files

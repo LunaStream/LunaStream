@@ -14,7 +14,7 @@ if (test-path env:LUVI_ARCH) {
     $LUVI_ARCH = "Windows-x86"
   }
 }
-$LUVI_URL = "https://github.com/luvit/luvi/releases/download/v$LUVI_VERSION/luvi-$LUVI_ARCH-luajit-tiny.exe"
+$LUVI_URL = "https://github.com/luvit/luvi/releases/download/v$LUVI_VERSION/luvi-$LUVI_ARCH-luajit-regular.exe"
 $LIT_URL = "https://lit.luvit.io/packages/luvit/lit/v$LIT_VERSION.zip"
 
 function Download-File {
