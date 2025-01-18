@@ -5,12 +5,42 @@ on:
     branches: ['main']
 
 jobs:
-  macos:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-13, macos-latest]
+  macos-amd:
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dev tools
+        run: brew install coreutils
+
+      - name: Install luvit
+        run: sh ./scripts/get-lit.sh
+        env:
+          TIMEOUT_MODE: disable
+
+      - name: Install dependencies
+        run: gtimeout 9s ./lit install
+
+      - name: Build binaries
+        run: ./luvit make
+        env:
+          DOT_ENABLE: true
+
+      - name: Fetch System Name
+        run: |
+          OS=$(uname -s)
+          ARCH=$(uname -m)
+          echo "ARTIFACT=LunaStream-$OS-$ARCH" >> $GITHUB_ENV
+
+      - name: Push LunaStream binaries to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: build/
+
+  macos-arm:
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,7 +143,7 @@ jobs:
           path: build/
 
   publish:
-    needs: [macos, linux, windows]
+    needs: [macos-amd, macos-arm, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download Artifacts
