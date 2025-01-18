@@ -7,8 +7,8 @@ return {
     major = "1",
 		minor = "0",
 		patch = "2",
-		preRelease = "demo",
-		semver = "1.0.2-demo",
+		preRelease = "demo-ci",
+		semver = "1.0.2-demo-ci",
 		build = "",
   },
   ------ Bot custom props ------
