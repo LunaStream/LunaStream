@@ -191,7 +191,7 @@ function YouTube:search(query, type)
     }
   end
 
-	self._luna.logger:debug('SoundCloud', 'Found results for %s: ' .. #tracks, query)
+	self._luna.logger:debug('YouTube', 'Found results for %s: ' .. #tracks, query)
 
   return {
     loadType = 'search',
