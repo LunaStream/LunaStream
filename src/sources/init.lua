@@ -2,6 +2,7 @@ local config = require("../utils/config")
 local decoder = require("../track/decoder")
 
 -- Sources
+local youtube = require("../sources/youtube")
 local soundcloud = require("../sources/soundcloud.lua")
 local bandcamp = require("../sources/bandcamp.lua")
 local httpdirectplay = require("../sources/http.lua")
@@ -18,20 +19,27 @@ function Sources:__init(luna)
   self._source_avaliables = {}
 
   if config.luna.soundcloud then
-    self._luna.logger:info('SourceManager', 'Registering SoundCloud audio source manager')
     self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
     self._search_avaliables["scsearch"] = "soundcloud"
+    self._luna.logger:info('SourceManager', 'Registered [SoundCloud] audio source manager')
   end
 
   if config.luna.bandcamp then
-    self._luna.logger:info('SourceManager', 'Registering BandCamp audio source manager')
     self._source_avaliables["bandcamp"] = bandcamp(luna):setup()
     self._search_avaliables["bcsearch"] = "bandcamp"
+    self._luna.logger:info('SourceManager', 'Registered [BandCamp] audio source manager')
   end
 
   if config.luna.http then
-    self._luna.logger:info('SourceManager', 'Registering HTTPDirectPlay audio source manager')
     self._source_avaliables["http"] = httpdirectplay(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [HTTPDirectPlay] audio source manager')
+  end
+
+  if config.luna.youtube then
+    self._source_avaliables["youtube"] = youtube(luna):setup()
+    self._search_avaliables["ytsearch"] = "youtube"
+    self._search_avaliables["ytmsearch"] = "youtube"
+    self._luna.logger:info('SourceManager', 'Registered [YouTube] audio source manager')
   end
 end
 
@@ -50,7 +58,7 @@ function Sources:loadTracks(query, source)
       }
     }
   end
-  return getSrc:search(query)
+  return getSrc:search(query, source)
 end
 
 function Sources:loadForm(link)

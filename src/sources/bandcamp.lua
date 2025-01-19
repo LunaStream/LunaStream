@@ -27,7 +27,7 @@ function BandCamp:search(query)
 		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
 		return self:buildError(
 		"Server response error: " .. response.code,
-		"fault", "SoundCloud Source"
+		"fault", "BandCamp Source"
 	)
 	end
 
@@ -129,7 +129,7 @@ function BandCamp:loadForm(query)
 		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
 		return self:buildError(
 		"Server response error: " .. response.code,
-		"fault", "SoundCloud Source"
+		"fault", "BandCamp Source"
 	)
 	end
 
@@ -232,7 +232,7 @@ function BandCamp:loadForm(query)
     end
 
     self._luna.logger:debug(
-			'SoundCloud',
+			'BandCamp',
 			'Loaded playlist %s from %s',
 			trackInfo.name,
 			query
@@ -259,7 +259,7 @@ function BandCamp:loadStream(track)
 		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, track)
 		return self:buildError(
 		"Server response error: " .. response.code,
-		"fault", "SoundCloud Source"
+		"fault", "BandCamp Source"
 	)
 	end
 

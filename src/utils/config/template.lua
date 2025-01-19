@@ -5,6 +5,7 @@ server:
   password: "youshallnotpass"
 
 luna:
+  youtube: true
   soundcloud: true
   bandcamp: true
   http: true
@@ -12,10 +13,32 @@ luna:
 sources:
   fallbackSearchSource: 'bcsearch'
   maxSearchResults: 25
+  youtube:
+    # Bypasses age-restricted videos. Uses unsafe methods (eval) to allow this to work. Enable at your own risk.
+    bypassAgeRestriction: false
+    # Authentication using accounts outside EU helps bypass numerous YouTube blocks. Enable at your own risk.
+    authentication:
+      # Takes priority over web
+      Android:
+        enabled: false
+        # Available in YouTube app in Authorization header. Requires intercepting the app's requests.
+        authorization: 'DISABLED'
+        # Available in YouTube app in X-Goog-Visitor-Id header. Requires intercepting the app's requests.
+        visitorId: 'DISABLED'
+      # Not working.
+      web:
+        enabled: false
+        # Available in YouTube website in Authorization header. Requires intercepting the website's requests.
+        authorization: 'DISABLED'
+        # Available in YouTube website in Cookie header. Requires intercepting the website's requests.
+        cookie: 'DISABLED',
+        # Available in YouTube website in X-Goog-Visitor-Id header. Requires intercepting the website's requests.
+        visitorId: 'DISABLED'
   soundcloud:
     fallbackIfSnipped: false
 
 logger:
+  accept: 'error warn info debug'
   logToFile: true
   request:
     enable: true
