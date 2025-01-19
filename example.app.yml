@@ -12,6 +12,7 @@ luna:
 sources:
   fallbackSearchSource: 'bcsearch'
   maxSearchResults: 25
+  maxAlbumPlaylistLength: 50
   youtube:
     # Bypasses age-restricted videos. Uses unsafe methods (eval) to allow this to work. Enable at your own risk.
     bypassAgeRestriction: false
