@@ -59,8 +59,8 @@ return function (source, query, src_type)
   source._luna.logger:debug(
     'YouTube',
     'Loaded short %s by %s from %s',
-    track.info.title,
-    track.info.author,
+    track.title,
+    track.author,
     query
   )
 

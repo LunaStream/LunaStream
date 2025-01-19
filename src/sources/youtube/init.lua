@@ -38,7 +38,11 @@ function YouTube:search(query, src_type)
   self._luna.logger:debug('Youtube', 'Searching: ' .. query)
 
   if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'ANDROID')
+    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'TVHTML5EMBED')
+  end
+
+  if self._clientManager._currentClient == 'WEB' then
+    self._clientManager:switchClient('TVHTML5EMBED')
   end
 
   local response, search = http.request(
@@ -199,23 +203,22 @@ end
 
 function YouTube:isLinkMatch(query)
   local check_list = {
-    "https?://music%.youtube%.com/watch%?v=[%w%-]+",
-    "https?://music%.youtube%.com/playlist%?list=[%w%-]+",
-    "https?://music%.youtube%.com/playlist%?list=[%w%-]+",
-    "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+",
-    "https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+",
-    "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+",
-    "https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"
+    ["https?://music%.youtube%.com/watch%?v=[%w%-]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/playlist%?list=[%w%-]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytmsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"] = 'ytsearch'
   }
 
-  for _, value in pairs(check_list) do
-    -- p(query, value, string.match(query, value))
-    if string.match(query, value) then
-      return true
+  for link, additionalData in pairs(check_list) do
+    if string.match(query, link) then
+      return true, additionalData
     end
   end
 
-  return false
+  return false, nil
 end
 
 function YouTube:checkURLType(inp_url, src_type)
@@ -249,12 +252,12 @@ end
 
 
 function YouTube:loadForm(query, src_type)
-  self._luna.logger:debug('SoundCloud', 'Loading url: ' .. query)
+  self._luna.logger:debug('YouTube', 'Loading url: ' .. query)
 
   local config = self._luna.config
 
   if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'ANDROID')
+    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'WEB')
   end
 
   local url_type = self:checkURLType(query, src_type)

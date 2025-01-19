@@ -14,19 +14,27 @@ sources:
   maxSearchResults: 25
   maxAlbumPlaylistLength: 50
   youtube:
+    oauth:
+      # setting "enabled: true" is the bare minimum to get OAuth working.
+      enabled: false
+    clients:
+      - WEB
+      - ANDROID_MUSIC
+      - IOS
+      - TVHTML5EMBED 
     # Bypasses age-restricted videos. Uses unsafe methods (eval) to allow this to work. Enable at your own risk.
     bypassAgeRestriction: false
     # Authentication using accounts outside EU helps bypass numerous YouTube blocks. Enable at your own risk.
     authentication:
       # Takes priority over web
-      Android:
+      ANDROID:
         enabled: false
         # Available in YouTube app in Authorization header. Requires intercepting the app's requests.
         authorization: 'DISABLED'
         # Available in YouTube app in X-Goog-Visitor-Id header. Requires intercepting the app's requests.
         visitorId: 'DISABLED'
       # Not working.
-      web:
+      WEB:
         enabled: false
         # Available in YouTube website in Authorization header. Requires intercepting the website's requests.
         authorization: 'DISABLED'

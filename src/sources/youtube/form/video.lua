@@ -53,17 +53,17 @@ return function (source, query, src_type)
     isStream = video.videoDetails.isLive and true or false,
     position = 0,
     title = video.videoDetails.title,
-    uri =  string.format('https://%s/watch?v=%s', source:getBaseHost(src_type), video.videoDetails.videoId),
+    uri = string.format('https://%s/watch?v=%s', source:getBaseHost(src_type), video.videoDetails.videoId),
     artworkUrl = video.videoDetails.thumbnail.thumbnails[#video.videoDetails.thumbnail.thumbnails].url,
     isrc = nil,
-    sourceName = src_type
+    sourceName = src_type and 'ytmusic' or 'youtube'
   }
 
   source._luna.logger:debug(
     'YouTube',
     'Loaded track %s by %s from %s',
-    track.info.title,
-    track.info.author,
+    track.title,
+    track.author,
     query
   )
 

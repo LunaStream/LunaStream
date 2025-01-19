@@ -64,8 +64,8 @@ end
 function Sources:loadForm(link)
   self._luna.logger:info('SourceManager', 'Loading form for link: ' .. link)
   for _, src in pairs(self._source_avaliables) do
-    local isLinkMatch = src:isLinkMatch(link)
-    if isLinkMatch then return src:loadForm(link) end
+    local isLinkMatch, additionalData = src:isLinkMatch(link)
+    if isLinkMatch then return src:loadForm(link, additionalData) end
   end
 
   self._luna.logger:error('SourceManager', 'Link invalid or not avaliable!')

@@ -45,28 +45,22 @@ return function (source, query, src_type)
     )
   end
 
-  if playlist.playabilityStatus.status ~= 'OK' then
-    local errorMessage = playlist.playabilityStatus.reason or playlist.playabilityStatus.messages[1]
-    source._luna.logger:error('Youtube', errorMessage)
-    return source:buildError(
-      playlist.error.message,
-      "common", errorMessage
-    )
-  end
-
   local contentsRoot = nil
+
   if config.sources.youtube.bypassAgeRestriction then
     contentsRoot = playlist.contents.singleColumnWatchNextResults.playlist
   else
-    contentsRoot = (src_type == 'ytmsearch')
-      and playlist.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs[1].tabRenderer.content.musicQueueRenderer
-      or playlist.contents.singleColumnWatchNextResults
+    if src_type == 'ytmsearch' then
+      contentsRoot = playlist.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs[1].tabRenderer.content.musicQueueRenderer
+    else
+      contentsRoot = playlist.contents.twoColumnWatchNextResults
+    end
   end
 
-  if not (
-    (src_type == 'ytmsearch' and not config.search.sources.youtube.bypassAgeRestriction)
+  local checker = (src_type == 'ytmsearch' and not config.search.sources.youtube.bypassAgeRestriction)
     and contentsRoot.content or contentsRoot
-  ) then
+
+  if not checker then
     source._luna.logger:debug('Youtube', 'No matches found.')
     return {
       loadType = 'empty',
@@ -109,7 +103,7 @@ return function (source, query, src_type)
     local videoLength = 0
 
     if video.lengthText then
-      local timeParts = split(video.lengthText.runs[1].text, ":")
+      local timeParts = split(video.lengthText.simpleText, ":")
       local minutes = tonumber(timeParts[1]) or 0
       local seconds = tonumber(timeParts[2]) or 0
       videoLength = (minutes * 60 + seconds) * 1000
@@ -122,7 +116,7 @@ return function (source, query, src_type)
       length = videoLength,
       isStream = false,
       position = 0,
-      title = video.title.runs[1].text,
+      title = video.title.simpleText,
       uri =  string.format('https://%s/watch?v=%s', source:getBaseHost(src_type), video.videoId),
       artworkUrl = video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url:match("([^?]+)"),
       isrc = nil,

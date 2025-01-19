@@ -4,13 +4,9 @@ local YouTubeClientManager, get = class('YouTubeClientManager')
 
 function YouTubeClientManager:__init(luna)
   self._luna = luna
-  self._avaliableClients = {
-    ['ANDROID'] = {},
-    ['ANDROID_MUSIC'] = {},
-    ['IOS'] = {},
-    ['TVHTML5EMBED'] = {}
-  }
+  self._avaliableClients = {}
   self._ytContext = {}
+  self._currentClient = ''
 end
 
 function get:ytContext()
@@ -21,12 +17,12 @@ function get:additionalHeaders()
   local config = self._luna.config
   local additionalHeaders = {}
 
-  if config.sources.youtube.authentication.Android.enabled then
+  if config.sources.youtube.authentication.ANDROID.enabled then
     additionalHeaders = {
       { 'Authorization', 'Bearer' .. config.sources.youtube.authentication.Android.authorization },
       { 'X-Goog-Visitor-Id', config.sources.youtube.authentication.Android.visitorId }
     }
-  elseif (config.sources.youtube.authentication.web.enabled) then
+  elseif (config.sources.youtube.authentication.WEB.enabled) then
     -- TODO: Port https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/extractor/youtube.py#L105-L262 to Node.js
     additionalHeaders = {
       { 'Authorization', config.sources.youtube.authentication.web.authorization },
@@ -47,7 +43,7 @@ function YouTubeClientManager:setup()
 end
 
 function YouTubeClientManager:buildClientData()
-  for clientName, _ in pairs(self._avaliableClients) do
+  for _, clientName in pairs(self._luna.config.sources.youtube.clients) do
     local clientData = require('./clients/' .. clientName)
     self._avaliableClients[clientName] = clientData
     self._luna.logger:debug('YouTubeClientManager', 'Client [%s] registered!', clientName)
@@ -64,6 +60,7 @@ function YouTubeClientManager:buildContext()
       clientName = 'ANDROID',
       clientVersion = '19.47.41',
     }
+    self._currentClient = 'ANDROID'
   end
 
   -- Add common fields for 'client'
@@ -78,6 +75,7 @@ function YouTubeClientManager:buildContext()
     self._ytContext.client.clientName = 'TVHTML5_SIMPLY_EMBEDDED_PLAYER'
     self._ytContext.client.clientVersion = '2.0'
     self._ytContext.client.userAgent = 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0'
+    self._currentClient = 'TVHTML5EMBED'
   end
 end
 
@@ -86,10 +84,12 @@ function YouTubeClientManager:switchClient(clientName)
     self._luna.logger:error('YouTubeClientManager', 'Client %s not found!', clientName)
     return false
   end
+  if self._currentClient == clientName then return end
   self._luna.logger:debug('YouTubeClientManager', 'Switch to client: ' .. clientName)
-  for key, value in pairs(self._avaliableClients[clientName]) do
-    self._ytContext[key] = value
+  for key, value in pairs(self._avaliableClients[clientName].additionalContexts) do
+    self._ytContext.client[key] = value
   end
+  self._currentClient = clientName
 end
 
 return YouTubeClientManager
