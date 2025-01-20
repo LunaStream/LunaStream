@@ -72,8 +72,7 @@ function YouTubeClientManager:setup()
 end
 
 function YouTubeClientManager:buildClientData()
-  for _, clientName in pairs(self._luna.config.sources.youtube.clients) do
-    local clientData = self._avaliableClients[clientName]
+  for clientName, clientData in pairs(self._avaliableClients) do
     if clientData then
       self._luna.logger:debug('YouTubeClientManager', 'Client [%s] registered!', clientName)
     else

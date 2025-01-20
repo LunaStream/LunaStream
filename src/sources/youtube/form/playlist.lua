@@ -53,7 +53,7 @@ return function (source, query, src_type)
     if src_type == 'ytmsearch' then
       contentsRoot = playlist.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs[1].tabRenderer.content.musicQueueRenderer
     else
-      contentsRoot = playlist.contents.twoColumnWatchNextResults
+      contentsRoot = playlist.contents.singleColumnWatchNextResults
     end
   end
 
@@ -103,7 +103,7 @@ return function (source, query, src_type)
     local videoLength = 0
 
     if video.lengthText then
-      local timeParts = split(video.lengthText.simpleText, ":")
+      local timeParts = split(video.lengthText.runs[1].text, ":")
       local minutes = tonumber(timeParts[1]) or 0
       local seconds = tonumber(timeParts[2]) or 0
       videoLength = (minutes * 60 + seconds) * 1000
