@@ -58,7 +58,7 @@ return function(query, src_type, youtube)
     }
   end
 
-  local contentsRoot = src_type == "ytmusic"
+  local contentsRoot = src_type == "ytmsearch"
     and data.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs[0].tabRenderer.content.musicQueueRenderer
     or data.contents.singleColumnWatchNextResults
 
@@ -69,13 +69,13 @@ return function(query, src_type, youtube)
     }
   end
 
-  local playlistName = src_type == "ytmusic"
+  local playlistName = src_type == "ytmsearch"
     and data.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs[0].tabRenderer.content.musicQueueRenderer.playlist.playlist.title
     or data.contents.singleColumnWatchNextResults.playlist.playlist.title
 
   playlistName = playlistName or "Unknown Playlist"
 
-  local playlistContent = src_type == "ytmusic" and contentsRoot.contents or contentsRoot.playlist.playlist.contents
+  local playlistContent = src_type == "ytmsearch" and contentsRoot.contents or contentsRoot.playlist.playlist.contents
 
   if not playlistContent then
     return {

@@ -21,14 +21,14 @@ function YouTube:setup()
   return self
 end
 function YouTube:baseHostRequest(src_type)
-  if src_type == "ytmusic" then 
+  if src_type == "ytmsearch" then 
     return "music.youtube.com"
   else 
     return "youtubei.googleapis.com"
   end
 end
 function YouTube:search(query, src_type)
-  if src_type == "ytmusic" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if src_type == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
   if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
   self._luna.logger:debug('YouTube', 'Searching: ' .. query)
 
@@ -58,7 +58,7 @@ function YouTube:search(query, src_type)
   
   local videos
   local baseUrl
-  if type == "ytmusic" then
+  if type == "ytmsearch" then
     videos = data.contents.tabbedSearchResultsRenderer.tabs[1].tabRenderer.content.musicSplitViewRenderer.mainContent.sectionListRenderer.contents[0].musicShelfRenderer.contents
   else
     videos = data.contents.sectionListRenderer.contents[#data.contents.sectionListRenderer.contents].itemSectionRenderer.contents
@@ -67,7 +67,7 @@ function YouTube:search(query, src_type)
   if #videos > config.sources.maxSearchResults then
     videos = { unpack(videos, 1, config.sources.maxSearchResults) }
   end
-  if src_type == "ytmusic" then
+  if src_type == "ytmsearch" then
     baseUrl = "music.youtube.com"
   else
     baseUrl = "youtube.com"
@@ -80,7 +80,7 @@ function YouTube:search(query, src_type)
       local length
       local thumbnails
   
-      if type == "ytmusic" then
+      if type == "ytmsearch" then
         identifier = video.navigationEndpoint.watchEndpoint.videoId
         length = video.subtitle and video.subtitle.runs[3] and video.subtitle.runs[3].text or video.lengthText and video.lengthText.runs[1] and video.lengthText.runs[1].text
         thumbnails = video.thumbnail and video.thumbnail.musicThumbnailRenderer and video.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails or video.thumbnail.thumbnails
@@ -137,6 +137,7 @@ function YouTube:search(query, src_type)
 end
 
 function YouTube:checkURLType(inp_url, src_type)
+  
   local patterns = {
     ytmsearch = {
       video = "https?://music%.youtube%.com/watch%?v=[%w%-]+",
@@ -150,7 +151,7 @@ function YouTube:checkURLType(inp_url, src_type)
       shorts = "https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"
     }
   }
-
+  print(src_type)
   local selectedPatterns = patterns[src_type] or patterns.default
 
   if string.match(inp_url, selectedPatterns.selectedVideo) or string.match(inp_url, selectedPatterns.playlist) then
@@ -167,17 +168,18 @@ end
 
 function YouTube:isLinkMatch(query)
   local check_list = {
-    ["https?://music%.youtube%.com/watch%?v=[%w%-]+"] = 'ytmsearch',
-    ["https?://music%.youtube%.com/playlist%?list=[%w%-]+"] = 'ytmsearch',
-    ["https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytmsearch',
-    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+"] = 'ytsearch',
-    ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+"] = 'ytsearch',
-    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytsearch',
-    ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"] = 'ytsearch'
-  }
+    ["https?://music%.youtube%.com/watch%?v=[%w%-_]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/playlist%?list=[%w%-_]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/watch%?v=[%w%-_]+&list=[%w%-_]+"] = 'ytmsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-_]+&list=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-_]+"] = 'ytsearch'
+}
 
   for link, additionalData in pairs(check_list) do
     if string.match(query, link) then
+      print('Matched link: ' .. link)
       return true, additionalData
     end
   end
@@ -186,10 +188,10 @@ function YouTube:isLinkMatch(query)
 end
 
 function YouTube:loadForm(query, src_type)
-  if src_type == "ytmusic" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if src_type == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
   if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
 
-  local urlType = self:checkURLType(query)
+  local urlType = self:checkURLType(query, src_type)
 
   local formFile = urlType == "video" and "video.lua" or 
                    urlType == "playlist" and "playlist.lua" or 
@@ -218,7 +220,7 @@ end
 
 
 function YouTube:loadStream(track)
-  if track.sourceName == "ytmusic" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if track.sourceName == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
   if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
 
   self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
