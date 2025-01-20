@@ -4,7 +4,36 @@ local YouTubeClientManager, get = class('YouTubeClientManager')
 
 function YouTubeClientManager:__init(luna)
   self._luna = luna
-  self._avaliableClients = {}
+  self._avaliableClients = {
+    ANDROID = {
+      additionalContexts = {
+        clientName = 'ANDROID',
+        clientVersion = '19.47.41',
+        userAgent = 'com.google.android.youtube/19.47.41 (Linux; U; Android 14 gzip)',
+        deviceMake = 'Google',
+        deviceModel = 'Pixel 6',
+        osName = 'Android',
+        osVersion = '14',
+        hl = 'en',
+        gl = 'US',
+        utcOffsetMinutes = 0,
+      },
+    },
+    IOS = {
+      additionalContexts = {
+        clientName = 'IOS',
+        clientVersion = '19.47.7',
+        userAgent = 'com.google.ios.youtube/19.47.7 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+        deviceMake = 'Apple',
+        deviceModel = 'iPhone16,2',
+        osName = 'iPhone',
+        osVersion = '17.5.1.21F90',
+        hl = 'en',
+        gl = 'US',
+        utcOffsetMinutes = 0,
+      },
+    },
+  }
   self._ytContext = {}
   self._currentClient = ''
 end
@@ -44,39 +73,17 @@ end
 
 function YouTubeClientManager:buildClientData()
   for _, clientName in pairs(self._luna.config.sources.youtube.clients) do
-    local clientData = require('./clients/' .. clientName)
-    self._avaliableClients[clientName] = clientData
-    self._luna.logger:debug('YouTubeClientManager', 'Client [%s] registered!', clientName)
+    local clientData = self._avaliableClients[clientName]
+    if clientData then
+      self._luna.logger:debug('YouTubeClientManager', 'Client [%s] registered!', clientName)
+    else
+      self._luna.logger:warn('YouTubeClientManager', 'Client [%s] not found in available clients!', clientName)
+    end
   end
 end
 
 function YouTubeClientManager:buildContext()
-  -- Check if bypassAgeRestriction is true or false
-  if self._luna.config.sources.youtube.bypassAgeRestriction then
-    self._ytContext.thirdParty = { embedUrl = 'https://www.youtube.com' }
-  else
-    self._ytContext.client = {
-      userAgent = 'com.google.android.youtube/19.47.41 (Linux; U; Android 14 gzip)',
-      clientName = 'ANDROID',
-      clientVersion = '19.47.41',
-    }
-    self._currentClient = 'ANDROID'
-  end
-
-  -- Add common fields for 'client'
-  self._ytContext.client = self._ytContext.client or {}
-  self._ytContext.client.screenDensityFloat = 1
-  self._ytContext.client.screenHeightPoints = 1080
-  self._ytContext.client.screenPixelDensity = 1
-  self._ytContext.client.screenWidthPoints = 1920
-
-  -- Add the alternative client configuration if bypassAgeRestriction is false
-  if not self._luna.config.sources.youtube.bypassAgeRestriction then
-    self._ytContext.client.clientName = 'TVHTML5_SIMPLY_EMBEDDED_PLAYER'
-    self._ytContext.client.clientVersion = '2.0'
-    self._ytContext.client.userAgent = 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0'
-    self._currentClient = 'TVHTML5EMBED'
-  end
+  self:switchClient('ANDROID')
 end
 
 function YouTubeClientManager:switchClient(clientName)
@@ -84,11 +91,17 @@ function YouTubeClientManager:switchClient(clientName)
     self._luna.logger:error('YouTubeClientManager', 'Client %s not found!', clientName)
     return false
   end
+
   if self._currentClient == clientName then return end
-  self._luna.logger:debug('YouTubeClientManager', 'Switch to client: ' .. clientName)
-  for key, value in pairs(self._avaliableClients[clientName].additionalContexts) do
+
+  self._luna.logger:debug('YouTubeClientManager', 'Switching to client: ' .. clientName)
+  local clientData = self._avaliableClients[clientName].additionalContexts
+
+  for key, value in pairs(clientData) do
+    self._ytContext.client = self._ytContext.client or {}
     self._ytContext.client[key] = value
   end
+
   self._currentClient = clientName
 end
 

@@ -18,10 +18,8 @@ sources:
       # setting "enabled: true" is the bare minimum to get OAuth working.
       enabled: false
     clients:
-      - WEB
-      - ANDROID_MUSIC
+      - ANDROID
       - IOS
-      - TVHTML5EMBED 
     # Bypasses age-restricted videos. Uses unsafe methods (eval) to allow this to work. Enable at your own risk.
     bypassAgeRestriction: false
     # Authentication using accounts outside EU helps bypass numerous YouTube blocks. Enable at your own risk.

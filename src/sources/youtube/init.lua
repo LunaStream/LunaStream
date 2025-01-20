@@ -38,11 +38,7 @@ function YouTube:search(query, src_type)
   self._luna.logger:debug('Youtube', 'Searching: ' .. query)
 
   if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'TVHTML5EMBED')
-  end
-
-  if self._clientManager._currentClient == 'WEB' then
-    self._clientManager:switchClient('TVHTML5EMBED')
+    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'ANDROID')
   end
 
   local response, search = http.request(
@@ -257,7 +253,7 @@ function YouTube:loadForm(query, src_type)
   local config = self._luna.config
 
   if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'WEB')
+    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'IOS')
   end
 
   local url_type = self:checkURLType(query, src_type)
