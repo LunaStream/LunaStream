@@ -217,7 +217,105 @@ function YouTube:loadForm(query, src_type)
 end
 
 
-function YouTube:loadStream(track, additionalData)
+function YouTube:loadStream(track)
+  if track.sourceName == "ytmusic" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
+
+  self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
+
+  local response, data = http.request(
+    "POST",
+    string.format("https://%s/youtubei/v1/player", self:baseHostRequest(track.info.sourceName)),
+    {
+      { "User-Agent", self._clientManager.ytContext.client.userAgent },
+      { "X-GOOG-API-FORMAT-VERSION", "2" }
+    },
+    json.encode({
+      context = self._clientManager.ytContext,
+      videoId = track.info.identifier,
+      contentCheckOk = true,
+      racyCheckOk = true
+    })
+)
+  if response.code ~= 200 then
+    self._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, track.uri)
+    return self:buildError(
+      "Server response error: " .. response.code,
+      "fault", "YouTube Source"
+    )
+  end
+  
+  if not data then
+    return {
+      exception = {
+        message = "No data received from server.",
+        severity = "common",
+        cause = "Unknown"
+      }
+    }
+  end
+
+  data = json.decode(data)
+
+  if data.playabilityStatus.status ~= "OK" then
+    self:buildError(
+      "Video is not available",
+      "fault", "YouTube Source"
+    )
+
+    return {
+      loadType = "error",
+      data = {},
+      error = {
+        message = "Video is not available",
+        severity = "fault",
+        domain = "YouTube Source",
+        more = data
+      }
+    }
+  end
+
+  local audio = nil
+
+  local qualityOrder = { "audio/webm; codecs=\"opus\"", "audio/mp4" }
+  
+  for _, mimeType in ipairs(qualityOrder) do
+    for _, format in ipairs(data.streamingData.adaptiveFormats) do
+      if format.mimeType == mimeType then
+        if not audio or (format.audioQuality and format.audioQuality > (audio.audioQuality or "")) then
+          audio = format
+        end
+      end
+    end
+  end
+  
+  if not audio then
+    for _, format in ipairs(data.streamingData.adaptiveFormats) do
+      if format.mimeType:find("audio/") then
+        audio = format
+        break
+      end
+    end
+  end
+  
+  if not audio then
+    return {
+      exception = {
+        message = "No suitable audio format found.",
+        severity = "common",
+        cause = "Unknown"
+      }
+    }
+  end
+  
+  local url = audio.url or audio.signatureCipher or audio.cipher
+  url = string.format("%s&rn=1&cpn=%s&ratebypass=yes&range=0-", url, string.sub("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", math.random(1, 62), math.random(1, 62)))
+  
+  return {
+    url = url,
+    format = "webm/opus",
+    protocol = "http",
+  }
 end
 
 return YouTube
