@@ -15,12 +15,6 @@ sources:
   maxSearchResults: 25
   maxAlbumPlaylistLength: 50
   youtube:
-    oauth:
-      # setting "enabled: true" is the bare minimum to get OAuth working.
-      enabled: false
-    clients:
-      - ANDROID
-      - IOS
     # Bypasses age-restricted videos. Uses unsafe methods (eval) to allow this to work. Enable at your own risk.
     bypassAgeRestriction: false
     # Authentication using accounts outside EU helps bypass numerous YouTube blocks. Enable at your own risk.
