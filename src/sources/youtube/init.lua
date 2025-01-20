@@ -128,23 +128,94 @@ function YouTube:search(query, src_type)
       loadType = "empty",
       data = {}
     }
-
   end
 
   return {
     loadType = "search",
     data = tracks
   }
+end
 
+function YouTube:checkURLType(inp_url, src_type)
+  local patterns = {
+    ytmsearch = {
+      video = "https?://music%.youtube%.com/watch%?v=[%w%-]+",
+      playlist = "https?://music%.youtube%.com/playlist%?list=[%w%-]+",
+      selectedVideo = "https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"
+    },
+    default = {
+      video = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+",
+      playlist = "https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+",
+      selectedVideo = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+",
+      shorts = "https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"
+    }
+  }
+
+  local selectedPatterns = patterns[src_type] or patterns.default
+
+  if string.match(inp_url, selectedPatterns.selectedVideo) or string.match(inp_url, selectedPatterns.playlist) then
+    return 'playlist'
+  elseif src_type ~= 'ytmsearch' and string.match(inp_url, selectedPatterns.shorts) then
+    return 'shorts'
+  elseif string.match(inp_url, selectedPatterns.video) then
+    return 'video'
+  else
+    return 'invalid'
+  end
 end
 
 
+function YouTube:isLinkMatch(query)
+  local check_list = {
+    ["https?://music%.youtube%.com/watch%?v=[%w%-]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/playlist%?list=[%w%-]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytmsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"] = 'ytsearch'
+  }
 
-function YouTube:checkURLType(inp_url) 
+  for link, additionalData in pairs(check_list) do
+    if string.match(query, link) then
+      return true, additionalData
+    end
+  end
+
+  return false, nil
 end
 
 function YouTube:loadForm(query, src_type)
+  if src_type == "ytmusic" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
+
+  local urlType = self:checkURLType(query)
+
+  local formFile = urlType == "video" and "video.lua" or 
+                   urlType == "playlist" and "playlist.lua" or 
+                   urlType == "shorts" and "shorts.lua"
+
+  if formFile then
+    local form = require("./forms/" .. formFile)
+    return form(query, src_type, self)
+  else
+    self:buildError(
+      "Unknown URL type",
+      "fault", "YouTube Source"
+    )
+
+    return {
+      loadType = "error",
+      data = {},
+      error = {
+        message = "Unknown URL type",
+        severity = "fault",
+        source = "YouTube Source"
+      }
+    }
+  end
 end
+
 
 function YouTube:loadStream(track, additionalData)
 end
