@@ -97,7 +97,6 @@ function YouTube:search(query, src_type)
         lengthInSeconds = tonumber(minutes) * 60 + tonumber(seconds)
       end
     end
-      print(lengthInSeconds)
       local track = {
         identifier = identifier,
         isSeekable = true,
@@ -111,9 +110,7 @@ function YouTube:search(query, src_type)
         isrc = nil,
         sourceName = src_type
       }
-      for _, v in pairs(track) do
-        print(_, v)
-      end
+
       table.insert(tracks, {
         encoded = encoder(track),
         info = track,
