@@ -116,8 +116,8 @@ return function (source, query, src_type)
       length = videoLength,
       isStream = false,
       position = 0,
-      title = video.title.simpleText,
-      uri =  string.format('https://%s/watch?v=%s', source:getBaseHost(src_type), video.videoId),
+      title = video.title.runs[1].text,
+      uri = string.format('https://%s/watch?v=%s', source:getBaseHost(src_type), video.videoId),
       artworkUrl = video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url:match("([^?]+)"),
       isrc = nil,
       sourceName = 'youtube'

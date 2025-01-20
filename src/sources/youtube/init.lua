@@ -1,5 +1,7 @@
 local http = require("coro-http")
 local json = require("json")
+local urlp = require("url-param")
+local url = require("url")
 
 local AbstractSource = require('../abstract.lua')
 local YouTubeClientManager = require('./ClientManager.lua')
@@ -279,6 +281,66 @@ function YouTube:loadForm(query, src_type)
 end
 
 function YouTube:loadStream(track, additionalData)
+  local config = self._luna.config
+  local src_type = track.info.sourceName
+
+  if not config.sources.youtube.bypassAgeRestriction then
+    self._clientManager:switchClient(src_type == 'ytmusic' and 'ANDROID_MUSIC' or 'IOS')
+  end
+
+  local response, video = http.request(
+    "POST",
+    string.format('https://%s/youtubei/v1/player', self:getBaseHostRequest(src_type)), {},
+    json.encode({
+      context = self._ytContext,
+      videoId = track.info.identifier,
+      contentCheckOk = true,
+      racyCheckOk = true
+    })
+  )
+
+  if response.code ~= 200 then
+    self._luna.logger:error('Youtube', "Server response error: %s | On query: %s", response.code, track.info.identifier)
+    return self:buildError(
+      "Server response error: " .. response.code,
+      "fault", "YouTube Source"
+    )
+  end
+
+  video = json.decode(video)
+
+  if video.error then
+    self._luna.logger:error('Youtube', video.error.message)
+    return self:buildError(
+      video.error.message,
+      "fault", "YouTube Source"
+    )
+  end
+
+  if video.playabilityStatus.status ~= 'OK' then
+    local errorMessage = video.playabilityStatus.reason or video.playabilityStatus.messages[1]
+    self._luna.logger:error('Youtube', errorMessage)
+    return self:buildError(
+      errorMessage,
+      "common", "YouTube Source"
+    )
+  end
+
+  local itag_map = {
+    high = 251,
+    medium = 251,
+    low = 251,
+    lowest = 251,
+  }
+
+  local itag = 251
+  itag = itag_map[config.audio.quality]
+
+  local audio = table.find(video.streamingData.adaptiveFormats, function (format)
+    return format.itag == itag or string.match(format.mimeType, 'audio/')
+  end)
+
+  local stream_url = audio.url
 end
 
 return YouTube

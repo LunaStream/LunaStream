@@ -44,4 +44,10 @@ logger:
   request:
     enable: true
     withHeader: false
+
+audio:
+  quality: 'high'
+  encryption: 'aead_aes256_gcm_rtpsize'
+  # best, medium, fastest, zero order holder, linear
+  resamplingQuality: 'best'
 ]]
