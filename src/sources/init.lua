@@ -84,7 +84,6 @@ function Sources:loadStream(encodedTrack)
   local track = decoder(encodedTrack)
   local getSourceName = self._search_avaliables[track.info.sourceName]
   local getSrc = self._source_avaliables[getSourceName]
-  print(self._source_avaliables[track.info.sourceName])
   if not getSrc then
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {
