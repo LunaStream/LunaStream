@@ -57,7 +57,7 @@ function Voice:__init(options)
   }
 
   self._hbInterval = nil
-  self._seq_ack = nil
+  self._seq_ack = -1
   self._udp = nil
   self._udpInfo = {
     ssrc = NULL,
@@ -95,8 +95,10 @@ function Voice:connect(cb, reconnect)
     self._ws:close(1000, 'Normal close')
   end
 
+  local uri = sf('wss://%s/?v=8', self._voiceServer.endpoint)
+
   self._ws = WebSocket({
-    url = sf('wss://%s/?v=4', self._voiceServer.endpoint),
+    url = uri,
     headers = {
       { 'User-Agent', 'DiscordBot (https://github.com/SinisterRectus/Discordia/tree/master/libs/voice, 2.13.0)' }
     }
@@ -136,16 +138,16 @@ function Voice:connect(cb, reconnect)
     local closeCode = DISCORD_CLOSE_CODES[code]
 
     if closeCode and closeCode.reconnect then
-      self:_destroyConnection(code, reason)
+      self:destroyConnection(code, reason)
 
-      self:_updatePlayerState({ status = 'idle', reason  'reconnecting' })
+      self:updatePlayerState({ status = 'idle', reason  'reconnecting' })
 
       self:connect(function ()
         -- TODO: Dummy
         -- if self._audioStream then self:unpause('reconnected') end
       end, true)
     else
-      self:_destroy({ status = 'disconnected', reason = 'closed', code, closeReason = reason }, false)
+      self:destroy({ status = 'disconnected', reason = 'closed', code, closeReason = reason }, false)
       return;
     end
   end)
@@ -167,8 +169,8 @@ function Voice:handleMessage(cb, payload)
   elseif payload.op == DESCRIPTION then
     self._udpInfo.secretKey = payload.d.secret_key
     if cb then cb() end
-    self:_updateState({ status = 'connected' })
-    self:_updatePlayerState({ status = 'idle', reason = 'connected' })
+    self:updateState({ status = 'connected' })
+    self:updatePlayerState({ status = 'idle', reason = 'connected' })
   elseif payload.op == HEARTBEAT_ACK then
     self._heartbeat_ack = payload.d
   elseif payload.op == SPEAKING then
@@ -178,15 +180,7 @@ function Voice:handleMessage(cb, payload)
     }
     self:emit('speakStart', payload.d.user_id, payload.d.ssrc)
   elseif payload.op == HELLO then
-    self._hbInterval = setInterval(payload.d.heartbeat_interval, function ()
-      coroutine.wrap(self._ws.send)(self._ws, {
-        op = HEARTBEAT,
-        d = {
-          t = os.time(),
-          seq_ack = self._seq_ack
-        }
-      })
-    end)
+    self:startHeartbeat(payload.d.heartbeat_interval)
   end
 
 end
@@ -199,109 +193,69 @@ function Voice:handleReady(payload)
   self._udp = dgram.createSocket('udp4')
 
   self._udp:on('message', function (data)
-
+    self:emit('rawudp', data)
   end)
 
-  --       if (data.length <= 8) return;
+  self._udp:on('error', function (err)
+    self:emit('error', err)
+  end)
 
-  --       const ssrc = data.readUInt32BE(8)
-  --       const userData = ssrcs[ssrc]
+  -- self._udp:bind(self._udpInfo.port, self._udpInfo.ip)
 
-  --       if (!userData || !this.udpInfo.secretKey) return;
-
-  --       data.copy(this.nonceBuffer, 0, data.length - UNPADDED_NONCE_LENGTH)
-
-  --       let headerSize = 12
-  --       const first = data.readUint8()
-  --       if ((first >> 4) & 0x01) headerSize += 4
-
-  --       const header = data.subarray(0, headerSize)
-
-  --       const encrypted = data.subarray(headerSize, data.length - AUTH_TAG_LENGTH - UNPADDED_NONCE_LENGTH)
-  --       const authTag = data.subarray(
-  --         data.length - AUTH_TAG_LENGTH - UNPADDED_NONCE_LENGTH,
-  --         data.length - UNPADDED_NONCE_LENGTH
-  --       )
-
-  --       let packet = null
-  --       switch (this.encryption) {
-  --         case 'aead_aes256_gcm_rtpsize': {
-  --           const decipheriv = crypto.createDecipheriv('aes-256-gcm', this.udpInfo.secretKey, this.nonceBuffer)
-  --           decipheriv.setAAD(header)
-  --           decipheriv.setAuthTag(authTag)
-    
-  --           packet = Buffer.concat([ decipheriv.update(encrypted), decipheriv.final() ])
-  --         }
-  --         case 'aead_xchacha20_poly1305_rtpsize': {
-  --           packet = Buffer.from(
-  --             Sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
-  --               Buffer.concat([ encrypted, authTag ]),
-  --               header,
-  --               this.nonceBuffer,
-  --               this.udpInfo.secretKey
-  --             )
-  --           )
-  --         }
-  --       }
-
-  --       if (data.subarray(12, 14).compare(HEADER_EXTENSION_BYTE) === 0) {
-  --         const headerExtensionLength = data.subarray(14).readUInt16BE()
-  --         packet = packet.subarray(4 * headerExtensionLength)
-  --       }
-
-  --       if (packet.compare(OPUS_SILENCE_FRAME) === 0) {
-  --         if (userData.stream._readableState.ended) return;
-
-  --         this.emit('speakEnd', userData.userId, ssrc)
-
-  --         userData.stream.push(null)
-  --       } else {
-  --         if (userData.stream._readableState.ended) {
-  --           userData.stream = new PassThrough()
-
-  --           this.emit('speakStart', userData.userId, ssrc)
-  --         }
-
-  --         userData.stream.write(packet)
-  --       }
-  --     })
-
-    -- self._udp.on('error', function (err)
-    --   self:emit('error', err)
-    -- end)
-
-    -- self._udp.on('close', () => {
-    --   if (!this.ws) return;
-    --   this._destroy({ status: 'disconnected' })
-    -- })
+  -- self:ipDiscovery()
 
   --     const serverInfo = await this._ipDiscovery()
 
-  -- self._ws:send({
-  --   op = SELECT_PROTOCOL,
-  --   d = {
-  --     protocol = 'udp',
-  --     data = {
-  --       address = serverInfo.ip,
-  --       port = serverInfo.port,
-  --       mode = self._encryption
-  --     }
-  --   }
-  -- })
+  self._ws:send({
+    op = SELECT_PROTOCOL,
+    d = {
+      protocol = 'udp',
+      data = {
+        address = self._udpInfo.ip,
+        port = self._udpInfo.port,
+        mode = self._encryption
+      }
+    }
+  })
 end
 
-function Voice:_updateState(state)
+local function loop(self)
+	return coroutine.wrap(self.heartbeat)(self)
+end
+
+function Voice:startHeartbeat(interval)
+	if self._hbInterval then
+		clearInterval(self._hbInterval)
+	end
+	self._hbInterval = setInterval(interval, loop, self)
+end
+
+function Voice:stopHeartbeat()
+	if self._hbInterval then
+		clearInterval(self._hbInterval)
+	end
+	self._hbInterval = nil
+end
+
+function Voice:heartbeat()
+  return self._ws:send({
+    op = HEARTBEAT,
+    d = os.time() * 1000
+  })
+end
+
+function Voice:updateState(state)
   self:emit('stateChange', self._state, state)
   self._state = state
 end
 
-function Voice:_updatePlayerState(state)
-  self._emit('playerStateChange', self._playerState, state)
+function Voice:updatePlayerState(state)
+  self:emit('playerStateChange', self._playerState, state)
   self._playerState = state
 end
 
-function Voice:_destroy(state, destroyStream)
-  self:_destroyConnection(1000, 'Normal closure')
+function Voice:destroy(state, destroyStream)
+  self:destroyConnection(1000, 'Normal closure')
 
   self._udpInfo = nil
   self._voiceServer = nil
@@ -313,11 +267,11 @@ function Voice:_destroy(state, destroyStream)
     self._audioStream = nil
   end
 
-  self:_updateState(state)
-  self:_updatePlayerState({ status = 'idle', reason = 'destroyed' })
+  self:updateState(state)
+  self:updatePlayerState({ status = 'idle', reason = 'destroyed' })
 end
 
-function Voice:_destroyConnection(code, reason)
+function Voice:destroyConnection(code, reason)
   if self._hbInterval then
     clearInterval(self._hbInterval)
     self._hbInterval = nil
@@ -347,8 +301,40 @@ function Voice:_destroyConnection(code, reason)
   end
 end
 
-function Voice:_ipDiscovery()
-  return nil
+function Voice:ipDiscovery()
+
+  local discoveryBuffer = buffer.Buffer:new(74)
+
+  discoveryBuffer:writeUInt16BE(1, 1)
+  discoveryBuffer:writeUInt16BE(2, 70)
+  discoveryBuffer:writeUInt32BE(4, self._udpInfo.ssrc)
+
+  self:udpSend(discoveryBuffer)
+
+  local message = self:waitFor('rawudp', 20000)
+
+  -- local data = message:readUInt16BE(0)
+  -- if data ~= 2 then return end
+  -- local packet = buffer.Buffer:new(message)
+
+  -- local res = {
+  --   ip = packet.subarray(8, packet.indexOf(0, 8)).toString('utf8'),
+  --   port = packet:readUInt16BE(packet.length - 2)
+  -- }
+
+  -- p(res)
+
+  -- return res
+end
+
+function Voice:udpSend(data, cb)
+  if not cb then
+    cb = function (err)
+      if err then self:emit('error', err) end
+    end
+  end
+
+  self._udp:send(data, self._udpInfo.port, self._udpInfo.ip, cb)
 end
 
 function Voice:voiceStateUpdate(obj)
