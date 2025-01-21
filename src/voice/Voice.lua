@@ -1,9 +1,9 @@
 local class = require('class')
 local json = require('json')
 local timer = require('timer')
-local dgram = require('dgram')
 local buffer = require('buffer')
 local stream = require('stream')
+local uv = require('uv')
 
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
@@ -95,7 +95,7 @@ function Voice:connect(cb, reconnect)
     self._ws:close(1000, 'Normal close')
   end
 
-  local uri = sf('wss://%s/?v=8', self._voiceServer.endpoint)
+  local uri = sf('wss://%s/?v=7', self._voiceServer.endpoint)
 
   self._ws = WebSocket({
     url = uri,
@@ -174,7 +174,7 @@ function Voice:handleMessage(cb, payload)
   elseif payload.op == HEARTBEAT_ACK then
     self._heartbeat_ack = payload.d
   elseif payload.op == SPEAKING then
-    self._ssrc[payload.d.ssrc] = {
+    self._ssrcs[payload.d.ssrc] = {
       userId = payload.d.user_id,
       stream = stream.PassThrough:new()
     }
@@ -189,45 +189,21 @@ function Voice:handleReady(payload)
   self._udpInfo.ssrc = payload.d.ssrc
   self._udpInfo.ip = payload.d.ip
   self._udpInfo.port = payload.d.port
-
-  self._udp = dgram.createSocket('udp4')
-
-  self._udp:on('message', function (data)
-    self:emit('rawudp', data)
-  end)
-
-  self._udp:on('error', function (err)
-    self:emit('error', err)
-  end)
-
-  -- self._udp:bind(self._udpInfo.port, self._udpInfo.ip)
-
-  -- self:ipDiscovery()
-
-  --     const serverInfo = await this._ipDiscovery()
-
-  self._ws:send({
-    op = SELECT_PROTOCOL,
-    d = {
-      protocol = 'udp',
-      data = {
-        address = self._udpInfo.ip,
-        port = self._udpInfo.port,
-        mode = self._encryption
-      }
-    }
-  })
-end
-
-local function loop(self)
-	return coroutine.wrap(self.heartbeat)(self)
+  self:handshake()
 end
 
 function Voice:startHeartbeat(interval)
 	if self._hbInterval then
 		clearInterval(self._hbInterval)
 	end
-	self._hbInterval = setInterval(interval, loop, self)
+	self._hbInterval = setInterval(interval - 1000, function ()
+    coroutine.wrap(function ()
+      self._ws:send({
+        op = HEARTBEAT,
+        d = os.time()
+      })
+    end)()
+  end, self)
 end
 
 function Voice:stopHeartbeat()
@@ -235,13 +211,6 @@ function Voice:stopHeartbeat()
 		clearInterval(self._hbInterval)
 	end
 	self._hbInterval = nil
-end
-
-function Voice:heartbeat()
-  return self._ws:send({
-    op = HEARTBEAT,
-    d = os.time() * 1000
-  })
 end
 
 function Voice:updateState(state)
@@ -293,48 +262,43 @@ function Voice:destroyConnection(code, reason)
     self._ws = nil
   end
 
-  if self._udp then
-    self._udp:close()
-    self._udp:removeAllListeners('message')
-    self._udp:removeAllListeners('error')
-    self._udp = nil
-  end
+  -- if self._udp then
+  --   self._udp:close()
+  --   self._udp:removeAllListeners('message')
+  --   self._udp:removeAllListeners('error')
+  --   self._udp = nil
+  -- end
 end
 
-function Voice:ipDiscovery()
-
-  local discoveryBuffer = buffer.Buffer:new(74)
-
-  discoveryBuffer:writeUInt16BE(1, 1)
-  discoveryBuffer:writeUInt16BE(2, 70)
-  discoveryBuffer:writeUInt32BE(4, self._udpInfo.ssrc)
-
-  self:udpSend(discoveryBuffer)
-
-  local message = self:waitFor('rawudp', 20000)
-
-  -- local data = message:readUInt16BE(0)
-  -- if data ~= 2 then return end
-  -- local packet = buffer.Buffer:new(message)
-
-  -- local res = {
-  --   ip = packet.subarray(8, packet.indexOf(0, 8)).toString('utf8'),
-  --   port = packet:readUInt16BE(packet.length - 2)
-  -- }
-
-  -- p(res)
-
-  -- return res
+function Voice:handshake()
+  self._udp = uv.new_udp()
+	self._udp:recv_start(function(err, data)
+		assert(not err, err)
+		self._udp:recv_stop()
+		local client_ip = string.unpack('xxxxxxxxz', data)
+		local client_port = string.unpack('<I2', data, -2)
+		return coroutine.wrap(self.selectProtocol)(self, client_ip, client_port)
+	end)
+	local packet = string.pack('>I2I2I4c64H', 0x1, 70,
+    self._udpInfo.ssrc,
+    self._udpInfo.ip,
+    self._udpInfo.port
+  )
+	return self._udp:send(packet, self._udpInfo.ip, self._udpInfo.port)
 end
 
-function Voice:udpSend(data, cb)
-  if not cb then
-    cb = function (err)
-      if err then self:emit('error', err) end
-    end
-  end
-
-  self._udp:send(data, self._udpInfo.port, self._udpInfo.ip, cb)
+function Voice:selectProtocol(address, port)
+  self._ws:send({
+    op = SELECT_PROTOCOL,
+    d = {
+      protocol = 'udp',
+      data = {
+        address = address,
+        port = port,
+        mode = self._encryption,
+      }
+    }
+  })
 end
 
 function Voice:voiceStateUpdate(obj)
