@@ -260,8 +260,6 @@ function Voice:handleReady(payload)
   })
 
   p(res.port, res.ip)
-
-  self._udp:bind(res.port, res.ip)
 end
 
 -- * Heartbeat to keep alive with discord
