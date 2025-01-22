@@ -6,10 +6,10 @@ local VoiceClass = Voice({
   encryption = "aead_aes256_gcm_rtpsize"
 })
 
-VoiceClass:voiceStateUpdate({ session_id = "b1cdc96e080db0a875c347d4634d8de1" })
+VoiceClass:voiceStateUpdate({ session_id = "3e6607188cfa4916955ec6b783f0f663" })
 VoiceClass:voiceServerUpdate(
-  'hongkong11065.discord.media:443',
-  "6c054d7e6cf68e0e"
+  'hongkong11101.discord.media:443',
+  "9ed7b2b5eb232de7"
 )
 
 VoiceClass:connect()

@@ -3,7 +3,7 @@ local json = require('json')
 local timer = require('timer')
 local buffer = require('buffer')
 local stream = require('stream')
-local uv = require('uv')
+local dgram = require('dgram')
 
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
@@ -90,17 +90,58 @@ function Voice:__init(options)
   self._audioStream = nil
 end
 
+-- * Useful methods
+function Voice:voiceStateUpdate(obj)
+  self._sessionId = obj.session_id
+end
+
+function Voice:voiceServerUpdate(endpoint, token)
+  self._voiceServer.token = token
+  self._voiceServer.endpoint = endpoint
+end
+
+function Voice:updateState(state)
+  self:emit('stateChange', self._state, state)
+  self._state = state
+end
+
+function Voice:updatePlayerState(state)
+  self:emit('playerStateChange', self._playerState, state)
+  self._playerState = state
+end
+
+-- * Internal methods
+function Voice:ipDiscovery()
+	local packet = string.pack('>I2I2I4c64H', 0x1, 70,
+    self._udpInfo.ssrc,
+    self._udpInfo.ip,
+    self._udpInfo.port
+  )
+
+  self._udp:send(packet, self._udpInfo.port, self._udpInfo.ip)
+
+  local success, data = self:waitFor('rawudp', 20000)
+
+  assert(success, data)
+
+	return {
+    ip = string.unpack('xxxxxxxxz', data),
+    port = string.unpack('<I2', data, -2)
+  }
+end
+
+-- * Main methods
 function Voice:connect(cb, reconnect)
   if self._ws then
     self._ws:close(1000, 'Normal close')
   end
 
-  local uri = sf('wss://%s/?v=7', self._voiceServer.endpoint)
+  local uri = sf('wss://%s/?v=8', self._voiceServer.endpoint)
 
   self._ws = WebSocket({
     url = uri,
     headers = {
-      { 'User-Agent', 'DiscordBot (https://github.com/SinisterRectus/Discordia/tree/master/libs/voice, 2.13.0)' }
+      { 'User-Agent', 'DiscordBot (https://github.com/LunaticSea/LunaStream)' }
     }
   })
 
@@ -159,6 +200,7 @@ function Voice:connect(cb, reconnect)
   self._ws:connect()
 end
 
+-- * Handling ws message
 function Voice:handleMessage(cb, payload)
   if payload.seq then
 		self._seq_ack = payload.seq
@@ -182,16 +224,47 @@ function Voice:handleMessage(cb, payload)
   elseif payload.op == HELLO then
     self:startHeartbeat(payload.d.heartbeat_interval)
   end
-
 end
 
+-- ! UDP still not working as expected may have to ask @ThePedroo
 function Voice:handleReady(payload)
   self._udpInfo.ssrc = payload.d.ssrc
   self._udpInfo.ip = payload.d.ip
   self._udpInfo.port = payload.d.port
-  self:handshake()
+
+  self._udp = dgram.createSocket('udp4')
+
+  self._udp:recvStart()
+
+  self._udp:on('message', function (msg, rinfo, flags)
+    print('[pdvoice]: Received data from UDP server with Discord.')
+    self:emit('rawudp', msg, rinfo, flags)
+  end)
+
+  self._udp:on('error', function (err)
+    p('Error: ', err)
+  end)
+
+  local res = self:ipDiscovery()
+
+  self._ws:send({
+    op = SELECT_PROTOCOL,
+    d = {
+      protocol = 'udp',
+      data = {
+        address = res.ip,
+        port = res.port,
+        mode = self._encryption,
+      }
+    }
+  })
+
+  p(res.port, res.ip)
+
+  self._udp:bind(res.port, res.ip)
 end
 
+-- * Heartbeat to keep alive with discord
 function Voice:startHeartbeat(interval)
 	if self._hbInterval then
 		clearInterval(self._hbInterval)
@@ -213,16 +286,7 @@ function Voice:stopHeartbeat()
 	self._hbInterval = nil
 end
 
-function Voice:updateState(state)
-  self:emit('stateChange', self._state, state)
-  self._state = state
-end
-
-function Voice:updatePlayerState(state)
-  self:emit('playerStateChange', self._playerState, state)
-  self._playerState = state
-end
-
+-- * Voice control
 function Voice:destroy(state, destroyStream)
   self:destroyConnection(1000, 'Normal closure')
 
@@ -268,46 +332,6 @@ function Voice:destroyConnection(code, reason)
   --   self._udp:removeAllListeners('error')
   --   self._udp = nil
   -- end
-end
-
-function Voice:handshake()
-  self._udp = uv.new_udp()
-	self._udp:recv_start(function(err, data)
-		assert(not err, err)
-		self._udp:recv_stop()
-		local client_ip = string.unpack('xxxxxxxxz', data)
-		local client_port = string.unpack('<I2', data, -2)
-		return coroutine.wrap(self.selectProtocol)(self, client_ip, client_port)
-	end)
-	local packet = string.pack('>I2I2I4c64H', 0x1, 70,
-    self._udpInfo.ssrc,
-    self._udpInfo.ip,
-    self._udpInfo.port
-  )
-	return self._udp:send(packet, self._udpInfo.ip, self._udpInfo.port)
-end
-
-function Voice:selectProtocol(address, port)
-  self._ws:send({
-    op = SELECT_PROTOCOL,
-    d = {
-      protocol = 'udp',
-      data = {
-        address = address,
-        port = port,
-        mode = self._encryption,
-      }
-    }
-  })
-end
-
-function Voice:voiceStateUpdate(obj)
-  self._sessionId = obj.session_id
-end
-
-function Voice:voiceServerUpdate(endpoint, token)
-  self._voiceServer.token = token
-  self._voiceServer.endpoint = endpoint
 end
 
 return Voice
