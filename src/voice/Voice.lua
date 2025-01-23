@@ -110,6 +110,7 @@ function Voice:__init(options)
 	if self._encryption == 'aead_xchacha20_poly1305_rtpsize' then
 		self._crypto = sodium.aead_xchacha20_poly1305
 	elseif self._encryption == 'aead_aes256_gcm_rtpsize' then
+    assert(sodium.aead_aes256_gcm, 'aead_aes256_gcm is not avaliable on your system')
 		self._crypto = sodium.aead_aes256_gcm
 	else
 		return error('unsupported encryption mode: ' .. self._mode)
@@ -200,7 +201,7 @@ function Voice:connect(cb, reconnect)
   end)
 
   self._ws:on('message', function (data)
-    print('[LunaStream WS Payload] ' .. data.payload)
+    print('[LunaStream / Voice | WS] ' .. data.payload)
     self:handleMessage(cb, data.json_payload)
   end)
 
@@ -270,7 +271,7 @@ function Voice:handleReady(ws_payload)
   self._udp:on('message', function (packet, rinfo, flags)
     self:emit('rawudp', packet, rinfo, flags)
 
-    print('[LunaStream UDP]: Received data from UDP server with Discord.')
+    print('[LunaStream / Voice | UDP]: Received data from UDP server with Discord.')
 
     if self._udp_first_time then
       self._udp_first_time = false
@@ -289,10 +290,10 @@ function Voice:handleReady(ws_payload)
     local has_extension = bit.band(first_byte, 0x10) == 0x10
     local num_csrc = bit.band(first_byte, 0x0F)
     if rtp_version ~= 2 then
-      print('[LunaStream UDP]: invalid RTP version')
+      print('[LunaStream / Voice | UDP]: invalid RTP version')
       return
     elseif payload_type ~= 0x78 then
-      print('[LunaStream UDP]: invalid payload type')
+      print('[LunaStream / Voice | UDP]: invalid payload type')
       return
     end
 
@@ -337,24 +338,21 @@ function Voice:handleReady(ws_payload)
     local decrypted_packet = ffi.string(message + extension_len, message_len - extension_len)
 
     if decrypted_packet == OPUS_SILENCE_FRAME then
-      print('[LunaStream UDP]: Stream end')
-      -- ! userData.stream._readableState.ended does not exist so we will need to find the way
       if userData.stream._readableState.ended then return end
 
       self:emit('speakEnd', userData.userId, ssrc)
       userData.stream:push(nil)
+      userData.stream._readableState.ended = true
     else
-      -- ! userData.stream._readableState.ended does not exist so we will need to find the way
       if userData.stream._readableState.ended then
         userData.stream = stream.PassThrough:new()
 
         self:emit('speakStart', userData.userId, ssrc)
+        userData.stream._readableState.ended = false
       end
 
       userData.stream:write(decrypted_packet)
     end
-
-    -- p(ffi.string(message + extension_len, message_len - extension_len), sequence, timestamp, ssrc)
   end)
 
   self._udp:on('error', function (err)
