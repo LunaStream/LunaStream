@@ -22,9 +22,11 @@ function WebSocket:__init(options)
 	self._config = websocket.parseUrl(options.url)
 	self._config.headers = options.headers
 	self._url = options.url
+	self._config.pathname = options.path or self._config.pathname
   self._ws_read = nil
 	self._ws_write = nil
 	self._close_event_sent = false
+	p(self._config)
 end
 
 ---Connect to the websocket

@@ -68,10 +68,11 @@ function VoiceManager:connect(reconnect)
     self._ws:close(1000, 'Normal close')
   end
 
-  local uri = sf('wss://%s/v=8', self._endpoint)
+  local uri = sf('wss://%s/', self._endpoint)
 
   self._ws = WebSocket({
     url = uri,
+    path = '/?v=8',
     headers = {
       { 'User-Agent', 'DiscordBot (https://github.com/LunaticSea/LunaStream)' }
     }
@@ -84,7 +85,8 @@ function VoiceManager:connect(reconnect)
         d = {
           server_id = self._guild_id,
           session_id = self._session_id,
-          token = self._token
+          token = self._token,
+          seq_ack = self._seq_ack
         }
       })
     else
@@ -168,7 +170,10 @@ function VoiceManager:sendKeepAlive()
   if not self._ws then return end
   self._ws:send({
     op = HEARTBEAT,
-    d = os.time()
+    d = {
+      t = os.time(),
+      seq_ack = self._seq_ack
+    }
   })
 end
 
