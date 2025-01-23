@@ -4,10 +4,12 @@ local json = require('json')
 local timer = require('timer')
 local stream = require('stream')
 local dgram = require('dgram')
+local ffi = require('ffi')
 
 -- Internal Library
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
+local sodium = require('./sodium')
 
 -- Useful functions
 local sf = string.format
@@ -33,6 +35,7 @@ local DISCORD_CLOSE_CODES = {
   [4014] = { error = false },
   [4015] = { reconnect = true }
 }
+local HEADER_FMT = '>BBI2I4I4'
 
 -- OP code
 local IDENTIFY        = 0
@@ -50,6 +53,8 @@ local Voice = class('Voice', Emitter)
 
 function Voice:__init(options)
   Emitter.__init(self)
+
+  self._udp_first_time = true
 
   options = options or {}
   self._guildId = assert(options.guildId, 'Missing guildId field')
@@ -101,6 +106,16 @@ function Voice:__init(options)
     and string.rep("\0", 12)
     or string.rep("\0", 24)
   self._packetBuffer = string.rep("\0", 12)
+
+	if self._encryption == 'aead_xchacha20_poly1305_rtpsize' then
+		self._crypto = sodium.aead_xchacha20_poly1305
+	elseif self._encryption == 'aead_aes256_gcm_rtpsize' then
+		self._crypto = sodium.aead_aes256_gcm
+	else
+		return error('unsupported encryption mode: ' .. self._mode)
+	end
+
+  p(sodium)
 
   self._playTimeout = nil
   self._audioStream = nil
@@ -225,7 +240,7 @@ function Voice:handleMessage(cb, payload)
   if payload.op == READY then
     return self:handleReady(payload)
   elseif payload.op == DESCRIPTION then
-    self._udpInfo.secretKey = payload.d.secret_key
+    self._udpInfo.secretKey = self._crypto.key(payload.d.secret_key)
     if cb then cb() end
     self:updateState({ status = 'connected' })
     self:updatePlayerState({ status = 'idle', reason = 'connected' })
@@ -242,19 +257,104 @@ function Voice:handleMessage(cb, payload)
   end
 end
 
--- ! UDP still not working as expected may have to ask @ThePedroo
-function Voice:handleReady(payload)
-  self._udpInfo.ssrc = payload.d.ssrc
-  self._udpInfo.ip = payload.d.ip
-  self._udpInfo.port = payload.d.port
+-- * Handling udp connection
+function Voice:handleReady(ws_payload)
+  self._udpInfo.ssrc = ws_payload.d.ssrc
+  self._udpInfo.ip = ws_payload.d.ip
+  self._udpInfo.port = ws_payload.d.port
 
   self._udp = dgram.createSocket('udp4')
 
   self._udp:recvStart()
 
-  self._udp:on('message', function (msg, rinfo, flags)
+  self._udp:on('message', function (packet, rinfo, flags)
+    self:emit('rawudp', packet, rinfo, flags)
+
     print('[LunaStream UDP]: Received data from UDP server with Discord.')
-    self:emit('rawudp', msg, rinfo, flags)
+
+    if self._udp_first_time then
+      self._udp_first_time = false
+      return
+    end
+
+    if #packet < 12 then return end
+
+    local first_byte, payload_type, sequence, timestamp, ssrc = string.unpack(HEADER_FMT, packet)
+
+    local _, userData = pcall(function() return self._ssrcs[ssrc] end)
+    if not userData or not self._udpInfo.secretKey then return end
+
+    local rtp_version = bit.rshift(first_byte, 6)
+    local has_padding = bit.band(first_byte, 0x20) == 0x20
+    local has_extension = bit.band(first_byte, 0x10) == 0x10
+    local num_csrc = bit.band(first_byte, 0x0F)
+    if rtp_version ~= 2 then
+      print('[LunaStream UDP]: invalid RTP version')
+      return
+    elseif payload_type ~= 0x78 then
+      print('[LunaStream UDP]: invalid payload type')
+      return
+    end
+
+    local header_len = 12 + num_csrc * 4
+    local extension_len = 0
+
+    if has_extension then
+      extension_len = string.unpack('>I2', packet, header_len + 3) * 4
+      header_len = header_len + 4
+    end
+
+    local payload = ffi.cast('const char *', packet) + header_len
+    local payload_len = #packet - header_len - 4
+
+    if payload_len < 0 then
+      return nil, 'invalid payload length'
+    end
+
+    local nonce_bytes = packet:sub(-4)
+    ---@diagnostic disable-next-line: cast-local-type
+    nonce = self._crypto.nonce(nonce_bytes)
+
+    local message, message_len = self._crypto.decrypt(
+      payload, payload_len, packet, header_len, nonce, self._udpInfo.secretKey
+    )
+    if not message then
+      return nil, message_len -- report error
+    end
+
+    if has_padding then
+      local padding_len = message[message_len - 1]
+      if padding_len > message_len then
+        return nil, 'invalid padding length'
+      end
+      message_len = message_len - padding_len
+    end
+
+    if self._udp_first_time then
+      self._udp_first_time = false
+    end
+
+    local decrypted_packet = ffi.string(message + extension_len, message_len - extension_len)
+
+    if decrypted_packet == OPUS_SILENCE_FRAME then
+      print('[LunaStream UDP]: Stream end')
+      -- ! userData.stream._readableState.ended does not exist so we will need to find the way
+      if userData.stream._readableState.ended then return end
+
+      self:emit('speakEnd', userData.userId, ssrc)
+      userData.stream:push(nil)
+    else
+      -- ! userData.stream._readableState.ended does not exist so we will need to find the way
+      if userData.stream._readableState.ended then
+        userData.stream = stream.PassThrough:new()
+
+        self:emit('speakStart', userData.userId, ssrc)
+      end
+
+      userData.stream:write(decrypted_packet)
+    end
+
+    -- p(ffi.string(message + extension_len, message_len - extension_len), sequence, timestamp, ssrc)
   end)
 
   self._udp:on('error', function (err)
@@ -339,12 +439,12 @@ function Voice:destroyConnection(code, reason)
     self._ws = nil
   end
 
-  -- if self._udp then
-  --   self._udp:close()
-  --   self._udp:removeAllListeners('message')
-  --   self._udp:removeAllListeners('error')
-  --   self._udp = nil
-  -- end
+  if self._udp then
+    self._udp:recvStop()
+    self._udp:removeAllListeners('message')
+    self._udp:removeAllListeners('error')
+    self._udp = nil
+  end
 end
 
 return Voice
