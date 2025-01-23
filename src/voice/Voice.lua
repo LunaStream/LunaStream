@@ -1,18 +1,40 @@
+-- External library
 local class = require('class')
 local json = require('json')
 local timer = require('timer')
-local buffer = require('buffer')
 local stream = require('stream')
 local dgram = require('dgram')
 
+-- Internal Library
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
 
+-- Useful functions
 local sf = string.format
 local setInterval = timer.setInterval
 local clearInterval = timer.clearInterval
 local NULL = json.NULL
 
+-- Constant variable
+local nonce = string.rep("\0", 24)
+local OPUS_SAMPLE_RATE = 48000
+local OPUS_FRAME_DURATION = 20
+local OPUS_FRAME_SIZE = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+local TIMESTAMP_INCREMENT = (OPUS_SAMPLE_RATE / 100) * 2
+local MAX_NONCE = 2^32
+local MAX_TIMESTAMP = 2^32
+local MAX_SEQUENCE = 2^16
+local UNPADDED_NONCE_LENGTH = 4
+local AUTH_TAG_LENGTH = 16
+local OPUS_SILENCE_FRAME = string.pack("BBB", 0xf8, 0xff, 0xfe)
+local HEADER_EXTENSION_BYTE = string.pack("BB", 0xbe, 0xde)
+local DISCORD_CLOSE_CODES = {
+  [1006] = { reconnect = true },
+  [4014] = { error = false },
+  [4015] = { reconnect = true }
+}
+
+-- OP code
 local IDENTIFY        = 0
 local SELECT_PROTOCOL = 1
 local READY           = 2
@@ -23,12 +45,6 @@ local HEARTBEAT_ACK   = 6
 local RESUME          = 7
 local HELLO           = 8
 local RESUMED         = 9
-
-local DISCORD_CLOSE_CODES = {
-  [1006] = { reconnect = true },
-  [4014] = { error = false },
-  [4015] = { reconnect = true }
-}
 
 local Voice = class('Voice', Emitter)
 
@@ -82,9 +98,9 @@ function Voice:__init(options)
 
   self._nonce = 0
   self._nonceBuffer = self._encryption == 'aead_aes256_gcm_rtpsize'
-    and buffer.Buffer:new(12)
-    or buffer.Buffer:new(24)
-  self._packetBuffer = buffer.Buffer:new(12)
+    and string.rep("\0", 12)
+    or string.rep("\0", 24)
+  self._packetBuffer = string.rep("\0", 12)
 
   self._playTimeout = nil
   self._audioStream = nil
@@ -126,7 +142,7 @@ function Voice:ipDiscovery()
 
 	return {
     ip = string.unpack('xxxxxxxxz', data),
-    port = string.unpack('<I2', data, -2)
+    port = string.unpack('>I2', data, #data - 1)
   }
 end
 
@@ -169,7 +185,7 @@ function Voice:connect(cb, reconnect)
   end)
 
   self._ws:on('message', function (data)
-    p(data.payload)
+    print('[LunaStream WS Payload] ' .. data.payload)
     self:handleMessage(cb, data.json_payload)
   end)
 
@@ -237,7 +253,7 @@ function Voice:handleReady(payload)
   self._udp:recvStart()
 
   self._udp:on('message', function (msg, rinfo, flags)
-    print('[pdvoice]: Received data from UDP server with Discord.')
+    print('[LunaStream UDP]: Received data from UDP server with Discord.')
     self:emit('rawudp', msg, rinfo, flags)
   end)
 
@@ -259,7 +275,6 @@ function Voice:handleReady(payload)
     }
   })
 
-  p(res.port, res.ip)
 end
 
 -- * Heartbeat to keep alive with discord
