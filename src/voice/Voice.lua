@@ -116,8 +116,6 @@ function Voice:__init(options)
 		return error('unsupported encryption mode: ' .. self._mode)
 	end
 
-  p(sodium)
-
   self._playTimeout = nil
   self._audioStream = nil
 end
