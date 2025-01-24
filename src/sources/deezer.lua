@@ -92,9 +92,7 @@ function Deezer:search(query)
             artworkUrl = data.cover_xl or data.picture_xl,
             sourceName = "deezer"
         }
-        for _, v in pairs(trackinfo) do
-            print(_, v or nil)
-        end
+        
         table.insert(tracks, {
             encoded = encoder(trackinfo),
             info = trackinfo,
