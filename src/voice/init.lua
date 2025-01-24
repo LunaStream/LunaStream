@@ -96,7 +96,7 @@ function VoiceManager:connect(reconnect)
   end)
 
   self.ws:on('message', function (data)
-    print('[LunaStream / Voice | WS] ' .. data.payload)
+    print('[LunaStream / Voice | WS ]: ' .. data.payload)
     self:messageEvent(data.json_payload)
   end)
 
@@ -156,7 +156,7 @@ function VoiceManager:readyOP(ws_payload)
 end
 
 function VoiceManager:startHeartbeat(heartbeat_timeout)
-  self._heartbeat = setInterval(heartbeat_timeout - 1000, function ()
+  self._heartbeat = setInterval(heartbeat_timeout, function ()
     coroutine.wrap(VoiceManager.sendKeepAlive)(self)
   end)
 end
@@ -179,7 +179,6 @@ function VoiceManager:destroyConnection(code, reason)
   end
 
   if self.ws then
-    self.ws:close(code, reason)
     self.ws:cleanEvents()
     self._ws = nil
   end
