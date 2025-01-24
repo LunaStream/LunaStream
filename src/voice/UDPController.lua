@@ -4,7 +4,7 @@ local dgram = require('dgram')
 local Emitter = require('./Emitter')
 local sodium = require('./sodium')
 
-local UDPController = class('UDPController', Emitter)
+local UDPController, get = class('UDPController', Emitter)
 
 function UDPController:__init(production_mode)
   Emitter.__init(self)
@@ -28,18 +28,18 @@ end
 
 function UDPController:ipDiscovery()
   local packet = string.pack('>I2I2I4c64H', 0x1, 70,
-    self._ssrc,
-    self._address,
-    self._port
+    self.ssrc,
+    self.address,
+    self.port
   )
 
-  self._udp:recvStart()
+  self.udp:recvStart()
 
   self:send(packet)
 
   local success, data = self:waitFor('message', 20000)
 
-  self._udp:recvStop()
+  self.udp:recvStop()
 
   assert(success, data)
 
@@ -50,29 +50,53 @@ function UDPController:ipDiscovery()
 end
 
 function UDPController:send(packet)
-  self._udp:send(packet, self._port, self._address)
+  self.udp:send(packet, self._port, self._address)
 end
 
 function UDPController:start()
-  self._udp:recvStart()
+  self.udp:recvStart()
 end
 
 function UDPController:stop()
-  self._udp:recvStop()
-  self._udp:removeAllListeners('message')
-  self._udp:removeAllListeners('error')
+  self.udp:recvStop()
+  self.udp:removeAllListeners('message')
+  self.udp:removeAllListeners('error')
 end
 
 function UDPController:setupEvents()
-  self._udp:on('message', function (packet)
+  self.udp:on('message', function (packet)
     self:emit('message', packet)
     print('[LunaStream / Voice | UDP]: Received data from UDP server with Discord.')
   end)
 
-  self._udp:on('error', function (err)
+  self.udp:on('error', function (err)
     print('[LunaStream / Voice | UDP]: Received error from UDP server with Discord.')
     p(err)
   end)
+end
+
+function get:udp()
+  return self._udp
+end
+
+function get:address()
+  return self._address
+end
+
+function get:port()
+  return self._port
+end
+
+function get:ssrc()
+  return self._ssrc
+end
+
+function get:sec_key()
+  return self._sec_key
+end
+
+function get:crypto()
+  return self._crypto
 end
 
 return UDPController

@@ -9,3 +9,9 @@ Below is all of link, and license link
  - THANKS: https://github.com/jedisct1/libsodium/blob/master/THANKS
  - BIN: https://github.com/SinisterRectus/Discordia/tree/master/bin/libsodium
  - BIN: https://github.com/terl/lazysodium-android/tree/master/app/src/main/jniLibs
+
+# Opus
+ - REPO: https://github.com/xiph/opus
+ - LICENSE: https://github.com/xiph/opus/blob/main/COPYING
+ - AUTHORS: https://github.com/xiph/opus/blob/main/AUTHORS
+ - BIN: https://github.com/SinisterRectus/Discordia/tree/master/bin/libopus

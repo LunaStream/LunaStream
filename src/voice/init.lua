@@ -5,6 +5,7 @@ local timer = require('timer')
 -- Internal Library
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
+local Opus = require('./opus')
 local UDPController = require('./UDPController')
 
 -- Useful functions
@@ -18,6 +19,7 @@ local SELECT_PROTOCOL = 1
 local READY           = 2
 local HEARTBEAT       = 3
 local DESCRIPTION     = 4
+local SPEAKING        = 5
 local RESUME          = 7
 local HELLO           = 8
 -- local RESUMED         = 9
@@ -31,13 +33,14 @@ local PLAYER_STATE = {
   idle = 'idle'
 }
 
-local VoiceManager = class('VoiceManager', Emitter)
+local VoiceManager, get = class('VoiceManager', Emitter)
 
 function VoiceManager:__init(guildId, userId, production_mode)
   Emitter.__init(self)
   -- Basic data
   self._guild_id = guildId
   self._user_id = userId
+  self._heartbeat = nil
 
   -- State
   self._voice_state = VOICE_STATE.disconnected
@@ -55,20 +58,21 @@ function VoiceManager:__init(guildId, userId, production_mode)
   -- UDP
   self._udp = UDPController(production_mode)
   self._encryption = self._udp._crypto._mode
+  self._opus = Opus(production_mode)
 end
 
 function VoiceManager:voiceCredential(session_id, endpoint, token)
-  self._session_id = session_id or self._session_id
-  self._endpoint = endpoint or self._endpoint
-  self._token = token or self._token
+  self._session_id = session_id or self.session_id
+  self._endpoint = endpoint or self.endpoint
+  self._token = token or self.token
 end
 
 function VoiceManager:connect(reconnect)
-  if self._ws then
-    self._ws:close(1000, 'Normal close')
+  if self.ws then
+    self.ws:close(1000, 'Normal close')
   end
 
-  local uri = sf('wss://%s/', self._endpoint)
+  local uri = sf('wss://%s/', self.endpoint)
 
   self._ws = WebSocket({
     url = uri,
@@ -78,42 +82,31 @@ function VoiceManager:connect(reconnect)
     }
   })
 
-  self._ws:on('open', function ()
-    if reconnect then
-      self._ws:send({
-        op = RESUME,
-        d = {
-          server_id = self._guild_id,
-          session_id = self._session_id,
-          token = self._token,
-          seq_ack = self._seq_ack
-        }
-      })
-    else
-      self._ws:send({
-        op = IDENTIFY,
-        d = {
-          server_id = self._guild_id,
-          user_id = self._user_id,
-          session_id = self._session_id,
-          token = self._token
-        }
-      })
-    end
+  self.ws:on('open', function ()
+    self.ws:send({
+      op = reconnect and RESUME or IDENTIFY,
+      d = {
+        server_id = self.guild_id,
+        session_id = self.session_id,
+        token = self.token,
+        seq_ack = reconnect and self._seq_ack or nil,
+        user_id = reconnect and nil or self._user_id,
+      }
+    })
   end)
 
-  self._ws:on('message', function (data)
+  self.ws:on('message', function (data)
     print('[LunaStream / Voice | WS] ' .. data.payload)
     self:messageEvent(data.json_payload)
   end)
 
-  self._ws:on('close', function (code, reason)
+  self.ws:on('close', function (code, reason)
     p(code, reason)
-    if not self._ws then return end
+    if not self.ws then return end
     self:destroyConnection(code, reason)
   end)
 
-  self._ws:connect()
+  self.ws:connect()
 end
 
 function VoiceManager:messageEvent(payload)
@@ -127,23 +120,25 @@ function VoiceManager:messageEvent(payload)
   if op == READY then
     self:readyOP(payload)
   elseif op == DESCRIPTION then
-    self._udp:updateCredentials(nil, nil, nil, data.secret_key)
+    self.udp:updateCredentials(nil, nil, nil, data.secret_key)
     self._voice_state = VOICE_STATE.connected
     self._player_state = PLAYER_STATE.idle
+    self._ready = true
+    self:emit('ready')
   elseif op == HELLO then
     self:startHeartbeat(data.heartbeat_interval)
   end
 end
 
 function VoiceManager:readyOP(ws_payload)
-  self._udp:updateCredentials(
+  self.udp:updateCredentials(
     ws_payload.d.ip,
     ws_payload.d.port,
     ws_payload.d.ssrc,
     nil
   )
 
-  local res = self._udp:ipDiscovery()
+  local res = self.udp:ipDiscovery()
 
   self._ws:send({
     op = SELECT_PROTOCOL,
@@ -157,7 +152,7 @@ function VoiceManager:readyOP(ws_payload)
     }
   })
 
-  self._udp:start()
+  self.udp:start()
 end
 
 function VoiceManager:startHeartbeat(heartbeat_timeout)
@@ -172,26 +167,85 @@ function VoiceManager:sendKeepAlive()
     op = HEARTBEAT,
     d = {
       t = os.time(),
-      seq_ack = self._seq_ack
+      seq_ack = self.seq_ack
     }
   })
 end
 
 function VoiceManager:destroyConnection(code, reason)
-  if self._heartbeat then
-    clearInterval(self._heartbeat)
+  if self.heartbeat then
+    clearInterval(self.heartbeat)
     self._heartbeat = nil
   end
 
-  if self._ws then
-    self._ws:close(code, reason)
-    self._ws:cleanEvents()
+  if self.ws then
+    self.ws:close(code, reason)
+    self.ws:cleanEvents()
     self._ws = nil
   end
 
-  if self._udp then
-    self._udp:stop()
-  end
+  self.udp:stop()
+end
+
+function VoiceManager:setSpeaking(speaking)
+  self._ws:send({
+    op = SPEAKING,
+    d = {
+      speaking = speaking,
+      delay = 0,
+      ssrc = self.udp.ssrc,
+    }
+  })
+
+  return speaking
+end
+
+function get:guild_id()
+  return self._guild_id
+end
+
+function get:user_id()
+  return self._user_id
+end
+
+function get:voice_state()
+  return self._voice_state
+end
+
+function get:player_state()
+  return self._player_state
+end
+
+function get:session_id()
+  return self._session_id
+end
+
+function get:endpoint()
+  return self._endpoint
+end
+
+function get:token()
+  return self._token
+end
+
+function get:ws()
+  return self._ws
+end
+
+function get:seq_ack()
+  return self._seq_ack
+end
+
+function get:udp()
+  return self._udp
+end
+
+function get:encryption()
+  return self._encryption
+end
+
+function get:heartbeat()
+  return self._heartbeat
 end
 
 return VoiceManager

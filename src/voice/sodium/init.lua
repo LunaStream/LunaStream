@@ -1,7 +1,7 @@
 local class = require('class')
 local ffi = require('ffi')
 
-local Sodium = class('Sodium')
+local Sodium, get = class('Sodium')
 
 function Sodium:__init(production)
   local bin_dir = string.format(
@@ -14,6 +14,7 @@ function Sodium:__init(production)
   local loaded, lib = pcall(ffi.load, production and './native/sodium' or bin_dir)
 
   if not loaded then
+    error(lib)
     return nil, lib
   end
 
@@ -34,28 +35,44 @@ function Sodium:__init(production)
   self._encryption = require('./encryption/' .. self._mode:sub(1, -9))(self)
 end
 
+function get:mode()
+  return self._mode
+end
+
+function get:encryption()
+  return self._encryption
+end
+
+function get:unsigned_char_array_t()
+  return self._unsigned_char_array_t
+end
+
+function get:lib()
+  return self._lib
+end
+
 function Sodium:random()
-  return self._lib.randombytes_random()
+  return self.lib.randombytes_random()
 end
 
 function Sodium:key(key)
-  return self._encryption.key(key)
+  return self.encryption.key(key)
 end
 
 function Sodium:keygen()
-  return self._encryption.keygen()
+  return self.encryption.keygen()
 end
 
 function Sodium:nonce(nonce)
-  return self._encryption.nonce(nonce)
+  return self.encryption.nonce(nonce)
 end
 
 function Sodium:encrypt(m, m_len, ad, ad_len, npub, k)
-  return self._encryption.encrypt(m, m_len, ad, ad_len, npub, k)
+  return self.encryption.encrypt(m, m_len, ad, ad_len, npub, k)
 end
 
 function Sodium:decrypt(c, c_len, ad, ad_len, npub, k)
-  return self._encryption.decrypt(c, c_len, ad, ad_len, npub, k)
+  return self.encryption.decrypt(c, c_len, ad, ad_len, npub, k)
 end
 
 return Sodium
