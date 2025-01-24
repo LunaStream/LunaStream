@@ -26,7 +26,6 @@ function WebSocket:__init(options)
   self._ws_read = nil
 	self._ws_write = nil
 	self._close_event_sent = false
-	p(self._config)
 end
 
 ---Connect to the websocket

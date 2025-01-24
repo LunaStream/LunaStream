@@ -1,7 +1,15 @@
 local ffi = require('ffi')
 local bit = require('bit')
 
-local loaded, lib = pcall(ffi.load, './native_test/sodium')
+local bin_dir = string.format(
+	'./bin/sodium/%s/%s%s',
+	require('los').type(),
+	jit.arch,
+	require('los').type() == 'linux' and '.so' or '.dll'
+)
+
+local loaded, lib = pcall(ffi.load, bin_dir)
+
 if not loaded then
   p(error, lib)
 	return nil, lib
