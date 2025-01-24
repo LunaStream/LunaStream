@@ -6,7 +6,7 @@ local sodium = require('./sodium')
 
 local UDPController = class('UDPController', Emitter)
 
-function UDPController:__init()
+function UDPController:__init(production_mode)
   Emitter.__init(self)
   self._udp = dgram.createSocket('udp4')
 
@@ -14,12 +14,7 @@ function UDPController:__init()
   self._port = nil
   self._ssrc = nil
   self._sec_key = nil
-  self._crypto = sodium.aead_aes256_gcm
-    and sodium.aead_aes256_gcm
-    or  sodium.aead_xchacha20_poly1305
-  self._encryption = sodium.aead_aes256_gcm
-    and 'aead_aes256_gcm_rtpsize'
-    or  'aead_xchacha20_poly1305_rtpsize'
+  self._crypto = sodium(production_mode)
 
   self:setupEvents()
 end
@@ -28,7 +23,7 @@ function UDPController:updateCredentials(address, port, ssrc, sec_key)
   self._address = address
   self._port = port
   self._ssrc = ssrc
-  self._sec_key = sec_key and self._crypto.key(sec_key) or self._sec_key
+  self._sec_key = sec_key and self._crypto:key(sec_key) or self._sec_key
 end
 
 function UDPController:ipDiscovery()

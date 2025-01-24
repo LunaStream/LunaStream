@@ -33,7 +33,7 @@ local PLAYER_STATE = {
 
 local VoiceManager = class('VoiceManager', Emitter)
 
-function VoiceManager:__init(guildId, userId)
+function VoiceManager:__init(guildId, userId, production_mode)
   Emitter.__init(self)
   -- Basic data
   self._guild_id = guildId
@@ -53,8 +53,8 @@ function VoiceManager:__init(guildId, userId)
   self._seq_ack = -1
 
   -- UDP
-  self._udp = UDPController()
-  self._encryption = self._udp._encryption
+  self._udp = UDPController(production_mode)
+  self._encryption = self._udp._crypto._mode
 end
 
 function VoiceManager:voiceCredential(session_id, endpoint, token)
