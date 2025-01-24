@@ -36,8 +36,8 @@ cd LunaticSea
 | Creator                                                | Insipred Product                                         | Item                      |
 |--------------------------------------------------------|----------------------------------------------------------|---------------------------|
 | [PerformanC Developers](https://github.com/PerformanC) | [NodeLink](https://github.com/PerformanC/NodeLink)       | Structures, Sources       |
-| [SinisterRectus](https://github.com/SinisterRectus)    | [Discordia](https://github.com/SinisterRectus/Discordia) | Sodium binding            |
-| [ThePedroo](https://github.com/ThePedroo)              | [Discordia](https://github.com/PerformanC/voice)         | Voice library inspiration |
+| [SinisterRectus](https://github.com/SinisterRectus)    | [Discordia](https://github.com/SinisterRectus/Discordia) | Opus / Sodium binding     |
+| [ThePedroo](https://github.com/ThePedroo)              | [voice](https://github.com/PerformanC/voice)             | Voice library inspiration |
 
 **[All the great programmers who brought these wonderful libraries](./bin/README.md)**
 
