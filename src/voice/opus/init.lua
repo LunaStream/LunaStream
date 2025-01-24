@@ -17,6 +17,8 @@ function Opus:__init(production)
     require('los').type() == 'linux' and '.so' or '.dll'
   )
 
+  ffi.cdef(require('./cdef.lua'))
+
   local loaded, lib = pcall(ffi.load, production and './native/opus' or bin_dir)
 
   self._lib = lib
@@ -25,8 +27,6 @@ function Opus:__init(production)
     error(lib)
     return nil, lib
   end
-
-  ffi.cdef(require('./cdef.lua'))
 
   self._int_ptr_t = typeof('int[1]')
   self._opus_int32_t = typeof('opus_int32')

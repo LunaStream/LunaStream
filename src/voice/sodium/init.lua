@@ -11,6 +11,8 @@ function Sodium:__init(production)
     require('los').type() == 'linux' and '.so' or '.dll'
   )
 
+  ffi.cdef(require('./cdef.lua'))
+
   local loaded, lib = pcall(ffi.load, production and './native/sodium' or bin_dir)
 
   if not loaded then
@@ -19,8 +21,6 @@ function Sodium:__init(production)
   end
 
   self._lib = lib
-
-  ffi.cdef(require('./cdef.lua'))
 
   self._unsigned_char_array_t = ffi.typeof('unsigned char[?]')
 
