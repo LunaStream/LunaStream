@@ -5,6 +5,7 @@ local decoder = require("../track/decoder")
 local youtube = require("../sources/youtube")
 local soundcloud = require("../sources/soundcloud.lua")
 local bandcamp = require("../sources/bandcamp.lua")
+local deezer = require("../sources/deezer.lua")
 local httpdirectplay = require("../sources/http.lua")
 
 local class = require('class')
@@ -29,7 +30,11 @@ function Sources:__init(luna)
     self._search_avaliables["bcsearch"] = "bandcamp"
     self._luna.logger:info('SourceManager', 'Registered [BandCamp] audio source manager')
   end
-
+  if config.luna.deezer then
+    self._source_avaliables["deezer"] = deezer(luna):setup()
+    self._search_avaliables["dzsearch"] = "deezer"
+    self._luna.logger:info('SourceManager', 'Registered [Deezer] audio source manager')
+  end
   if config.luna.http then
     self._source_avaliables["http"] = httpdirectplay(luna):setup()
     self._luna.logger:info('SourceManager', 'Registered [HTTPDirectPlay] audio source manager')
