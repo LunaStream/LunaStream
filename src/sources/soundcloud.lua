@@ -27,7 +27,7 @@ function get:baseUrl()
 end
 
 function SoundCloud:setup()
-	self._luna.logger:info('SoundCloud', 'Setting up clientId for fetch tracks...')
+	self._luna.logger:debug('SoundCloud', 'Setting up clientId for fetch tracks...')
 	local _, mainsite_body = http.request("GET", "https://soundcloud.com/")
 	if mainsite_body == nil then return self:fetchFailed() end
 
@@ -51,7 +51,7 @@ function SoundCloud:setup()
 	if matched == nil then self:fetchFailed() end
 	local clientId = matched:sub(11, 41 - matched:len())
 	self["_clientId"] = clientId
-	self._luna.logger:info('SoundCloud', 'Setting up clientId for fetch tracks successfully')
+	self._luna.logger:debug('SoundCloud', 'Setting up clientId for fetch tracks successfully')
 	return self
 end
 

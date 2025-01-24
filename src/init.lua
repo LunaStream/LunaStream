@@ -41,7 +41,7 @@ function LunaStream:__init(devmode)
   self._logger = require('./utils/logger')(5,
     '!%Y-%m-%dT%TZ',
     config.logger.logToFile and 'lunatic.sea.log' or '',
-  14)
+  20, self)
   self._sources = source(self)
   self._services = {
     statusMonitor =  require('./services/statusMonitor')(self)
@@ -109,6 +109,7 @@ function LunaStream:printInitialInfo()
 end
 
 function LunaStream:setupAddon()
+  local count = 0
   -- Load custom addons
   local addons_list = {
     "./addon/auth.lua",
@@ -119,14 +120,16 @@ function LunaStream:setupAddon()
     self._app.use(function (req, res, go)
       require(path)(req, res, go, self)
     end)
+    count = count + 1
   end
 
   -- Load third party addons
   self._app.use(weblit.autoHeaders)
-  self._logger:info('LunaStream', 'All addons are ready!')
+  self._logger:info('LunaStream', 'Registered %s addons', count + 1)
 end
 
 function LunaStream:setupRoutes()
+  local count = 0
   local route_list = {
     ["./router/version.lua"] = { path = "/version" },
     ["./router/info.lua"] = { path = self._prefix .. "/info" },
@@ -159,9 +162,10 @@ function LunaStream:setupRoutes()
     self._app.route({ path = route.path, method = route.method }, function (req, res)
       requireRoute(route.file, req, res, self)
     end)
+    count = count + 1
   end
 
-  self._logger:info('LunaStream', 'All routes are ready!')
+  self._logger:info('LunaStream', 'Registered %s routes', count)
 end
 
 function LunaStream:setupWebsocket()
@@ -272,7 +276,7 @@ function LunaStream:setupWebsocket()
     self._waiting_sessions[session_id] = true
 
   end)
-  self._logger:info('LunaStream', 'Websocket is ready!')
+  self._logger:info('LunaStream', 'Registered WebSocket server')
 end
 
 function LunaStream:start()

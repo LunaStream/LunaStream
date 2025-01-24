@@ -67,6 +67,8 @@ table.find = function (arr, condition)
   return nil
 end
 
+table.unpack = table.unpack or unpack
+
 -- Patch string library
 string.split = function(string, pattern)
 	local t = {}

@@ -43,7 +43,8 @@ end
 
 local Logger = require('class')('LoggerService')
 
-function Logger:__init(level, dateTime, file, typePad)
+function Logger:__init(level, dateTime, file, typePad, luna)
+	self._luna = luna
 	self._level = level
 	self._dateTime = dateTime
 	self._file = file and openSync(file, 'a')
@@ -94,23 +95,23 @@ function Logger:log(level, entry, msg, ...)
 end
 
 function Logger:error(class, msg, ...)
+	if not string.match(self._luna.config.logger.accept, 'error') then return end
 	self:log(1, class, msg, ...)
 end
 
 function Logger:warn(class, msg, ...)
+	if not string.match(self._luna.config.logger.accept, 'warn') then return end
 	self:log(2, class, msg, ...)
 end
 
 function Logger:info(class, msg, ...)
+	if not string.match(self._luna.config.logger.accept, 'info') then return end
 	self:log(3, class, msg, ...)
 end
 
 function Logger:debug(class, msg, ...)
+	if not string.match(self._luna.config.logger.accept, 'debug') then return end
 	self:log(4, class, msg, ...)
-end
-
-function Logger:verbose(class, msg, ...)
-	self:log(5, class, msg, ...)
 end
 
 return Logger

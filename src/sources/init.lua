@@ -2,6 +2,7 @@ local config = require("../utils/config")
 local decoder = require("../track/decoder")
 
 -- Sources
+local youtube = require("../sources/youtube")
 local soundcloud = require("../sources/soundcloud.lua")
 local bandcamp = require("../sources/bandcamp.lua")
 local httpdirectplay = require("../sources/http.lua")
@@ -18,20 +19,27 @@ function Sources:__init(luna)
   self._source_avaliables = {}
 
   if config.luna.soundcloud then
-    self._luna.logger:info('SourceManager', 'Registering SoundCloud audio source manager')
     self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
     self._search_avaliables["scsearch"] = "soundcloud"
+    self._luna.logger:info('SourceManager', 'Registered [SoundCloud] audio source manager')
   end
 
   if config.luna.bandcamp then
-    self._luna.logger:info('SourceManager', 'Registering BandCamp audio source manager')
     self._source_avaliables["bandcamp"] = bandcamp(luna):setup()
     self._search_avaliables["bcsearch"] = "bandcamp"
+    self._luna.logger:info('SourceManager', 'Registered [BandCamp] audio source manager')
   end
 
   if config.luna.http then
-    self._luna.logger:info('SourceManager', 'Registering HTTPDirectPlay audio source manager')
     self._source_avaliables["http"] = httpdirectplay(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [HTTPDirectPlay] audio source manager')
+  end
+
+  if config.luna.youtube then
+    self._source_avaliables["youtube"] = youtube(luna):setup()
+    self._search_avaliables["ytsearch"] = "youtube"
+    self._search_avaliables["ytmsearch"] = "youtube"
+    self._luna.logger:info('SourceManager', 'Registered [YouTube] audio source manager')
   end
 end
 
@@ -50,14 +58,14 @@ function Sources:loadTracks(query, source)
       }
     }
   end
-  return getSrc:search(query)
+  return getSrc:search(query, source)
 end
 
 function Sources:loadForm(link)
   self._luna.logger:info('SourceManager', 'Loading form for link: ' .. link)
   for _, src in pairs(self._source_avaliables) do
-    local isLinkMatch = src:isLinkMatch(link)
-    if isLinkMatch then return src:loadForm(link) end
+    local isLinkMatch, additionalData = src:isLinkMatch(link)
+    if isLinkMatch then return src:loadForm(link, additionalData) end
   end
 
   self._luna.logger:error('SourceManager', 'Link invalid or not avaliable!')
@@ -74,8 +82,8 @@ end
 
 function Sources:loadStream(encodedTrack)
   local track = decoder(encodedTrack)
-  local getSrc = self._source_avaliables[track.info.sourceName]
-
+  local getSourceName = self._search_avaliables[track.info.sourceName]
+  local getSrc = self._source_avaliables[getSourceName]
   if not getSrc then
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {
