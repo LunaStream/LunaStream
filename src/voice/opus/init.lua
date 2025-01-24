@@ -11,7 +11,7 @@ function Opus:__init(production)
   self._enums = enums
 
   local bin_dir = string.format(
-    './bin/opus/%s/%s%s',
+    './bin/opus_%s_%s%s',
     require('los').type(),
     jit.arch,
     require('los').type() == 'linux' and '.so' or '.dll'

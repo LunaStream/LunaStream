@@ -5,7 +5,7 @@ local Sodium, get = class('Sodium')
 
 function Sodium:__init(production)
   local bin_dir = string.format(
-    './bin/sodium/%s/%s%s',
+    './bin/sodium_%s_%s%s',
     require('los').type(),
     jit.arch,
     require('los').type() == 'linux' and '.so' or '.dll'
