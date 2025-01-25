@@ -5,6 +5,7 @@ local Sodium, get = class('Sodium')
 
 function Sodium:__init(production)
   local os_name = require('los').type()
+  ---@diagnostic disable-next-line:undefined-global
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = {
     win32 = '.dll',
@@ -15,7 +16,7 @@ function Sodium:__init(production)
 
   ffi.cdef(require('./cdef.lua'))
 
-  local loaded, lib = pcall(ffi.load, production and './native/sodium' or bin_dir)
+  local loaded, lib = pcall(ffi.load, production and './native/sodium' or './bin/libsodium' .. lib_name_list[os_name])
 
   if not loaded then
     error(lib)

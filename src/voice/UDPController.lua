@@ -71,6 +71,7 @@ function UDPController:setupEvents()
 
   self.udp:on('error', function (err)
     print('[LunaStream / Voice | UDP]: Received error from UDP server with Discord.')
+    ---@diagnostic disable-next-line: undefined-global
     p(err)
   end)
 end
