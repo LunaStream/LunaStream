@@ -2,7 +2,6 @@ local http = require("coro-http")
 local urlp = require("url-param")
 local json = require("json")
 
-local mod_table = require("../utils/mod_table.lua")
 local AbstractSource = require('./abstract.lua')
 local encoder = require("../track/encoder.lua")
 local class = require('class')
@@ -106,13 +105,179 @@ function Deezer:search(query)
     }
 end
 
-function Deezer:loadForm(query)
-
+function Deezer:getLinkType(query)
+    local type, id = string.match(query, "/(%a+)/(%d+)$")
+    return type, id
 end
 
 function Deezer:isLinkMatch(query)
+    local valid = string.match(query, "^https?://www%.deezer%.com/")
+        and (string.match(query, "/album/%d+$")
+        or string.match(query, "/track/%d+$")
+        or string.match(query, "/playlist/%d+$"))
 
+    return valid ~= nil
 end
+
+function Deezer:loadForm(query)
+    local type, id = self:getLinkType(query)
+    if not type then
+        self._luna.logger:error('Deezer', 'Type not supported')
+        return {
+            loadType = "error",
+            data = {},
+            error = {
+                message = "Type not supported",
+                type = "fault",
+                source = "Deezer Source"
+            }
+          }
+    end
+    
+    local url = string.format("https://api.deezer.com/%s/%s", type, id)
+    local response, data = http.request("GET", url)
+
+    if response.code ~= 200 then
+        self._luna.logger:error('Deezer', 'Failed loading form')
+        return {
+            loadType = "error",
+            data = {},
+            error = {
+                message = "Failed loading form",
+                type = "fault",
+                source = "Deezer Source"
+            }
+          }
+    end
+
+    data = json.decode(data)
+
+    if data.error then
+        self._luna.logger:error('Deezer', 'Failed loading form')
+        return {
+            loadType = "error",
+            data = {},
+            error = {
+                message = "Failed loading form",
+                type = "fault",
+                source = "Deezer Source"
+            }
+          }
+    end
+
+    local tracks = {}
+    if type == "track" then
+        local trackinfo = {
+            identifier = data.id,
+            uri = data.link,
+            title = data.title,
+            author = data.artist.name,
+            length = data.duration * 1000,
+            isSeekable = true,
+            isStream = false,
+            isrc = data.isrc,
+            artworkUrl = data.album.cover_xl or data.album.picture_xl,
+            sourceName = "deezer"
+        }
+        
+        table.insert(tracks, {
+            encoded = encoder(trackinfo),
+            info = trackinfo,
+            pluginInfo = {}
+        })
+
+        return {
+            loadType = "track",
+            data = {
+                info = {
+                    name = data.title,
+                    selectedTrack = 0
+                },
+                tracks = tracks
+            }
+        }
+    end
+
+    if type == "album" then
+        for _, track in ipairs(data.tracks.data) do
+            local trackinfo = {
+                identifier = track.id,
+                uri = track.link,
+                title = track.title,
+                author = track.artist.name,
+                length = track.duration * 1000,
+                isSeekable = true,
+                isStream = false,
+                isrc = track.isrc,
+                artworkUrl = data.cover_xl or data.picture_xl,
+                sourceName = "deezer"
+            }
+            
+            table.insert(tracks, {
+                encoded = encoder(trackinfo),
+                info = trackinfo,
+                pluginInfo = {}
+            })
+        end
+
+        return {
+            loadType = "playlist",
+            data = {
+                info = {
+                    name = data.title,
+                    selectedTrack = 0
+                },
+                tracks = tracks
+            }
+        }
+    end
+
+    if type == "playlist" then
+        for _, track in ipairs(data.tracks.data) do
+            local trackinfo = {
+                identifier = track.id,
+                uri = track.link,
+                title = track.title,
+                author = track.artist.name,
+                length = track.duration * 1000,
+                isSeekable = true,
+                isStream = false,
+                isrc = track.isrc,
+                artworkUrl = data.picture_xl,
+                sourceName = "deezer"
+            }
+            
+            table.insert(tracks, {
+                encoded = encoder(trackinfo),
+                info = trackinfo,
+                pluginInfo = {}
+            })
+        end
+
+        return {
+            loadType = "playlist",
+            data = {
+                info = {
+                    name = data.title,
+                    selectedTrack = 0
+                },
+                tracks = tracks
+            }
+        }
+    end 
+    
+    self._luna.logger:error('Deezer', 'Type not supported')
+    return {
+        loadType = "error",
+        data = {},
+        error = {
+            message = "Type not supported",
+            type = "fault",
+            source = "Deezer Source"
+        }
+    }
+end
+
 
 function Deezer:loadStream(track)
 
