@@ -9,13 +9,14 @@ local typeof = ffi.typeof
 
 function Opus:__init(production)
   self._enums = enums
-
-  local bin_dir = string.format(
-    './bin/opus_%s_%s%s',
-    require('los').type(),
-    jit.arch,
-    require('los').type() == 'linux' and '.so' or '.dll'
-  )
+  local os_name = require('los').type()
+  local arch = os_name == 'darwin' and 'universal' or jit.arch
+  local lib_name_list = {
+    win32 = '.dll',
+    linux = '.so',
+    darwin = '.dylib'
+  }
+  local bin_dir = string.format('./bin/opus_%s_%s%s', os_name, arch, lib_name_list[os_name])
 
   ffi.cdef(require('./cdef.lua'))
 
