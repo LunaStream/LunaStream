@@ -10,6 +10,7 @@ luna:
   bandcamp: true
   deezer: true
   http: true
+  nicovideo: true
 
 sources:
   fallbackSearchSource: 'bcsearch'

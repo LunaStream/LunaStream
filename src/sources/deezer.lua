@@ -110,7 +110,7 @@ function Deezer:search(query)
             artworkUrl = data.cover_xl or data.picture_xl,
             sourceName = "deezer"
         }
-        
+
         table.insert(tracks, {
             encoded = encoder(trackinfo),
             info = trackinfo,

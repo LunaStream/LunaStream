@@ -8,9 +8,11 @@ return function (req, res, answer, luna)
     }), 400, {  ["Content-Type"] = "application/json" })
   end
 
-  local encoded = require("url-param").decode(getEncode)
+  -- p(getEncode)
 
-  local result, err = luna.sources:loadStream(encoded)
+  -- local encoded = require("url-param").decode(getEncode)
+
+  local result, err = luna.sources:loadStream(getEncode)
 
   if err then
     return answer(json.encode({

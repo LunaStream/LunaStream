@@ -6,3 +6,4 @@ test.lua
 build/
 app.yml
 lunatic.sea.log
+tests/
