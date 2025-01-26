@@ -20,8 +20,8 @@ function Deezer:setup()
     local random_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     local api_token = ""
     for i = 1, 16 do
-      local rand_index = math.random(1, #random_chars)  -- Escolhe um índice aleatório
-      api_token = api_token .. random_chars:sub(rand_index, rand_index)  -- Concatena o caractere aleatório
+      local rand_index = math.random(1, #random_chars) 
+      api_token = api_token .. random_chars:sub(rand_index, rand_index)  
     end
     local url = string.format(
         "https://www.deezer.com/ajax/gw-light.php?method=deezer.getUserData&input=3&api_version=1.0&api_token=%s", 
