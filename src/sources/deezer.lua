@@ -13,12 +13,16 @@ function Deezer:__init(luna)
     self._luna = luna
     self._license_token = nil
     self._form_validation = nil
+    self._cookie = nil
 end
 
 function Deezer:setup()
     local random_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    local api_token = random_chars:sub(math.random(1, #random_chars), math.random(1, #random_chars))
-    
+    local api_token = ""
+    for i = 1, 16 do
+      local rand_index = math.random(1, #random_chars)  -- Escolhe um índice aleatório
+      api_token = api_token .. random_chars:sub(rand_index, rand_index)  -- Concatena o caractere aleatório
+    end
     local url = string.format(
         "https://www.deezer.com/ajax/gw-light.php?method=deezer.getUserData&input=3&api_version=1.0&api_token=%s", 
         api_token
@@ -33,13 +37,28 @@ function Deezer:setup()
 
     data = json.decode(data)
 
-    if data.error  == true then
+    if data.error == true then
         self._luna.logger:error('Deezer', 'Failed initializing Deezer source')
         return nil
     end
 
     self._license_token = data.results.USER.OPTIONS.license_token
     self._check_form = data.results.checkForm
+
+    self._cookie = nil
+    for _, header in ipairs(response) do
+        if header[1] == 'Set-Cookie' then
+            if self._cookie then
+                self._cookie = self._cookie .. "; " .. header[2]
+            else
+                self._cookie = header[2]
+            end
+        end
+    end
+
+    if not self._cookie then
+        self._luna.logger:error('Deezer', 'Cookie not found in response headers')
+    end
 
     return self
 end
@@ -111,11 +130,10 @@ function Deezer:getLinkType(query)
 end
 
 function Deezer:isLinkMatch(query)
-    local valid = string.match(query, "^https?://www%.deezer%.com/")
-        and (string.match(query, "/album/%d+$")
-        or string.match(query, "/track/%d+$")
+    local valid = string.match(query, "^https?://www%.deezer%.com/") 
+        and (string.match(query, "/album/%d+$") 
+        or string.match(query, "/track/%d+$") 
         or string.match(query, "/playlist/%d+$"))
-
     return valid ~= nil
 end
 
@@ -265,7 +283,7 @@ function Deezer:loadForm(query)
             }
         }
     end 
-    
+
     self._luna.logger:error('Deezer', 'Type not supported')
     return {
         loadType = "error",
@@ -278,9 +296,63 @@ function Deezer:loadForm(query)
     }
 end
 
-
 function Deezer:loadStream(track)
+    local song = {
+        SNG_IDS =  { track.info.identifier }
+    }
 
+    local url = string.format("https://www.deezer.com/ajax/gw-light.php?method=song.getListData&input=3&api_version=1.0&api_token=%s", self._check_form)
+    local response, data = http.request("POST", url,
+      {{ "Cookie", self._cookie }},
+        json.encode(song))
+  
+    if response.code ~= 200 then
+        self._luna.logger:error('Deezer', 'Failed loading stream')
+        return self:buildError("Failed loading stream", "fault", "Deezer Source")
+    end
+
+    data = json.decode(data)
+
+    local formats = {'MP3_64', 'MP3_128', 'MP3_256', 'MP3_320', 'FLAC'}
+
+    local mediaData = {
+            { 
+                type = "FULL",
+                formats = {}
+            }
+        }
+   
+    for _, format in ipairs(formats) do
+        if tonumber(data.results.data[1]['FILESIZE_' .. format]) > 0 then
+           table.insert(mediaData[1].formats, {cipher = 'BF_CBC_STRIPE', format = format})
+        end
+    end
+    
+    local _, body = http.request("POST", "https://media.deezer.com/v1/get_url",
+        {} ,
+            json.encode({
+                license_token = self._license_token,
+                media = mediaData,
+                track_tokens = { data.results.data[1].TRACK_TOKEN }
+        })
+    )
+    body = json.decode(body)
+  
+    if not body then
+    return {
+        license_token = self._license_token,
+        media = mediaData,
+        track_tokens = { data.results.data[1].TRACK_TOKEN }
+}
+    end
+    
+    return {
+        url = body.data[1].media[1].sources[1].url,
+        format = (string.sub(body.data[1].media[1].format, 1, string.len("MP3")) == "MP3") and 'mp3' or 'flac',
+        protocol = 'http',
+        extra = data.results.data[1]
+    }
 end
+
 
 return Deezer
