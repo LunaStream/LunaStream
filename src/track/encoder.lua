@@ -36,6 +36,13 @@ local function writeLong(value)
 end
 
 local function writeUTF(value)
+  if type(value) ~= "string" then
+    if value == nil then
+      value = 0 
+    else
+      value = tostring(value) 
+    end
+  end
   local utf8bytes = {}
   for i = 1, #value do
     local byte = string.byte(value, i)
