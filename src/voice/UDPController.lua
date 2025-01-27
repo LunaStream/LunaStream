@@ -20,9 +20,9 @@ function UDPController:__init(production_mode)
 end
 
 function UDPController:updateCredentials(address, port, ssrc, sec_key)
-  self._address = address
-  self._port = port
-  self._ssrc = ssrc
+  self._address = address or self._address
+  self._port = port or self._port
+  self._ssrc = ssrc or self._ssrc
   self._sec_key = sec_key and self._crypto:key(sec_key) or self._sec_key
 end
 
