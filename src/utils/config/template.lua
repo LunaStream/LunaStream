@@ -9,6 +9,7 @@ luna:
   soundcloud: true
   bandcamp: true
   deezer: true
+  vimeo: true
   http: true
 
 sources:
