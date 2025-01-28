@@ -215,4 +215,8 @@ function WebmBaseDemuxer:_cleanup()
   self._incompleteTrack = {};
 end
 
+function WebmBaseDemuxer:write(chunk)
+  self._readableState.pipes:_write(chunk, function () end)
+end
+
 return WebmBaseDemuxer
