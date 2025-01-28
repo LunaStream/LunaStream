@@ -1,7 +1,7 @@
 local http = require("coro-http")
 local json = require("json")
-local urlp = require("url-param")
-local url = require("url")
+local param = require("url-param")
+local config = require("../../utils/config")
 
 local AbstractSource = require('../abstract.lua')
 local YouTubeClientManager = require('./ClientManager.lua')
@@ -15,203 +15,171 @@ function YouTube:__init(luna)
   AbstractSource.__init(self)
   self._luna = luna
   self._clientManager = YouTubeClientManager(luna):setup()
-  self._ytContext = self._clientManager.ytContext
 end
 
 function YouTube:setup()
   return self
 end
-
-function YouTube:getBaseHostRequest(src_type)
-  if string.match(self._ytContext.client.clientName, 'ANDROID') then
-    return 'youtubei.googleapis.com'
+function YouTube:baseHostRequest(src_type)
+  if src_type == "ytmsearch" then 
+    return "music.youtube.com"
+  else 
+    return "youtubei.googleapis.com"
   end
-
-  return (src_type == 'ytmsearch' and 'music' or 'www') .. '.youtube.com'
 end
-
-function YouTube:getBaseHost(src_type)
-  return (src_type == 'ytmsearch' and 'music' or 'www') .. '.youtube.com'
-end
-
 function YouTube:search(query, src_type)
-  local config = self._luna.config
+  if src_type == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
+  self._luna.logger:debug('YouTube', 'Searching: ' .. query)
 
-  self._luna.logger:debug('Youtube', 'Searching: ' .. query)
-
-  if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'ANDROID')
-  end
-
-  local response, search = http.request(
+  local response, data = http.request(
     "POST",
-    string.format('https://%s/youtubei/v1/search', self:getBaseHostRequest(src_type)),
+    string.format("https://%s/youtubei/v1/search", self:baseHostRequest(src_type)),
     {
-      { 'User-Agent', self._ytContext.client.userAgent },
-      { 'X-GOOG-API-FORMAT-VERSION', 2 },
-      table.unpack(self._clientManager.additionalHeaders)
+      { "User-Agent", self._clientManager.ytContext.userAgent },
+      { "X-GOOG-API-FORMAT-VERSION", "2" },
+      { "Content-Type", "application/json" }
     },
     json.encode({
-      context = self._ytContext,
-      query = query,
-      params = (src_type == 'ytmsearch' and (not config.sources.youtube.bypassAgeRestriction))
-        and 'EgWKAQIIAWoQEAMQBBAJEAoQBRAREBAQFQ%3D%3D' or  'EgIQAQ%3D%3D'
+      context = self._clientManager.ytContext,
+      query = query
     })
   )
 
   if response.code ~= 200 then
-		self._luna.logger:error('Youtube', "Server response error: %s | On query: %s", response.code, query)
-		return self:buildError(
+    self._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, query)
+    return self:buildError(
       "Server response error: " .. response.code,
       "fault", "YouTube Source"
     )
-	end
-
-  search = json.decode(search)
-
-  if not search then
-    self._luna.logger:error('Youtube', "Failed to load results.")
-		return self:buildError(
-      "Failed to load results.",
-      "common", "YouTube Source"
-    )
   end
-
-  if search.error then
-    self._luna.logger:error('Youtube', search.error.message)
-		return self:buildError(
-      search.error.message,
-      "fault", "YouTube Source"
-    )
-  end
-
   local tracks = {}
-
-  local videos = nil
-
-  if config.sources.youtube.bypassAgeRestriction then
-    if src_type == 'ytmsearch' then
-      _, videos = pcall(function ()
-        return search.contents.sectionListRenderer.contents[1].itemSectionRenderer.contents
-      end)
-    else
-      _, videos = pcall(function ()
-        local lastIndex = #search.contents.sectionListRenderer.contents
-        return search.contents.sectionListRenderer.contents[lastIndex].itemSectionRenderer.contents
-      end)
-    end
+  data = json.decode(data)
+  
+  local videos
+  local baseUrl
+  if type == "ytmsearch" then
+    videos = data.contents.tabbedSearchResultsRenderer.tabs[1].tabRenderer.content.musicSplitViewRenderer.mainContent.sectionListRenderer.contents[0].musicShelfRenderer.contents
   else
-    if src_type == 'ytmsearch' then
-      _, videos = pcall(function ()
-        local tabs = search.contents.tabbedSearchResultsRenderer.tabs
-        return tabs[1].tabRenderer.content.musicSplitViewRenderer.mainContent.sectionListRenderer.contents[1].musicShelfRenderer.contents
-      end)
-    else
-      _, videos = pcall(function ()
-        local lastIndex = #search.contents.sectionListRenderer.contents
-        return search.contents.sectionListRenderer.contents[lastIndex].itemSectionRenderer.contents
-      end)
-    end
+    videos = data.contents.sectionListRenderer.contents[#data.contents.sectionListRenderer.contents].itemSectionRenderer.contents
   end
+  
+  if #videos > config.sources.maxSearchResults then
+    videos = { unpack(videos, 1, config.sources.maxSearchResults) }
+  end
+  if src_type == "ytmsearch" then
+    baseUrl = "music.youtube.com"
+  else
+    baseUrl = "youtube.com"
+  end
+  for _, video in ipairs(videos) do
+    video = video.compactVideoRenderer or video.musicTwoColumnItemRenderer
+  
+    if video then
+      local identifier
+      local length
+      local thumbnails
+  
+      if type == "ytmsearch" then
+        identifier = video.navigationEndpoint.watchEndpoint.videoId
+        length = video.subtitle and video.subtitle.runs[3] and video.subtitle.runs[3].text or video.lengthText and video.lengthText.runs[1] and video.lengthText.runs[1].text
+        thumbnails = video.thumbnail and video.thumbnail.musicThumbnailRenderer and video.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails or video.thumbnail.thumbnails
+      else
+        identifier = video.videoId
+        length = video.lengthText and video.lengthText.runs[1] and video.lengthText.runs[1].text or nil
+        thumbnails = video.thumbnail.thumbnails
+      end
+      
+      local lengthInSeconds = 0
+    if length then
+      local minutes, seconds = length:match("(%d+):(%d+)")
+      if minutes and seconds then
+        lengthInSeconds = tonumber(minutes) * 60 + tonumber(seconds)
+      end
+    end
+      local track = {
+        identifier = identifier,
+        isSeekable = true,
+        author = video.longBylineText and video.longBylineText.runs[1] and video.longBylineText.runs[1].text or video.subtitle.runs[1].text,
+        length = lengthInSeconds * 1000 or 0,
+        isStream = not length,
+        position = 0,
+        title = video.title.runs[1] and video.title.runs[1].text or "",
+        uri = string.format("https://%s/watch?v=%s", baseUrl, identifier),
+        artworkUrl = thumbnails[#thumbnails].url:match("(.-)%?"),
+        isrc = nil,
+        sourceName = src_type
+      }
 
-  if not videos or #videos == 0 then
-    self._luna.logger:error('Youtube', 'No matches found.')
-		return self:buildError(
-      'No matches found.',
+      table.insert(tracks, {
+        encoded = encoder(track),
+        info = track,
+        pluginInfo = {}
+      })
+    end
+  end  
+  if #tracks == 0 then
+    self:buildError(
+      "No results found",
       "fault", "YouTube Source"
     )
-  end
-
-  if #videos > config.sources.maxSearchResults then
-    local i = 0
-    videos = table.filter(videos, function (video)
-      if (video.compactVideoRenderer or video.musicTwoColumnItemRenderer) and i < config.options.maxSearchResults then
-        i = i + 1
-        table.insert(filteredVideos, video)
-      end
-    end)
-  end
-
-  for _, video in pairs(videos) do
-    video = video.compactVideoRenderer or video.musicTwoColumnItemRenderer
-
-    if not video then goto continue end
-
-    local identifier = src_type == 'ytmsearch' and video.navigationEndpoint.watchEndpoint.videoId or video.videoId
-    local thumbnails = (src_type == 'ytmsearch' and not config.sources.youtube.bypassAgeRestriction)
-      and video.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails or video.thumbnail.thumbnails
-
-
-    local length
-    if src_type == 'ytmsearch' and not config.sources.youtube.bypassAgeRestriction then
-      length = video.subtitle.runs[2].text
-    else
-      _, length = pcall(function () return video.lengthText.runs[1].text end)
-    end
-
-    local parts = {}
-    for part in string.gmatch(length, "([^:]+)") do
-      table.insert(parts, part)
-    end
-
-    local minutes = tonumber(parts[1]) * 60
-    local seconds = tonumber(parts[2])
-
-    local totalSeconds = minutes + seconds
-
-    local track = {
-      identifier = identifier,
-      isSeekable = true,
-      author = video.longBylineText and video.longBylineText.runs[1].text or video.subtitle.runs[1].text,
-      length = length and totalSeconds * 1000 or 0,
-      isStream = length ~= 0,
-      position = 0,
-      title = video.title.runs[1].text,
-      uri =  string.format('https://%s/watch?v=%s', self:getBaseHost(src_type), identifier),
-      artworkUrl = thumbnails[#thumbnails].url:match("([^?]+)"),
-      isrc = nil,
-      sourceName = src_type and 'ytmusic' or 'youtube'
-    }
-
-    table.insert(tracks, {
-      encoded = encoder(track),
-      info = track,
-      pluginInfo = {}
-    })
-
-    ::continue::
-  end
-
-  if (#tracks == 0) then
-    self._luna.logger:error('Youtube', 'No matches found.')
 
     return {
-      loadType = 'empty',
+      loadType = "empty",
       data = {}
     }
   end
 
-	self._luna.logger:debug('YouTube', 'Found results for %s: ' .. #tracks, query)
-
   return {
-    loadType = 'search',
+    loadType = "search",
     data = tracks
   }
 end
 
+function YouTube:checkURLType(inp_url, src_type)
+  
+  local patterns = {
+    ytmsearch = {
+      video = "https?://music%.youtube%.com/watch%?v=[%w%-]+",
+      playlist = "https?://music%.youtube%.com/playlist%?list=[%w%-]+",
+      selectedVideo = "https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"
+    },
+    default = {
+      video = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+",
+      playlist = "https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+",
+      selectedVideo = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+",
+      shorts = "https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"
+    }
+  }
+  print(src_type)
+  local selectedPatterns = patterns[src_type] or patterns.default
+
+  if string.match(inp_url, selectedPatterns.selectedVideo) or string.match(inp_url, selectedPatterns.playlist) then
+    return 'playlist'
+  elseif src_type ~= 'ytmsearch' and string.match(inp_url, selectedPatterns.shorts) then
+    return 'shorts'
+  elseif string.match(inp_url, selectedPatterns.video) then
+    return 'video'
+  else
+    return 'invalid'
+  end
+end
+
+
 function YouTube:isLinkMatch(query)
   local check_list = {
-    ["https?://music%.youtube%.com/watch%?v=[%w%-]+"] = 'ytmsearch',
-    ["https?://music%.youtube%.com/playlist%?list=[%w%-]+"] = 'ytmsearch',
-    ["https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytmsearch',
-    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+"] = 'ytsearch',
-    ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+"] = 'ytsearch',
-    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"] = 'ytsearch',
-    ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"] = 'ytsearch'
-  }
+    ["https?://music%.youtube%.com/watch%?v=[%w%-_]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/playlist%?list=[%w%-_]+"] = 'ytmsearch',
+    ["https?://music%.youtube%.com/watch%?v=[%w%-_]+&list=[%w%-_]+"] = 'ytmsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-_]+&list=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-_]+"] = 'ytsearch'
+}
 
   for link, additionalData in pairs(check_list) do
     if string.match(query, link) then
+      print('Matched link: ' .. link)
       return true, additionalData
     end
   end
@@ -219,128 +187,137 @@ function YouTube:isLinkMatch(query)
   return false, nil
 end
 
-function YouTube:checkURLType(inp_url, src_type)
-  if src_type == 'ytmsearch' then
-    local videoRegex = "https?://music%.youtube%.com/watch%?v=[%w%-]+"
-    local playlistRegex = "https?://music%.youtube%.com/playlist%?list=[%w%-]+"
-    local selectedVideoRegex = "https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"
-    if string.match(inp_url, selectedVideoRegex) or string.match(inp_url, playlistRegex) then
-      return 'playlist'
-    elseif string.match(inp_url, videoRegex) then
-      return 'video'
-    else
-      return 'invalid'
-    end
-  else
-    local videoRegex = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+"
-    local playlistRegex = "https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+"
-    local selectedVideoRegex = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+"
-    local shortsRegex = "https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"
-    if string.match(inp_url, selectedVideoRegex) or string.match(inp_url, playlistRegex) then
-      return 'playlist'
-    elseif string.match(inp_url, shortsRegex) then
-      return 'shorts'
-    elseif string.match(inp_url, videoRegex) then
-      return 'video'
-    else
-      return 'invalid'
-    end
-  end
-end
-
-
 function YouTube:loadForm(query, src_type)
-  self._luna.logger:debug('YouTube', 'Loading url: ' .. query)
+  if src_type == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
 
-  local config = self._luna.config
+  local urlType = self:checkURLType(query, src_type)
 
-  if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmsearch' and 'ANDROID_MUSIC' or 'IOS')
-  end
+  local formFile = urlType == "video" and "video.lua" or 
+                   urlType == "playlist" and "playlist.lua" or 
+                   urlType == "shorts" and "shorts.lua"
 
-  local url_type = self:checkURLType(query, src_type)
+  if formFile then
+    local form = require("./forms/" .. formFile)
+    return form(query, src_type, self)
+  else
+    self:buildError(
+      "Unknown URL type",
+      "fault", "YouTube Source"
+    )
 
-  if url_type == 'invalid' then
-    self._luna.logger:debug('Youtube', 'No matches found.')
     return {
-      loadType = 'empty',
-      data = {}
+      loadType = "error",
+      data = {},
+      error = {
+        message = "Unknown URL type",
+        severity = "fault",
+        source = "YouTube Source"
+      }
     }
   end
-
-  local form_loader_res = require('./form/' .. url_type)(self, query, src_type)
-
-  if form_loader_res then return form_loader_res end
-
-  self._luna.logger:debug('Youtube', 'No matches found.')
-
-  return {
-    loadType = 'empty',
-    data = {}
-  }
 end
 
-function YouTube:loadStream(track, additionalData)
-  local config = self._luna.config
-  local src_type = track.info.sourceName
 
-  if not config.sources.youtube.bypassAgeRestriction then
-    self._clientManager:switchClient(src_type == 'ytmusic' and 'ANDROID_MUSIC' or 'IOS')
-  end
+function YouTube:loadStream(track)
+  if track.sourceName == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
 
-  local response, video = http.request(
+  self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
+
+  local response, data = http.request(
     "POST",
-    string.format('https://%s/youtubei/v1/player', self:getBaseHostRequest(src_type)), {},
+    string.format("https://%s/youtubei/v1/player", self:baseHostRequest(track.info.sourceName)),
+    {
+      { "User-Agent", self._clientManager.ytContext.client.userAgent },
+      { "X-GOOG-API-FORMAT-VERSION", "2" }
+    },
     json.encode({
-      context = self._ytContext,
+      context = self._clientManager.ytContext,
       videoId = track.info.identifier,
       contentCheckOk = true,
       racyCheckOk = true
     })
-  )
-
+)
   if response.code ~= 200 then
-    self._luna.logger:error('Youtube', "Server response error: %s | On query: %s", response.code, track.info.identifier)
+    self._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, track.uri)
     return self:buildError(
       "Server response error: " .. response.code,
       "fault", "YouTube Source"
     )
   end
+  
+  if not data then
+    return {
+      exception = {
+        message = "No data received from server.",
+        severity = "common",
+        cause = "Unknown"
+      }
+    }
+  end
 
-  video = json.decode(video)
+  data = json.decode(data)
 
-  if video.error then
-    self._luna.logger:error('Youtube', video.error.message)
-    return self:buildError(
-      video.error.message,
+  if data.playabilityStatus.status ~= "OK" then
+    self:buildError(
+      "Video is not available",
       "fault", "YouTube Source"
     )
+
+    return {
+      loadType = "error",
+      data = {},
+      error = {
+        message = "Video is not available",
+        severity = "fault",
+        domain = "YouTube Source",
+        more = data
+      }
+    }
   end
 
-  if video.playabilityStatus.status ~= 'OK' then
-    local errorMessage = video.playabilityStatus.reason or video.playabilityStatus.messages[1]
-    self._luna.logger:error('Youtube', errorMessage)
-    return self:buildError(
-      errorMessage,
-      "common", "YouTube Source"
-    )
-  end
+  local audio = nil
 
-  local itag_map = {
-    high = 251,
-    medium = 251,
-    low = 251,
-    lowest = 251,
+  local qualityOrder = { "audio/webm; codecs=\"opus\"", "audio/mp4" }
+  
+  for _, mimeType in ipairs(qualityOrder) do
+    for _, format in ipairs(data.streamingData.adaptiveFormats) do
+      if format.mimeType == mimeType then
+        if not audio or (format.audioQuality and format.audioQuality > (audio.audioQuality or "")) then
+          audio = format
+        end
+      end
+    end
+  end
+  
+  if not audio then
+    for _, format in ipairs(data.streamingData.adaptiveFormats) do
+      if format.mimeType:find("audio/") then
+        audio = format
+        break
+      end
+    end
+  end
+  
+  if not audio then
+    return {
+      exception = {
+        message = "No suitable audio format found.",
+        severity = "common",
+        cause = "Unknown"
+      }
+    }
+  end
+  
+  local url = audio.url or audio.signatureCipher or audio.cipher
+  url = string.format("%s&rn=1&cpn=%s&ratebypass=yes&range=0-", url, string.sub("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", math.random(1, 62), math.random(1, 62)))
+  
+  return {
+    url = url,
+    format = "webm/opus",
+    protocol = "http",
   }
-
-  local itag = 251
-  itag = itag_map[config.audio.quality]
-
-  local audio = table.find(video.streamingData.adaptiveFormats, function (format)
-    return format.itag == itag or string.match(format.mimeType, 'audio/')
-  end)
-
-  local stream_url = audio.url
 end
 
 return YouTube
