@@ -5,7 +5,7 @@ local timer = require('timer')
 -- Internal Library
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
-local Opus = require('./opus')
+local Opus = require('opus')
 local UDPController = require('./UDPController')
 
 -- Useful functions
