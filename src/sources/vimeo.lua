@@ -167,8 +167,6 @@ function Vimeo:loadStream(track)
         {"Authorization", "jwt " .. self._jwt},
         {"Accept", "application/json"}
     }
-    p(track.info.identifier)
-    p(apiUrl)
     local responseGetConfig, dataConfig = http.request("GET", apiUrl, headers)
 
     if responseGetConfig.code == 401 then
