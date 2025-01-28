@@ -11,6 +11,7 @@ luna:
   deezer: true
   vimeo: true
   http: true
+  nicovideo: true
 
 sources:
   fallbackSearchSource: 'bcsearch'
