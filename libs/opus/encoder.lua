@@ -20,7 +20,6 @@ return function (opus_main)
 	end
 
 	function Encoder:encode(input, input_len, frame_size, max_data_bytes)
-		print(type(input_len), type(input))
 		local pcm = new('opus_int16[?]', input_len, input)
 		local data = new('unsigned char[?]', max_data_bytes)
 

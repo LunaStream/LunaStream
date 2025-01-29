@@ -16,7 +16,7 @@ function Sodium:__init(production)
 
   ffi.cdef(require('./cdef.lua'))
 
-  local loaded, lib = pcall(ffi.load, production and './native/sodium' or './bin/libsodium' .. lib_name_list[os_name])
+  local loaded, lib = pcall(ffi.load, production and './native/sodium' or bin_dir)
 
   if not loaded then
     error(lib)
