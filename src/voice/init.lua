@@ -1,6 +1,7 @@
 -- External library
 local class = require('class')
 local timer = require('timer')
+local ffi   = require('ffi')
 
 -- Internal Library
 local Emitter = require('./Emitter')
@@ -232,7 +233,7 @@ end
 
 --- Plays a audio stream through the voice connection
 ---@param stream any
-function VoiceManager:play(stream)
+function VoiceManager:play(stream, needs_encoder)
   -- Just in case, play gets triggered when _ws is not present;
   if not self._ws then
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
@@ -248,8 +249,9 @@ function VoiceManager:play(stream)
   self._stream = stream
 
   self:setSpeaking(1)
-
-  self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
+  if needs_encoder then
+    self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
+  end
 
   self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
   print('[LunaStream / Voice / ' ..
@@ -268,18 +270,19 @@ function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
   print(self._seq_ack, self._timestamp, self._nonce, ssrc, key)
   local packetWithBasicInfo = string.pack('>BBI2I4I4', 0x80, 0x78, self._seq_ack, self._timestamp, ssrc)
 
-  local nonce = self._encryption.nouce(self._nonce)
+  local nonce = self._udp._crypto:nonce(self._nonce)
+  local nonce_padding = ffi.string(nonce, 4)
 
-  local encryptedAudio, encryptedAudioLen = self._encryption:encrypt(opus_data, opus_length, packetWithBasicInfo,
+  local encryptedAudio, encryptedAudioLen = self._udp._crypto:encrypt(opus_data, opus_length, packetWithBasicInfo,
     #packetWithBasicInfo, nonce, key)
 
-  self.packetStats.expected = self.packetStats.expected + 1;
+  self._packetStats.expected = self._packetStats.expected + 1;
 
   if not encryptedAudio then
     return nil, encryptedAudioLen
   end
 
-  return packetWithBasicInfo .. encryptedAudio
+  return packetWithBasicInfo .. ffi.string(encryptedAudio, encryptedAudioLen) .. nonce_padding
 end
 
 function VoiceManager:_startAudioPacketInterval()
@@ -290,13 +293,18 @@ function VoiceManager:_startAudioPacketInterval()
     local audioChuck = self._stream:read(OPUS_CHUNK_SIZE)
 
     p(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
-    local encodedData, encodedLen = self._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
-
+    local encodedData, encodedLen
+    if self._opusEncoder then
+      encodedData, encodedLen = self._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
+    else
+      encodedData = audioChuck
+      encodedLen = #audioChuck
+    end
 
     local audioPacket = coroutine.wrap(self._prepareAudioPacket)(self, encodedData, encodedLen, self.udp.ssrc,
       self.udp._sec_key)
 
-    self.nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
+    self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
 
     if not audioPacket then
       print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet is nil/lost')
