@@ -5,7 +5,10 @@ local decoder = require("../track/decoder")
 local youtube = require("../sources/youtube")
 local soundcloud = require("../sources/soundcloud.lua")
 local bandcamp = require("../sources/bandcamp.lua")
+local deezer = require("../sources/deezer.lua")
+local vimeo = require("../sources/vimeo.lua")
 local httpdirectplay = require("../sources/http.lua")
+local nicovideo = require("../sources/nicovideo.lua")
 
 local class = require('class')
 
@@ -18,21 +21,26 @@ function Sources:__init(luna)
   self._search_avaliables = {}
   self._source_avaliables = {}
 
-  if config.luna.soundcloud then
-    self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
-    self._search_avaliables["scsearch"] = "soundcloud"
-    self._luna.logger:info('SourceManager', 'Registered [SoundCloud] audio source manager')
-  end
-
   if config.luna.bandcamp then
     self._source_avaliables["bandcamp"] = bandcamp(luna):setup()
     self._search_avaliables["bcsearch"] = "bandcamp"
     self._luna.logger:info('SourceManager', 'Registered [BandCamp] audio source manager')
   end
-
+  if config.luna.vimeo then
+    self._source_avaliables["vimeo"] = vimeo(luna):setup()
+    self._search_avaliables["vmsearch"] = "vimeo"
+    self._luna.logger:info('SourceManager', 'Registered [Vimeo] audio source manager')
+  end
+  
   if config.luna.http then
     self._source_avaliables["http"] = httpdirectplay(luna):setup()
     self._luna.logger:info('SourceManager', 'Registered [HTTPDirectPlay] audio source manager')
+  end
+
+  if config.luna.nicovideo then
+    self._source_avaliables["nicovideo"] = nicovideo(luna):setup()
+    self._search_avaliables["ncsearch"] = "nicovideo"
+    self._luna.logger:info('SourceManager', 'Registered [NicoVideo] audio source manager')
   end
 
   if config.luna.youtube then
@@ -40,6 +48,18 @@ function Sources:__init(luna)
     self._search_avaliables["ytsearch"] = "youtube"
     self._search_avaliables["ytmsearch"] = "youtube"
     self._luna.logger:info('SourceManager', 'Registered [YouTube] audio source manager')
+  end
+
+  if config.luna.soundcloud then
+    self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
+    self._search_avaliables["scsearch"] = "soundcloud"
+    self._luna.logger:info('SourceManager', 'Registered [SoundCloud] audio source manager')
+  end
+
+  if config.luna.deezer then
+    self._source_avaliables["deezer"] = deezer(luna):setup()
+    self._search_avaliables["dzsearch"] = "deezer"
+    self._luna.logger:info('SourceManager', 'Registered [Deezer] audio source manager')
   end
 end
 
@@ -83,7 +103,6 @@ end
 function Sources:loadStream(encodedTrack)
   local track = decoder(encodedTrack)
   local getSrc = self._source_avaliables[track.info.sourceName]
-
   if not getSrc then
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
     return {

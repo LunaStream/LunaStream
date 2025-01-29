@@ -2,7 +2,7 @@ local class = require('class')
 local dgram = require('dgram')
 
 local Emitter = require('./Emitter')
-local sodium = require('./sodium')
+local sodium = require('sodium')
 
 local UDPController, get = class('UDPController', Emitter)
 

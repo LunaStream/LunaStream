@@ -6,8 +6,10 @@ test.lua
 build/
 app.yml
 lunatic.sea.log
+
 test/
 
 luvit
 luvi
 lit
+tests/
