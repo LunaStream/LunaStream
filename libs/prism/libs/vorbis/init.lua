@@ -1,3 +1,0 @@
-return {
-  WebmDemuxer = require('./WebmDemuxer')
-}
