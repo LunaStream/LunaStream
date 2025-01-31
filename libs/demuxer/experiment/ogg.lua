@@ -2,6 +2,7 @@ local head_detected = nil
 local bitstream_serial_signature = nil
 
 local valid_segments = {}
+local invalid_segments = {}
 local current_offset = 0
 
 --[[
@@ -100,6 +101,8 @@ header_size             | %s]]
     elseif header == 'OpusHead' then
       head_detected = segment
       bitstream_serial_signature = bitstream_serial_number
+    else
+      table.insert(invalid_segments, segment)
     end
     start = start + size;
   end
@@ -120,4 +123,5 @@ while #fileData > current_offset do
 end
 
 p('Total valid segments: ', #valid_segments)
+p('Total invalid segments: ', #invalid_segments)
 p('Please check if code missing any content: ', current_offset, #fileData)
