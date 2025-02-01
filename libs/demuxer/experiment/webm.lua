@@ -1,7 +1,14 @@
 local fs = require('fs')
 local file_data = fs.readFileSync('../sample/speech_orig.webm')
 
-local offset = 1
+local ebmlFound = false
+local result = nil
+local g_offset = 1
+local count = 1
+local skipUtil = nil
+local _track = nil
+local _incompleteTrack = nil
+local processed = {}
 
 local TAGS = {
   ['1a45dfa3'] = true, -- EBML
@@ -66,9 +73,8 @@ end
 local function readEBMLId(data, t_offset)
   local idLength = vintLength(data, t_offset)
   if idLength == "TOO_SHORT" then return "TOO_SHORT" end
-  p(idLength)
   return {
-    id = string.sub(data, t_offset, t_offset + idLength),
+    id = string.sub(data, t_offset, t_offset + idLength - 1),
     offset = t_offset + idLength,
   };
 end
@@ -84,14 +90,114 @@ local function readTagDataSize(data, t_offset)
   };
 end
 
--- Read header
-local emblIdHeader = readEBMLId(file_data, offset)
-offset = emblIdHeader.offset + offset - 1
-p('Response data: ', emblIdHeader)
-p('Offset: ', offset)
+local function _checkHead(data)
+  if string.sub(data, 1, 8) ~= "OpusHead" then error('Audio codec is not Opus!') end
+end
 
--- Read header tag data size
-local headerSizeData = readTagDataSize(file_data, offset)
-offset = headerSizeData.offset + offset - 1
-p('Response data: ', headerSizeData)
-p('Offset: ', offset)
+local function readTag(data, offset)
+  local pass = 0
+  p('Offset: ', offset)
+  local idData = readEBMLId(data, offset)
+  if idData.id == "TOO_SHORT" then return "TOO_SHORT" end
+  pass = pass + 1
+  local ebmlID = string.lower(stringToHex(idData.id))
+  p('Current embl: ', idData, ebmlID)
+  if not ebmlFound then
+    if ebmlID == "1a45dfa3" then ebmlFound = true
+    else error('Did not find the EBML tag at the start of the stream') end
+  end
+
+  offset = idData.offset
+
+  -- Read header tag data size
+  local sizeData = readTagDataSize(data, offset)
+  if sizeData == "TOO_SHORT" then return "TOO_SHORT" end
+  p('Size data: ', sizeData)
+  pass = pass + 1
+  offset = sizeData.offset
+
+  local dataLength = sizeData.dataLength
+
+  if not TAGS[ebmlID] then
+    if #data > offset + dataLength then
+      return { offset = offset + dataLength, pass = pass };
+    end
+    return { offset = offset, skipUntil = count + offset + dataLength, pass = pass };
+  end
+  pass = pass + 1
+
+  local tagHasChildren = TAGS[ebmlID];
+  if tagHasChildren then
+    return { offset = offset, pass = pass };
+  end
+  pass = pass + 1
+
+  if offset + dataLength > #data then return 'TOO_SHORT' end
+  pass = pass + 1
+  local process_data = string.sub(data, offset, offset + dataLength)
+  if not _track then
+    if ebmlID == 'ae' then _incompleteTrack = {} end
+    if ebmlID == 'd7' then _incompleteTrack.number = process_data[1] end
+    if ebmlID == '83' then _incompleteTrack.type = process_data[1] end
+    if _incompleteTrack.type == 2 and _incompleteTrack.number then
+      _track = _incompleteTrack;
+    end
+  end
+
+  if ebmlID == '63a2' then
+    _checkHead(process_data)
+  elseif ebmlID == 'a3' then
+    if not _track then error('No audio track in this webm!') end
+    if bit.band(process_data[1], 0xF) == _track.number then
+      table.insert(processed, string.sub(process_data, 4))
+    end
+  end
+  pass = pass + 1
+  return { offset = offset + dataLength, pass = pass };
+end
+
+for i = 1, 30, 1 do
+  local success
+  success, result = pcall(readTag, file_data, g_offset)
+  if not success then
+    p('Error: ', result)
+    return
+  end
+  p('Read done, pass: ', result.pass)
+  if result == "TOO_SHORT" then
+    p('TOO_SHORT detected! Watch your eyes mf')
+    break
+  end
+  if result.offset then g_offset = result.offset
+  -- if result.skipUntil then
+  --   skipUtil = result.skipUntil;
+  else break end
+end
+
+p()
+p('ebmlFound', ebmlFound)
+p('result', result)
+p('g_offset', g_offset)
+p('count', count)
+p('skipUtil', skipUtil)
+p('_track', _track)
+p('_incompleteTrack', _incompleteTrack)
+p('processed: ', processed)
+
+-- while result ~= "TOO_SHORT" do
+--   local success
+--   success, result = pcall(readTag, file_data, g_offset)
+--   if not success then
+--     p('Error: ', result)
+--     return
+--   end
+--   p('Read done, pass: ', result.pass)
+--   if result == "TOO_SHORT" then
+--     p('TOO_SHORT detected! Watch your eyes mf')
+--     break
+--   end
+--   if result.offset then g_offset = result.offset
+--   -- if result.skipUntil then
+--   --   skipUtil = result.skipUntil;
+--   else break end
+-- end
