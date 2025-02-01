@@ -5,5 +5,11 @@ config.json
 test.lua
 build/
 app.yml
-lunastream.log
+lunatic.sea.log
+
+test/
+
+luvit
+luvi
+lit
 tests/

@@ -40,7 +40,7 @@ function LunaStream:__init(devmode)
   self._waiting_sessions = {}
   self._logger = require('./utils/logger')(5,
     '!%Y-%m-%dT%TZ',
-    config.logger.logToFile and 'lunatic.sea.log' or '',
+    config.logger.logToFile and 'lunastream.log' or '',
   20, self)
   self._sources = source(self)
   self._services = {
