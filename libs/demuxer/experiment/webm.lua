@@ -11,24 +11,16 @@ local _incompleteTrack = {}
 local processed = {}
 
 local TAGS = {
-  ['1a45dfa3'] = true, -- EBML
-  ['18538067'] = true, -- Segment
-  ['1f43b675'] = true, -- Cluster
-  ['1654ae6b'] = true, -- Tracks
-  ['ae'] = true, -- TrackEntry
-  ['d7'] = false, -- TrackNumber
-  ['83'] = false, -- TrackType
-  ['a3'] = false, -- SimpleBlock
-  ['63a2'] = false,
+  ['\026E\223\163'] = true, -- EBML (1a45dfa3)
+  ['\024S\128g'] = true, -- Segment (18538067)
+  ['\031C\182u'] = true, -- Cluster (1f43b675)
+  ['\022T\174k'] = true, -- Tracks (1654ae6b)
+  ['\174'] = true, -- TrackEntry (ae)
+  ['\215'] = false, -- TrackNumber (d7)
+  ['\131'] = false, -- TrackType (83)
+  ['\163'] = false, -- SimpleBlock (a3)
+  ['c\162'] = false, -- (63a2)
 }
-
-local function stringToHex(str)
-  local hexStr = ""
-  for i = 1, #str do
-    hexStr = hexStr .. string.format("%02X", string.byte(str, i))
-  end
-  return hexStr
-end
 
 local function vintLength(buffer, index)
   if index < 1 or index > #buffer then
@@ -100,10 +92,10 @@ local function readTag(data, offset)
   local idData = readEBMLId(data, offset)
   if idData == "TOO_SHORT" then return "TOO_SHORT" end
   pass = pass + 1
-  local ebmlID = string.lower(stringToHex(idData.id))
-  p('Current embl: ', idData, ebmlID)
+  p(idData)
+  local ebmlID = idData.id
   if not ebmlFound then
-    if ebmlID == "1a45dfa3" then ebmlFound = true
+    if ebmlID == "\026E\223\163" then ebmlFound = true
     else error('Did not find the EBML tag at the start of the stream') end
   end
 
@@ -136,15 +128,11 @@ local function readTag(data, offset)
   pass = pass + 1
   local process_data = string.sub(data, offset, offset + dataLength)
   if not _track then
-    if ebmlID == 'ae' then _incompleteTrack = {} end
-    if ebmlID == 'd7' then
-      -- p('-----[DEBUG]-----', process_data, process_data[1], offset, offset + dataLength, '-----[DEBUG]-----')
-      -- p('-----[DEBUG]-----', string.byte(process_data, 1, 1), '-----[DEBUG]-----')
+    if ebmlID == '\174' then _incompleteTrack = {} end
+    if ebmlID == '\215' then
       _incompleteTrack.number = string.byte(process_data, 1, 1)
     end
-    if ebmlID == '83' then
-      -- p('-----[DEBUG]-----', process_data, process_data[1], offset, offset + dataLength, '-----[DEBUG]-----')
-      -- p('-----[DEBUG]-----', string.byte(process_data, 1, 1), '-----[DEBUG]-----')
+    if ebmlID == '\131' then
       _incompleteTrack.type = string.byte(process_data, 1, 1)
     end
     if _incompleteTrack.type == 2 and _incompleteTrack.number then
@@ -152,9 +140,9 @@ local function readTag(data, offset)
     end
   end
 
-  if ebmlID == '63a2' then
+  if ebmlID == 'c\162' then
     _checkHead(process_data)
-  elseif ebmlID == 'a3' then
+  elseif ebmlID == '\163' then
     if not _track then error('No audio track in this webm!') end
     if bit.band(string.byte(process_data, 1, 1), 0xF) == _track.number then
       table.insert(processed, string.sub(process_data, 4))
@@ -164,7 +152,7 @@ local function readTag(data, offset)
   return { offset = offset + dataLength, pass = pass };
 end
 
-while #file_data > g_offset do
+while result ~= "TOO_SHORT" do
   local success
   success, result = pcall(readTag, file_data, g_offset)
   if not success then
@@ -174,6 +162,7 @@ while #file_data > g_offset do
   end
   p('Read done, pass: ', result.pass)
   if result == "TOO_SHORT" then
+    p()
     p('TOO_SHORT detected! Watch your eyes mf')
     break
   end
@@ -184,31 +173,15 @@ while #file_data > g_offset do
 end
 
 p()
-p('ebmlFound', ebmlFound)
-p('result', result)
-p('g_offset', g_offset)
-p('file length', #file_data)
-p('count', count)
-p('skipUtil', skipUtil)
-p('_track', _track)
-p('_incompleteTrack', _incompleteTrack)
-p('processed: ', #processed)
+p('Variable ebmlFound', ebmlFound)
+p('Variable result', result)
+p('Variable g_offset', g_offset)
+p('Variable file length', #file_data)
+p('Variable count', count)
+p('Variable skipUtil', skipUtil)
+p('Variable _track', _track)
+p('Variable _incompleteTrack', _incompleteTrack)
+p('Variable processed: ', #processed)
 p()
 
--- while result ~= "TOO_SHORT" do
---   local success
---   success, result = pcall(readTag, file_data, g_offset)
---   if not success then
---     p('Error: ', result)
---     return
---   end
---   p('Read done, pass: ', result.pass)
---   if result == "TOO_SHORT" then
---     p('TOO_SHORT detected! Watch your eyes mf')
---     break
---   end
---   if result.offset then g_offset = result.offset
---   -- if result.skipUntil then
---   --   skipUtil = result.skipUntil;
---   else break end
--- end
+fs.writeFileSync('../results/speech_orig.webm.segment', table.concat(processed, '\n\n'))

@@ -125,3 +125,5 @@ end
 p('Total valid segments: ', #valid_segments)
 p('Total invalid segments: ', #invalid_segments)
 p('Please check if code missing any content: ', current_offset, #fileData)
+
+fs.writeFileSync('../results/speech_orig.ogg.segment', table.concat(valid_segments, '\n\n'))
