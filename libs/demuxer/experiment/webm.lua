@@ -7,7 +7,7 @@ local g_offset = 1
 local count = 1
 local skipUtil = nil
 local _track = nil
-local _incompleteTrack = nil
+local _incompleteTrack = {}
 local processed = {}
 
 local TAGS = {
@@ -98,7 +98,7 @@ local function readTag(data, offset)
   local pass = 0
   p('Offset: ', offset)
   local idData = readEBMLId(data, offset)
-  if idData.id == "TOO_SHORT" then return "TOO_SHORT" end
+  if idData == "TOO_SHORT" then return "TOO_SHORT" end
   pass = pass + 1
   local ebmlID = string.lower(stringToHex(idData.id))
   p('Current embl: ', idData, ebmlID)
@@ -118,7 +118,7 @@ local function readTag(data, offset)
 
   local dataLength = sizeData.dataLength
 
-  if not TAGS[ebmlID] then
+  if type(TAGS[ebmlID]) == "nil" then
     if #data > offset + dataLength then
       return { offset = offset + dataLength, pass = pass };
     end
@@ -137,8 +137,16 @@ local function readTag(data, offset)
   local process_data = string.sub(data, offset, offset + dataLength)
   if not _track then
     if ebmlID == 'ae' then _incompleteTrack = {} end
-    if ebmlID == 'd7' then _incompleteTrack.number = process_data[1] end
-    if ebmlID == '83' then _incompleteTrack.type = process_data[1] end
+    if ebmlID == 'd7' then
+      -- p('-----[DEBUG]-----', process_data, process_data[1], offset, offset + dataLength, '-----[DEBUG]-----')
+      -- p('-----[DEBUG]-----', string.byte(process_data, 1, 1), '-----[DEBUG]-----')
+      _incompleteTrack.number = string.byte(process_data, 1, 1)
+    end
+    if ebmlID == '83' then
+      -- p('-----[DEBUG]-----', process_data, process_data[1], offset, offset + dataLength, '-----[DEBUG]-----')
+      -- p('-----[DEBUG]-----', string.byte(process_data, 1, 1), '-----[DEBUG]-----')
+      _incompleteTrack.type = string.byte(process_data, 1, 1)
+    end
     if _incompleteTrack.type == 2 and _incompleteTrack.number then
       _track = _incompleteTrack;
     end
@@ -148,7 +156,7 @@ local function readTag(data, offset)
     _checkHead(process_data)
   elseif ebmlID == 'a3' then
     if not _track then error('No audio track in this webm!') end
-    if bit.band(process_data[1], 0xF) == _track.number then
+    if bit.band(string.byte(process_data, 1, 1), 0xF) == _track.number then
       table.insert(processed, string.sub(process_data, 4))
     end
   end
@@ -156,11 +164,12 @@ local function readTag(data, offset)
   return { offset = offset + dataLength, pass = pass };
 end
 
-for i = 1, 30, 1 do
+while #file_data > g_offset do
   local success
   success, result = pcall(readTag, file_data, g_offset)
   if not success then
     p('Error: ', result)
+    p('Remaining', #file_data - g_offset)
     return
   end
   p('Read done, pass: ', result.pass)
@@ -178,11 +187,13 @@ p()
 p('ebmlFound', ebmlFound)
 p('result', result)
 p('g_offset', g_offset)
+p('file length', #file_data)
 p('count', count)
 p('skipUtil', skipUtil)
 p('_track', _track)
 p('_incompleteTrack', _incompleteTrack)
-p('processed: ', processed)
+p('processed: ', #processed)
+p()
 
 -- while result ~= "TOO_SHORT" do
 --   local success
