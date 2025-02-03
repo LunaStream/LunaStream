@@ -24,7 +24,8 @@ return {
     "luvit/dns@2.0.4",
     "luvit/secure-socket@1.2.3",
     "creationix/coro-websocket@3.1.1",
-    "luvit/json@2.5.2"
+    "luvit/websocket-codec@v3.0.2",
+    "luvit/json@2.5.2",
   },
   files = {
     "**.lua",

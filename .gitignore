@@ -5,7 +5,7 @@ config.json
 test.lua
 build/
 app.yml
-lunatic.sea.log
+lunastream.log
 
 test/
 

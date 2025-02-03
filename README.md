@@ -11,8 +11,8 @@ curl -L https://github.com/luvit/lit/raw/main/scripts/get-lit.sh | sh
 
 ## How to setup
 ```
-git clone https://github.com/LunaticSea/LunaStream
-cd LunaticSea
+git clone --recurse-submodules https://github.com/LunaStream/LunaStream
+cd LunaStream
 ./lit install
 ```
 
