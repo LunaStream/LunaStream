@@ -108,7 +108,7 @@ function YouTube:search(query, src_type)
         uri = string.format("https://%s/watch?v=%s", baseUrl, identifier),
         artworkUrl = thumbnails[#thumbnails].url:match("(.-)%?"),
         isrc = nil,
-        sourceName = src_type
+        sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube'
       }
 
       table.insert(tracks, {
@@ -220,14 +220,14 @@ end
 
 
 function YouTube:loadStream(track)
-  if track.sourceName == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
+  if track.sourceName == "youtube_music" then self._clientManager:switchClient('ANDROID_MUSIC') end
   if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
 
   self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
 
   local response, data = http.request(
     "POST",
-    string.format("https://%s/youtubei/v1/player", self:baseHostRequest(track.info.sourceName)),
+    string.format("https://%s/youtubei/v1/player", self:baseHostRequest(track.info.sourceName == "youtube_music" and "ytmsearch" or "ytsearch")),
     {
       { "User-Agent", self._clientManager.ytContext.client.userAgent },
       { "X-GOOG-API-FORMAT-VERSION", "2" }

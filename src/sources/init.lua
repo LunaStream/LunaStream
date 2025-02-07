@@ -46,8 +46,13 @@ function Sources:__init(luna)
   if config.luna.youtube then
     self._source_avaliables["youtube"] = youtube(luna):setup()
     self._search_avaliables["ytsearch"] = "youtube"
-    self._search_avaliables["ytmsearch"] = "youtube"
     self._luna.logger:info('SourceManager', 'Registered [YouTube] audio source manager')
+  end
+
+  if config.luna.youtube_music then
+    self._source_avaliables["youtube_music"] = self._source_avaliables["youtube"] or youtube(luna):setup()
+    self._search_avaliables["ytmsearch"] = "youtube_music"
+    self._luna.logger:info('SourceManager', 'Registered [YouTube Music] audio source manager')
   end
 
   if config.luna.soundcloud then
@@ -102,6 +107,7 @@ end
 
 function Sources:loadStream(encodedTrack)
   local track = decoder(encodedTrack)
+
   local getSrc = self._source_avaliables[track.info.sourceName]
   if not getSrc then
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
