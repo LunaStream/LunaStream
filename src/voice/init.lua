@@ -264,10 +264,10 @@ end
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
   -- TODO: Implement max value handle
   self._seq_ack = self._seq_ack + 1
-  self._timestamp = self._timestamp + 1
+  self._timestamp = self._timestamp + OPUS_CHUNK_SIZE
   self._nonce = self._nonce + 1
 
-  print(self._seq_ack, self._timestamp, self._nonce, ssrc, key)
+  -- print(self._seq_ack, self._timestamp, self._nonce, ssrc, key)
   local packetWithBasicInfo = string.pack('>BBI2I4I4', 0x80, 0x78, self._seq_ack, self._timestamp, ssrc)
 
   local nonce = self._udp._crypto:nonce(self._nonce)
@@ -288,11 +288,11 @@ end
 function VoiceManager:_startAudioPacketInterval()
   self._audioPacketTimeout = setTimeout(self._nextAudioPacketTimestamp - os.time(), function()
     print('[LunaStream / Voice / ' ..
-    self.guild_id .. ']: running audio Packet Timeout ' .. self._nextAudioPacketTimestamp)
+    self.guild_id .. ']: running audio Packet Timeout ' .. self._nextAudioPacketTimestamp, self._nextAudioPacketTimestamp - os.time())
     local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
-    local audioChuck = self._stream:read(OPUS_CHUNK_SIZE)
+    local audioChuck = self._stream:read(pcmLen)
 
-    p(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
+    -- p(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2, self._opusEncoder)
     local encodedData, encodedLen
     if self._opusEncoder then
       encodedData, encodedLen = self._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
@@ -303,7 +303,7 @@ function VoiceManager:_startAudioPacketInterval()
 
     local audioPacket = coroutine.wrap(self._prepareAudioPacket)(self, encodedData, encodedLen, self.udp.ssrc,
       self.udp._sec_key)
-
+    -- p("audioPacket sent:", "audioChunk: ", audioChuck, "\n AudioPacket: ", audioPacket)
     self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
 
     if not audioPacket then
