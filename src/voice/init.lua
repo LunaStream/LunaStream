@@ -1,6 +1,7 @@
 -- External library
 local class = require('class')
 local timer = require('timer')
+local ffi   = require('ffi')
 
 -- Internal Library
 local Emitter = require('./Emitter')
@@ -12,6 +13,8 @@ local UDPController = require('./UDPController')
 local sf = string.format
 local setInterval = timer.setInterval
 local clearInterval = timer.clearInterval
+local setTimeout = timer.setTimeout
+local clearTimeout = timer.clearTimeout
 
 -- OP code
 local IDENTIFY        = 0
@@ -30,8 +33,18 @@ local VOICE_STATE = {
   connected = 'connected',
 }
 local PLAYER_STATE = {
-  idle = 'idle'
+  idle = 'idle',
+  playing = 'playing',
 }
+
+-- Constants
+
+local OPUS_SAMPLE_RATE    = 48000
+local OPUS_CHANNELS       = 2
+local OPUS_FRAME_DURATION = 20
+-- Size of chucks to read from the stream at a time
+local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+
 
 local VoiceManager, get = class('VoiceManager', Emitter)
 
@@ -54,11 +67,26 @@ function VoiceManager:__init(guildId, userId, production_mode)
   -- Gateway
   self._ws = nil
   self._seq_ack = -1
+  self._timestamp = -1
+
 
   -- UDP
   self._udp = UDPController(production_mode)
   self._encryption = self._udp._crypto._mode
   self._opus = Opus(production_mode)
+  self._nonce = 0
+
+  self._packetStats = {
+    sent = 0,
+    lost = 0,
+    expected = 0,
+  }
+
+  self._stream = NULL
+
+  self._nextAudioPacketTimestamp = NULL
+
+  self._opusEncoder = NULL
 end
 
 function VoiceManager:voiceCredential(session_id, endpoint, token)
@@ -101,6 +129,7 @@ function VoiceManager:connect(reconnect)
   end)
 
   self.ws:on('close', function (code, reason)
+    --- @diagnostic disable-next-line: undefined-global
     p(code, reason)
     if not self.ws then return end
     self:destroyConnection(code, reason)
@@ -156,7 +185,7 @@ function VoiceManager:readyOP(ws_payload)
 end
 
 function VoiceManager:startHeartbeat(heartbeat_timeout)
-  self._heartbeat = setInterval(heartbeat_timeout, function ()
+  self._heartbeat = setInterval(heartbeat_timeout, function()
     coroutine.wrap(VoiceManager.sendKeepAlive)(self)
   end)
 end
@@ -186,6 +215,9 @@ function VoiceManager:destroyConnection(code, reason)
   self.udp:stop()
 end
 
+--- Sets the speaking state
+---@param speaking integer speaking mode to set (0 = not speaking, 1(1 << 0) = Microphone, 2(1 << 1) = Soundshare, 4(1 << 2) = Priority)
+---@return integer speaking state given to it
 function VoiceManager:setSpeaking(speaking)
   self._ws:send({
     op = SPEAKING,
@@ -197,6 +229,94 @@ function VoiceManager:setSpeaking(speaking)
   })
 
   return speaking
+end
+
+--- Plays a audio stream through the voice connection
+---@param stream any
+function VoiceManager:play(stream, needs_encoder)
+  -- Just in case, play gets triggered when _ws is not present;
+  if not self._ws then
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
+
+    return
+  end;
+  if self._stream and self._stream._readableState.ended == false then
+    error("Already playing a stream")
+  end;
+
+  print('[LunaStream / Voice / ' .. self.guild_id .. ']: Playing audio stream...')
+
+  self._stream = stream
+
+  self:setSpeaking(1)
+  if needs_encoder then
+    self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
+  end
+
+  self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
+  print('[LunaStream / Voice / ' ..
+  self.guild_id .. ']: Next audio packet timestamp: ' .. self._nextAudioPacketTimestamp - os.time())
+  self:_startAudioPacketInterval()
+
+  self._player_state = PLAYER_STATE.playing
+end
+
+function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
+  -- TODO: Implement max value handle
+  self._seq_ack = self._seq_ack + 1
+  self._timestamp = self._timestamp + OPUS_CHUNK_SIZE
+  self._nonce = self._nonce + 1
+
+  -- print(self._seq_ack, self._timestamp, self._nonce, ssrc, key)
+  local packetWithBasicInfo = string.pack('>BBI2I4I4', 0x80, 0x78, self._seq_ack, self._timestamp, ssrc)
+
+  local nonce = self._udp._crypto:nonce(self._nonce)
+  local nonce_padding = ffi.string(nonce, 4)
+
+  local encryptedAudio, encryptedAudioLen = self._udp._crypto:encrypt(opus_data, opus_length, packetWithBasicInfo,
+    #packetWithBasicInfo, nonce, key)
+
+  self._packetStats.expected = self._packetStats.expected + 1;
+
+  if not encryptedAudio then
+    return nil, encryptedAudioLen
+  end
+
+  return packetWithBasicInfo .. ffi.string(encryptedAudio, encryptedAudioLen) .. nonce_padding
+end
+
+function VoiceManager:_startAudioPacketInterval()
+  self._audioPacketTimeout = setTimeout(self._nextAudioPacketTimestamp - os.time(), function()
+    print('[LunaStream / Voice / ' ..
+    self.guild_id .. ']: running audio Packet Timeout ' .. self._nextAudioPacketTimestamp, self._nextAudioPacketTimestamp - os.time())
+    local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
+    local audioChuck = self._stream:read(pcmLen)
+
+    -- p(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2, self._opusEncoder)
+    local encodedData, encodedLen
+    if self._opusEncoder then
+      encodedData, encodedLen = self._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
+    else
+      encodedData = audioChuck
+      encodedLen = #audioChuck
+    end
+
+    local audioPacket = coroutine.wrap(self._prepareAudioPacket)(self, encodedData, encodedLen, self.udp.ssrc,
+      self.udp._sec_key)
+    -- p("audioPacket sent:", "audioChunk: ", audioChuck, "\n AudioPacket: ", audioPacket)
+    self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
+
+    if not audioPacket then
+      print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet is nil/lost')
+      self._packetStats.lost = self._packetStats.lost + 1
+      self:_startAudioPacketInterval()
+      return
+    end
+
+    self.udp:send(audioPacket)
+
+    self:_startAudioPacketInterval()
+  end)
 end
 
 function get:guild_id()
