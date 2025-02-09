@@ -3,20 +3,12 @@ local ffi = require('ffi')
 
 local Sodium, get = class('Sodium')
 
-function Sodium:__init(production)
+function Sodium:__init(path)
   local os_name = require('los').type()
   ---@diagnostic disable-next-line:undefined-global
-  local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = {
-    win32 = '.dll',
-    linux = '.so',
-    darwin = '.dylib'
-  }
-  local bin_dir = string.format('./bin/sodium_%s_%s%s', os_name, arch, lib_name_list[os_name])
-
   ffi.cdef(require('./cdef.lua'))
 
-  local loaded, lib = pcall(ffi.load, production and './native/sodium' or bin_dir)
+  local loaded, lib = pcall(ffi.load, path)
 
   if not loaded then
     error(lib)

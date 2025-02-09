@@ -2,6 +2,7 @@
 local class = require('class')
 local timer = require('timer')
 local ffi   = require('ffi')
+local uv = require('uv')
 
 -- Internal Library
 local Emitter = require('./Emitter')
@@ -44,7 +45,18 @@ local OPUS_CHANNELS       = 2
 local OPUS_FRAME_DURATION = 20
 -- Size of chucks to read from the stream at a time
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+local MS_PER_NS = 1 / (1000 * 1000)
 
+local function sleep(delay)
+	local thread = coroutine.running()
+	local t = uv.new_timer()
+	t:start(delay, 0, function()
+		t:stop()
+		t:close()
+		return assert(coroutine.resume(thread))
+	end)
+	return coroutine.yield()
+end
 
 local VoiceManager, get = class('VoiceManager', Emitter)
 
@@ -73,7 +85,7 @@ function VoiceManager:__init(guildId, userId, production_mode)
   -- UDP
   self._udp = UDPController(production_mode)
   self._encryption = self._udp._crypto._mode
-  self._opus = Opus(production_mode)
+  self._opus = Opus(self:getBinaryPath('opus', production_mode))
   self._nonce = 0
 
   self._packetStats = {
@@ -84,9 +96,21 @@ function VoiceManager:__init(guildId, userId, production_mode)
 
   self._stream = NULL
 
-  self._nextAudioPacketTimestamp = NULL
+  -- self._nextAudioPacketTimestamp = NULL
 
   self._opusEncoder = NULL
+end
+
+function VoiceManager:getBinaryPath(name, production)
+  local os_name = require('los').type()
+  local arch = os_name == 'darwin' and 'universal' or jit.arch
+  local lib_name_list = {
+    win32 = '.dll',
+    linux = '.so',
+    darwin = '.dylib'
+  }
+  local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
+  return production and './native/' .. name or bin_dir
 end
 
 function VoiceManager:voiceCredential(session_id, endpoint, token)
@@ -253,12 +277,9 @@ function VoiceManager:play(stream, needs_encoder)
     self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
   end
 
-  self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
-  print('[LunaStream / Voice / ' ..
-  self.guild_id .. ']: Next audio packet timestamp: ' .. self._nextAudioPacketTimestamp - os.time())
-  self:_startAudioPacketInterval()
-
   self._player_state = PLAYER_STATE.playing
+
+  return self:_startAudioPacketInterval()
 end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
@@ -286,12 +307,14 @@ function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
 end
 
 function VoiceManager:_startAudioPacketInterval()
-  self._audioPacketTimeout = setTimeout(self._nextAudioPacketTimestamp - os.time(), function()
-    print('[LunaStream / Voice / ' ..
-    self.guild_id .. ']: running audio Packet Timeout ' .. self._nextAudioPacketTimestamp, self._nextAudioPacketTimestamp - os.time())
+  local elapsed = 0
+  local duration = math.huge
+  local start = uv.hrtime()
+
+  while elapsed < duration do
     local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
     local audioChuck = self._stream:read(pcmLen)
-
+    print('[LunaStream / Voice / ' .. self.guild_id .. ']: Sending voice packet, elapsed: ', elapsed)
     -- p(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2, self._opusEncoder)
     local encodedData, encodedLen
     if self._opusEncoder then
@@ -300,23 +323,19 @@ function VoiceManager:_startAudioPacketInterval()
       encodedData = audioChuck
       encodedLen = #audioChuck
     end
-
     local audioPacket = coroutine.wrap(self._prepareAudioPacket)(self, encodedData, encodedLen, self.udp.ssrc,
       self.udp._sec_key)
-    -- p("audioPacket sent:", "audioChunk: ", audioChuck, "\n AudioPacket: ", audioPacket)
-    self._nextAudioPacketTimestamp = os.time() + OPUS_FRAME_DURATION
-
     if not audioPacket then
       print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet is nil/lost')
       self._packetStats.lost = self._packetStats.lost + 1
-      self:_startAudioPacketInterval()
-      return
+      goto continue
     end
-
     self.udp:send(audioPacket)
-
-    self:_startAudioPacketInterval()
-  end)
+    elapsed = elapsed + OPUS_FRAME_DURATION
+    local delay = elapsed - (uv.hrtime() - start) * MS_PER_NS
+    sleep(math.max(delay, 0))
+    ::continue::
+  end
 end
 
 function get:guild_id()
