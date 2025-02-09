@@ -5,6 +5,7 @@ local Sodium, get = class('Sodium')
 
 function Sodium:__init(production)
   local os_name = require('los').type()
+  ---@diagnostic disable-next-line:undefined-global
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = {
     win32 = '.dll',
