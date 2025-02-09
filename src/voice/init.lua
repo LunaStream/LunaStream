@@ -279,7 +279,9 @@ function VoiceManager:play(stream, needs_encoder)
 
   self._player_state = PLAYER_STATE.playing
 
-  return self:_startAudioPacketInterval()
+  coroutine.wrap(self._startAudioPacketInterval)(self)
+
+  return true
 end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
