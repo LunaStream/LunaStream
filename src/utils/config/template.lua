@@ -13,6 +13,7 @@ luna:
   http: true
   nicovideo: true
   twitch: true
+  spotify: true
   
 sources:
   fallbackSearchSource: 'bcsearch'
