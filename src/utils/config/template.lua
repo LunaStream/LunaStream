@@ -12,7 +12,8 @@ luna:
   vimeo: true
   http: true
   nicovideo: true
-
+  twitch: true
+  
 sources:
   fallbackSearchSource: 'bcsearch'
   maxSearchResults: 25
