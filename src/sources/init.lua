@@ -11,6 +11,7 @@ local httpdirectplay = require("../sources/http.lua")
 local nicovideo = require("../sources/nicovideo.lua")
 local twitch = require("../sources/twitch.lua")
 local spotify = require("../sources/spotify.lua")
+local instagram = require("../sources/instagram.lua")
 
 local class = require('class')
 
@@ -73,6 +74,11 @@ function Sources:__init(luna)
     self._source_avaliables["deezer"] = deezer(luna):setup()
     self._search_avaliables["dzsearch"] = "deezer"
     self._luna.logger:info('SourceManager', 'Registered [Deezer] audio source manager')
+  end
+
+  if config.luna.instagram then
+    self._source_avaliables["instagram"] = instagram(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [Instagram] audio source manager')
   end
 end
 

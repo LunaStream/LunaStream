@@ -14,6 +14,7 @@ luna:
   nicovideo: true
   twitch: true
   spotify: true
+  instagram: true
   
 sources:
   fallbackSearchSource: 'bcsearch'
