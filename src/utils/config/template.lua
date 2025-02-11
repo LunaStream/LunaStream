@@ -15,6 +15,7 @@ luna:
   twitch: true
   spotify: true
   instagram: true
+  facebook: true
   
 sources:
   fallbackSearchSource: 'bcsearch'

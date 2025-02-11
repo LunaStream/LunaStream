@@ -12,6 +12,7 @@ local nicovideo = require("../sources/nicovideo.lua")
 local twitch = require("../sources/twitch.lua")
 local spotify = require("../sources/spotify.lua")
 local instagram = require("../sources/instagram.lua")
+local facebook = require("../sources/facebook.lua")
 
 local class = require('class')
 
@@ -79,6 +80,11 @@ function Sources:__init(luna)
   if config.luna.instagram then
     self._source_avaliables["instagram"] = instagram(luna):setup()
     self._luna.logger:info('SourceManager', 'Registered [Instagram] audio source manager')
+  end
+
+  if config.luna.facebook then
+    self._source_avaliables["facebook"] = facebook(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [Facebook] audio source manager')
   end
 end
 
