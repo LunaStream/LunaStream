@@ -9,6 +9,7 @@ local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
 local Opus = require('opus')
 local UDPController = require('./UDPController')
+local VoiceStream = require('./VoiceStream')
 
 -- Useful functions
 local sf = string.format
@@ -257,7 +258,7 @@ end
 
 --- Plays a audio stream through the voice connection
 ---@param stream any
-function VoiceManager:play(stream, needs_encoder)
+function VoiceManager:play(stream, passthrough_class, needs_encoder)
   -- Just in case, play gets triggered when _ws is not present;
   if not self._ws then
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
@@ -279,7 +280,9 @@ function VoiceManager:play(stream, needs_encoder)
 
   self._player_state = PLAYER_STATE.playing
 
-  coroutine.wrap(self._startAudioPacketInterval)(self)
+  if passthrough_class then
+    VoiceStream(self, passthrough_class):setup()
+  else coroutine.wrap(self._startAudioPacketInterval)(self) end
 
   return true
 end
