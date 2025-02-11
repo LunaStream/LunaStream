@@ -10,7 +10,7 @@ local Facebook = class("Facebook", AbstractSource)
 function Facebook:__init(luna)
   AbstractSource.__init(self)
   self._luna = luna
-  self._fbDtsg = "NAcPWRAQL_JK04EqKpK47rWAOHyYkil074n_u9w_hPxxwvZDPf6Y-zQ%3A32%3A1738776640" -- Token precisa ser atualizado periodicamente
+  self._fbDtsg = "NAcPWRAQL_JK04EqKpK47rWAOHyYkil074n_u9w_hPxxwvZDPf6Y-zQ%3A32%3A1738776640" -- change if it expires (or leave it to config.facebook.fbDtsg - still under analysis if this expires)
 end
 
 function Facebook:setup()
