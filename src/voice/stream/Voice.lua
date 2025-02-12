@@ -25,6 +25,15 @@ local function sleep(delay)
 	return coroutine.yield()
 end
 
+local function asyncResume(thread)
+	local t = uv.new_timer()
+	t:start(0, 0, function()
+		t:stop()
+		t:close()
+		return assert(coroutine.resume(thread))
+	end)
+end
+
 function VoiceStream:__init(voiceManager, filters)
   self._cache = {}
   self._passthrough_class = PCMReader:new()
@@ -32,6 +41,7 @@ function VoiceStream:__init(voiceManager, filters)
   self._currentProcessing = false
   self._elapsed = 0
   self._filters = filters or {}
+  self._paused = false
 end
 
 function VoiceStream:setup()
@@ -43,21 +53,37 @@ function VoiceStream:setup()
       if self._currentProcessing then
         table.insert(self._cache, chunk)
       else
-        self:chunkPass(chunk, start)
-        self:intervalHandling(start)
+        if self._paused then
+          table.insert(self._cache, chunk)
+        else
+          self:chunkPass(chunk, start)
+          self:intervalHandling(start)
+        end
       end
     end)()
   end)
 
   self._voiceManager._stream:pipe(self._passthrough_class)
+  return self
 end
 
 function VoiceStream:intervalHandling(start)
   while #self._cache ~= 0 do
+    if self._paused then
+      asyncResume(self._paused)
+			self._paused = coroutine.running()
+			local pause = uv.hrtime()
+			coroutine.yield()
+			start = start + uv.hrtime() - pause
+			asyncResume(self._resumed)
+			self._resumed = nil
+    end
     local nextChunk = table.remove(self._cache, 1)
     self:chunkPass(nextChunk, start)
   end
-  self._currentProcessing = false
+  if not self._paused then
+    self._currentProcessing = false
+  end
 end
 
 function VoiceStream:addFilter(filterClass)
@@ -75,6 +101,21 @@ function VoiceStream:chunkMixer(chunk)
     res = filterClass:convert(chunk)
   end
   return res
+end
+
+function VoiceStream:pause()
+	-- if not self._speaking then return end
+	if self._paused then return end
+	self._paused = coroutine.running()
+	return coroutine.yield()
+end
+
+function VoiceStream:resume()
+	if not self._paused then return end
+	asyncResume(self._paused)
+	self._paused = nil
+	self._resumed = coroutine.running()
+	return coroutine.yield()
 end
 
 function VoiceStream:chunkPass(chunk, start)

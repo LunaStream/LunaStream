@@ -19,10 +19,24 @@ local audioStream = fs.createReadStream('./vexp/videoplayback.weba')
   :pipe(MusicUtils.opus.WebmDemuxer:new())
   :pipe(MusicUtils.opus.Decoder:new(VoiceClass._opus))
 
+p('[Voice EXP]: Song will play after 7s')
+
 setTimeout(7000, coroutine.wrap(function()
-  p('Voice EXP: Now play the song')
+  p('[Voice EXP]: Now play the song')
   VoiceClass:play(audioStream, {
     encoder = true,
     -- filters = { Filter() }
   })
+end))
+
+setTimeout(15000, coroutine.wrap(function()
+  p('[Voice EXP]: Now pause the song')
+  VoiceClass._voiceStream:pause()
+  p(VoiceClass._voiceStream._currentProcessing)
+end))
+
+setTimeout(20000, coroutine.wrap(function()
+  p('[Voice EXP]: Now resume the song')
+  p(VoiceClass._voiceStream._currentProcessing)
+  VoiceClass._voiceStream:resume()
 end))
