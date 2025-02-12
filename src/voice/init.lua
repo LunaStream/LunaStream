@@ -44,6 +44,7 @@ local OPUS_CHANNELS       = 2
 local OPUS_FRAME_DURATION = 20
 -- Size of chucks to read from the stream at a time
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+local OPUS_SILENCE_FRAME  = '\248\255\254'
 
 local VoiceManager, get = class('VoiceManager', Emitter)
 
@@ -274,6 +275,37 @@ function VoiceManager:play(stream, options)
   self._voiceStream = VoiceStream(self, filter_pipes):setup()
 
   return true
+end
+
+-- Wrapper
+function VoiceManager:pause()
+  if not self._voiceStream then return end
+  self._voiceStream:pause()
+end
+
+-- Wrapper
+function VoiceManager:resume()
+  if not self._voiceStream then return end
+  self._voiceStream:resume()
+end
+
+function VoiceManager:stop()
+  self._voiceStream:stop()
+  self._voiceStream:clear()
+
+  self._voiceStream = nil
+  self._stream = nil
+  self._packetStats = {
+    sent = 0,
+    lost = 0,
+    expected = 0,
+  }
+
+  self._player_state = PLAYER_STATE.idle
+
+  self.udp:send(OPUS_SILENCE_FRAME)
+
+  self:setSpeaking(0)
 end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)

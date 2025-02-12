@@ -38,19 +38,21 @@ function VoiceStream:__init(voiceManager, filters)
   self._cache = {}
   self._passthrough_class = PCMReader:new()
   self._voiceManager = voiceManager
-  self._currentProcessing = false
+  self._current_processing = false
   self._elapsed = 0
   self._filters = filters or {}
   self._paused = false
+  self._finished_transform = false
+  self._stop = false
 end
 
 function VoiceStream:setup()
-  print('[LunaStream w/VoiceStream]: Now using custom stream')
   local start = uv.hrtime()
 
   self._passthrough_class:on('raw-pcm-data', function (chunk)
+    if self._stop then return end
     coroutine.wrap(function ()
-      if self._currentProcessing then
+      if self._current_processing then
         table.insert(self._cache, chunk)
       else
         if self._paused then
@@ -63,12 +65,18 @@ function VoiceStream:setup()
     end)()
   end)
 
+  self._passthrough_class:on('end', function ()
+    print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: Finished transforming, ready for sending silence frame before stopping')
+    self._finished_transform = true
+  end)
+
   self._voiceManager._stream:pipe(self._passthrough_class)
   return self
 end
 
 function VoiceStream:intervalHandling(start)
   while #self._cache ~= 0 do
+    if self._stop then break end
     if self._paused then
       asyncResume(self._paused)
 			self._paused = coroutine.running()
@@ -81,8 +89,14 @@ function VoiceStream:intervalHandling(start)
     local nextChunk = table.remove(self._cache, 1)
     self:chunkPass(nextChunk, start)
   end
+  if self._finished_transform then
+    self:clear()
+    self._voiceManager:stop()
+    return
+  end
   if not self._paused then
-    self._currentProcessing = false
+    self._current_processing = false
+    return
   end
 end
 
@@ -118,17 +132,24 @@ function VoiceStream:resume()
 	return coroutine.yield()
 end
 
+function VoiceStream:stop()
+  self._passthrough_class:removeAllListeners()
+  self._voiceManager._stream:removeAllListeners()
+  self._stop = true
+end
+
 function VoiceStream:chunkPass(chunk, start)
+  self._current_processing = true
+
   chunk = self:chunkMixer(chunk)
 
-  self._currentProcessing = true
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
   local audioChuck = { string.unpack(FMT(pcmLen), chunk) }
 
   table.remove(audioChuck)
 
-  print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ' / VoiceStream]: Sending voice packet, elapsed: ', self._elapsed)
+  print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: Sending voice packet, elapsed: ', self._elapsed)
 
   local encodedData, encodedLen
   if self._voiceManager._opusEncoder then
@@ -150,6 +171,16 @@ function VoiceStream:chunkPass(chunk, start)
   self._elapsed = self._elapsed + OPUS_FRAME_DURATION
   local delay = self._elapsed - (uv.hrtime() - start) * MS_PER_NS
   sleep(math.max(delay, 0))
+end
+
+function VoiceStream:clear()
+  self._cache = {}
+  self._passthrough_class = PCMReader:new()
+  self._current_processing = false
+  self._elapsed = 0
+  self._paused = false
+  self._finished_transform = false
+  self._stop = false
 end
 
 return VoiceStream
