@@ -20,5 +20,5 @@ local audioStream = fs.createReadStream('./vexp/videoplayback.weba')
 
 setTimeout(7000, coroutine.wrap(function()
   p('Voice EXP: Now play the song')
-  VoiceClass:play(audioStream, MusicUtils.core.PCMStream, true)
+  VoiceClass:play(audioStream, { encoder = true })
 end))

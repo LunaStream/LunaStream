@@ -9,14 +9,12 @@ local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
 local Opus = require('opus')
 local UDPController = require('./UDPController')
-local VoiceStream = require('./VoiceStream')
+local VoiceStream = require('./stream/Voice')
 
 -- Useful functions
 local sf = string.format
 local setInterval = timer.setInterval
 local clearInterval = timer.clearInterval
-local setTimeout = timer.setTimeout
-local clearTimeout = timer.clearTimeout
 
 -- OP code
 local IDENTIFY        = 0
@@ -257,9 +255,12 @@ function VoiceManager:setSpeaking(speaking)
 end
 
 --- Plays a audio stream through the voice connection
----@param stream any
-function VoiceManager:play(stream, passthrough_class, needs_encoder)
+---@param options any
+function VoiceManager:play(stream, options)
   -- Just in case, play gets triggered when _ws is not present;
+  options = options or {}
+  local needs_encoder = options.encoder or true
+
   if not self._ws then
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
 
@@ -280,9 +281,7 @@ function VoiceManager:play(stream, passthrough_class, needs_encoder)
 
   self._player_state = PLAYER_STATE.playing
 
-  if passthrough_class then
-    VoiceStream(self, passthrough_class):setup()
-  else coroutine.wrap(self._startAudioPacketInterval)(self) end
+  VoiceStream(self):setup()
 
   return true
 end
@@ -309,38 +308,6 @@ function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
   end
 
   return packetWithBasicInfo .. ffi.string(encryptedAudio, encryptedAudioLen) .. nonce_padding
-end
-
-function VoiceManager:_startAudioPacketInterval()
-  local elapsed = 0
-  local duration = math.huge
-  local start = uv.hrtime()
-
-  while elapsed < duration do
-    local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
-    local audioChuck = self._stream:read(pcmLen)
-    print('[LunaStream / Voice / ' .. self.guild_id .. ']: Sending voice packet, elapsed: ', elapsed)
-    -- p(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2, self._opusEncoder)
-    local encodedData, encodedLen
-    if self._opusEncoder then
-      encodedData, encodedLen = self._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
-    else
-      encodedData = audioChuck
-      encodedLen = #audioChuck
-    end
-    local audioPacket = coroutine.wrap(self._prepareAudioPacket)(self, encodedData, encodedLen, self.udp.ssrc,
-      self.udp._sec_key)
-    if not audioPacket then
-      print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet is nil/lost')
-      self._packetStats.lost = self._packetStats.lost + 1
-      goto continue
-    end
-    self.udp:send(audioPacket)
-    elapsed = elapsed + OPUS_FRAME_DURATION
-    local delay = elapsed - (uv.hrtime() - start) * MS_PER_NS
-    sleep(math.max(delay, 0))
-    ::continue::
-  end
 end
 
 function get:guild_id()

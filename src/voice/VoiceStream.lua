@@ -9,7 +9,6 @@ local OPUS_FRAME_DURATION = 20
 -- Size of chucks to read from the stream at a time
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
 local MS_PER_NS = 1 / (1000 * 1000)
-local cache = nil
 
 function FMT(n)
   return '<' .. string.rep('i2', n)
