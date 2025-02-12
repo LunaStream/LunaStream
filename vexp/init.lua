@@ -3,6 +3,7 @@ local json = require('json')
 local fs = require('fs')
 local MusicUtils = require('musicutils')
 local Voice = require('../src/voice')
+local Filter = require('./Filter')
 local setTimeout = timer.setTimeout
 
 local vcred = json.decode(fs.readFileSync('./vexp/vcred.json'))
@@ -20,5 +21,8 @@ local audioStream = fs.createReadStream('./vexp/videoplayback.weba')
 
 setTimeout(7000, coroutine.wrap(function()
   p('Voice EXP: Now play the song')
-  VoiceClass:play(audioStream, { encoder = true })
+  VoiceClass:play(audioStream, {
+    encoder = true,
+    -- filters = { Filter() }
+  })
 end))

@@ -44,18 +44,6 @@ local OPUS_CHANNELS       = 2
 local OPUS_FRAME_DURATION = 20
 -- Size of chucks to read from the stream at a time
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
-local MS_PER_NS = 1 / (1000 * 1000)
-
-local function sleep(delay)
-	local thread = coroutine.running()
-	local t = uv.new_timer()
-	t:start(delay, 0, function()
-		t:stop()
-		t:close()
-		return assert(coroutine.resume(thread))
-	end)
-	return coroutine.yield()
-end
 
 local VoiceManager, get = class('VoiceManager', Emitter)
 
@@ -93,11 +81,12 @@ function VoiceManager:__init(guildId, userId, production_mode)
     expected = 0,
   }
 
-  self._stream = NULL
+  self._stream = nil
+  self._voiceStream = nil
 
   -- self._nextAudioPacketTimestamp = NULL
 
-  self._opusEncoder = NULL
+  self._opusEncoder = nil
 end
 
 function VoiceManager:getBinaryPath(name, production)
@@ -260,6 +249,7 @@ function VoiceManager:play(stream, options)
   -- Just in case, play gets triggered when _ws is not present;
   options = options or {}
   local needs_encoder = options.encoder or true
+  local filter_pipes = options.filters or nil
 
   if not self._ws then
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
@@ -281,7 +271,7 @@ function VoiceManager:play(stream, options)
 
   self._player_state = PLAYER_STATE.playing
 
-  VoiceStream(self):setup()
+  self._voiceStream = VoiceStream(self, filter_pipes):setup()
 
   return true
 end

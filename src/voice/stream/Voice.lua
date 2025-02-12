@@ -7,7 +7,6 @@ local VoiceStream = class('VoiceStream')
 local OPUS_SAMPLE_RATE    = 48000
 local OPUS_CHANNELS       = 2
 local OPUS_FRAME_DURATION = 20
--- Size of chucks to read from the stream at a time
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
 local MS_PER_NS = 1 / (1000 * 1000)
 
@@ -26,12 +25,13 @@ local function sleep(delay)
 	return coroutine.yield()
 end
 
-function VoiceStream:__init(voiceManager)
+function VoiceStream:__init(voiceManager, filters)
   self._cache = {}
   self._passthrough_class = PCMReader:new()
   self._voiceManager = voiceManager
   self._currentProcessing = false
   self._elapsed = 0
+  self._filters = filters or {}
 end
 
 function VoiceStream:setup()
@@ -60,7 +60,26 @@ function VoiceStream:intervalHandling(start)
   self._currentProcessing = false
 end
 
+function VoiceStream:addFilter(filterClass)
+  self._filters[filterClass.__name] = filterClass
+end
+
+function VoiceStream:removeFilter(name)
+  self._filters[name] = nil
+end
+
+function VoiceStream:chunkMixer(chunk)
+  if #self._filters == 0 then return chunk end
+  local res = chunk
+  for _, filterClass in pairs(self._filters) do
+    res = filterClass:convert(chunk)
+  end
+  return res
+end
+
 function VoiceStream:chunkPass(chunk, start)
+  chunk = self:chunkMixer(chunk)
+
   self._currentProcessing = true
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
