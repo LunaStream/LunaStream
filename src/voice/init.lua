@@ -1,38 +1,38 @@
 -- External library
-local class = require('class')
-local timer = require('timer')
-local ffi   = require('ffi')
-local uv = require('uv')
+local class               = require('class')
+local timer               = require('timer')
+local ffi                 = require('ffi')
+local uv                  = require('uv')
 
 -- Internal Library
-local Emitter = require('./Emitter')
-local WebSocket = require('./WebSocket')
-local Opus = require('opus')
-local UDPController = require('./UDPController')
-local VoiceStream = require('./stream/Voice')
+local Emitter             = require('./Emitter')
+local WebSocket           = require('./WebSocket')
+local Opus                = require('opus')
+local UDPController       = require('./UDPController')
+local VoiceStream         = require('./stream/Voice')
 
 -- Useful functions
-local sf = string.format
-local setInterval = timer.setInterval
-local clearInterval = timer.clearInterval
+local sf                  = string.format
+local setInterval         = timer.setInterval
+local clearInterval       = timer.clearInterval
 
 -- OP code
-local IDENTIFY        = 0
-local SELECT_PROTOCOL = 1
-local READY           = 2
-local HEARTBEAT       = 3
-local DESCRIPTION     = 4
-local SPEAKING        = 5
-local RESUME          = 7
-local HELLO           = 8
+local IDENTIFY            = 0
+local SELECT_PROTOCOL     = 1
+local READY               = 2
+local HEARTBEAT           = 3
+local DESCRIPTION         = 4
+local SPEAKING            = 5
+local RESUME              = 7
+local HELLO               = 8
 -- local RESUMED         = 9
 
 -- Vitural enums
-local VOICE_STATE = {
+local VOICE_STATE         = {
   disconnected = 'disconnected',
   connected = 'connected',
 }
-local PLAYER_STATE = {
+local PLAYER_STATE        = {
   idle = 'idle',
   playing = 'playing',
 }
@@ -46,7 +46,15 @@ local OPUS_FRAME_DURATION = 20
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
 local OPUS_SILENCE_FRAME  = '\248\255\254'
 
-local VoiceManager, get = class('VoiceManager', Emitter)
+-- Max Values Constants for RTP
+-- Maximum value for the RTP sequence number.  A 16-bit unsigned integer.  Used for packet ordering and loss detection. 0xFFFF (65535)
+local MAX_SEQUENCE        = 0xFFFF
+-- Maximum value for the RTP timestamp. A 32-bit unsigned integer.  Reflects the sampling instant of the first audio frame in the packet. Used for synchronization and jitter buffering. 0xFFFFFFFF (4294967295)
+local MAX_TIMESTAMP       = 0xFFFFFFFF
+-- Maximum value for the nonce. A 32-bit unsigned integer.  0xFFFFFFFF (4294967295)
+local MAX_NONCE           = 0xFFFFFFFF
+
+local VoiceManager, get   = class('VoiceManager', Emitter)
 
 function VoiceManager:__init(guildId, userId, production_mode)
   Emitter.__init(self)
@@ -123,7 +131,7 @@ function VoiceManager:connect(reconnect)
     }
   })
 
-  self.ws:on('open', function ()
+  self.ws:on('open', function()
     self.ws:send({
       op = reconnect and RESUME or IDENTIFY,
       d = {
@@ -136,12 +144,12 @@ function VoiceManager:connect(reconnect)
     })
   end)
 
-  self.ws:on('message', function (data)
+  self.ws:on('message', function(data)
     print('[LunaStream / Voice | WS ]: ' .. data.payload)
     self:messageEvent(data.json_payload)
   end)
 
-  self.ws:on('close', function (code, reason)
+  self.ws:on('close', function(code, reason)
     --- @diagnostic disable-next-line: undefined-global
     p(code, reason)
     if not self.ws then return end
@@ -156,8 +164,8 @@ function VoiceManager:messageEvent(payload)
   local data = payload.d
 
   if payload.seq then
-		self._seq_ack = payload.seq
-	end
+    self._seq_ack = payload.seq
+  end
 
   if op == READY then
     self:readyOP(payload)
@@ -310,11 +318,12 @@ end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
   -- TODO: Implement max value handle
-  self._seq_ack = self._seq_ack + 1
-  self._timestamp = self._timestamp + OPUS_CHUNK_SIZE
-  self._nonce = self._nonce + 1
+  self._seq_ack = self._seq_ack >= MAX_SEQUENCE and 0 or self._seq_ack + 1
 
-  -- print(self._seq_ack, self._timestamp, self._nonce, ssrc, key)
+  self._timestamp = self._timestamp >= MAX_TIMESTAMP and 0 or self._timestamp + OPUS_CHUNK_SIZE
+
+  self._nonce = self._nonce >= MAX_NONCE and 0 or self._nonce + 1
+
   local packetWithBasicInfo = string.pack('>BBI2I4I4', 0x80, 0x78, self._seq_ack, self._timestamp, ssrc)
 
   local nonce = self._udp._crypto:nonce(self._nonce)
