@@ -14,7 +14,6 @@ function Facebook:__init(luna)
 end
 
 function Facebook:setup()
-  self._luna.logger:info('Facebook', 'Registered [Facebook] video source manager')
   return self
 end
 

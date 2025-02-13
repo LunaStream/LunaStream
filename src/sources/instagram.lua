@@ -13,7 +13,6 @@ function Instagram:__init(luna)
 end
 
 function Instagram:setup()
-  self._luna.logger:info('Instagram', 'Registered [Instagram] audio source manager')
   return self
 end
 
