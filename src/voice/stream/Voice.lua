@@ -149,8 +149,6 @@ function VoiceStream:chunkPass(chunk, start)
 
   table.remove(audioChuck)
 
-  print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: Sending voice packet, elapsed: ', self._elapsed)
-
   local encodedData, encodedLen
   if self._voiceManager._opusEncoder then
     encodedData, encodedLen = self._voiceManager._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
@@ -166,7 +164,17 @@ function VoiceStream:chunkPass(chunk, start)
     print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: audio packet is nil/lost')
     self._voiceManager._packetStats.lost = self._voiceManager._packetStats.lost + 1
   else
-    self._voiceManager.udp:send(audioPacket)
+    self._voiceManager.udp:send(audioPacket, function (err)
+      local curr_lost = self._voiceManager._packetStats.lost
+      local curr_sent = self._voiceManager._packetStats.sent
+      if err then
+        print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: audio packet is nil/lost')
+        self._voiceManager._packetStats.lost = curr_lost + 1
+      else
+        print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: audio packet sent, elapsed: ', self._elapsed)
+        self._voiceManager._packetStats.sent = curr_sent + 1
+      end
+    end)
   end
   self._elapsed = self._elapsed + OPUS_FRAME_DURATION
   local delay = self._elapsed - (uv.hrtime() - start) * MS_PER_NS

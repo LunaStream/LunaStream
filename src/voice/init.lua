@@ -298,6 +298,7 @@ function VoiceManager:resume()
 end
 
 function VoiceManager:stop()
+  p('[LunaStream / Voice / ' .. self.guild_id .. ']: Total stream stats: ', self._packetStats)
   self._voiceStream:stop()
   self._voiceStream:clear()
 
@@ -314,7 +315,13 @@ function VoiceManager:stop()
 
   self._player_state = PLAYER_STATE.idle
 
-  self.udp:send(OPUS_SILENCE_FRAME)
+  self.udp:send(OPUS_SILENCE_FRAME, function (err)
+    if err then
+      print('[LunaStream / Voice / ' .. self.guild_id .. ']: Failed to sent opus silent frame!')
+    else
+      print('[LunaStream / Voice / ' .. self.guild_id .. ']: Opus silent frame sent!')
+    end
+  end)
 
   self:setSpeaking(0)
 

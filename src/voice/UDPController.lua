@@ -61,8 +61,8 @@ function UDPController:ipDiscovery()
   }
 end
 
-function UDPController:send(packet)
-  self.udp:send(packet, self._port, self._address)
+function UDPController:send(packet, cb)
+  self.udp:send(packet, self._port, self._address, cb)
 end
 
 function UDPController:start()
