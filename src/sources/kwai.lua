@@ -22,7 +22,6 @@ function Kwai:__init(luna)
 end
 
 function Kwai:setup()
-  self:loadForm("https://www.kwai.com/video/5189141301937324981")
   return self
 end
 
@@ -106,7 +105,7 @@ end
 
 function Kwai:loadStream(track)
   local url = self:getVideoInfo(track.info.identifier).videoUrl
-  
+
   if not url then
     return self:buildError("Video URL not found", "fault", "Kwai Source")
   end
