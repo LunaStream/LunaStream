@@ -301,6 +301,9 @@ function VoiceManager:stop()
   self._voiceStream:stop()
   self._voiceStream:clear()
 
+  setmetatable(self._voiceStream, { __mode = "k" })
+  setmetatable(self._stream, { __mode = "k" })
+
   self._voiceStream = nil
   self._stream = nil
   self._packetStats = {
@@ -314,6 +317,8 @@ function VoiceManager:stop()
   self.udp:send(OPUS_SILENCE_FRAME)
 
   self:setSpeaking(0)
+
+  collectgarbage()
 end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
