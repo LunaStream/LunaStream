@@ -16,6 +16,7 @@ luna:
   spotify: true
   instagram: true
   facebook: true
+  kwai: true
   
 sources:
   fallbackSearchSource: 'bcsearch'
