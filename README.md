@@ -3,30 +3,42 @@ A lavalink alternative focus on stability, decent speed and modulize like Freque
 
 # Development
 
+## Install luvit 2.15
+```
+export TIMEOUT_MODE=disable
+curl -L https://github.com/luvit/lit/raw/main/scripts/get-lit.sh | sh
+```
+
 ## How to setup
 ```
-git clone https://github.com/LunaticSea/LunaStream
-cd LunaticSea
-lit install
+git clone --recurse-submodules https://github.com/LunaStream/LunaStream
+cd LunaStream
+./lit install
 ```
 
 ## How to run development enviroment
 ```
-luvit dev
+./luvit dev
 ```
 
 ## How to build binary
 ```
-luvit make
+./luvit make
 ```
 
 ## How to build manifest
 ```
-luvit make manifest
+./luvit make manifest
 ```
 
 # ✨ Special thanks
 
-| Creator                                                      | Insipred Product                                   | Item                |
-|--------------------------------------------------------------|----------------------------------------------------|---------------------|
-| [The PerformanC Organization](https://github.com/PerformanC) | [NodeLink](https://github.com/PerformanC/NodeLink) | Structures, Sources |
+| Creator                                                | Insipred Product                                         | Item                      |
+|--------------------------------------------------------|----------------------------------------------------------|---------------------------|
+| [PerformanC Developers](https://github.com/PerformanC) | [NodeLink](https://github.com/PerformanC/NodeLink)       | Structures, Sources       |
+| [SinisterRectus](https://github.com/SinisterRectus)    | [Discordia](https://github.com/SinisterRectus/Discordia) | Opus / Sodium binding     |
+| [ThePedroo](https://github.com/ThePedroo)              | [voice](https://github.com/PerformanC/voice)             | Voice library inspiration |
+
+**[All the great programmers who brought these wonderful libraries](./bin/README.md)**
+
+And all people who contribute to this project! ✨✨✨

@@ -40,7 +40,7 @@ function LunaStream:__init(devmode)
   self._waiting_sessions = {}
   self._logger = require('./utils/logger')(5,
     '!%Y-%m-%dT%TZ',
-    config.logger.logToFile and 'lunatic.sea.log' or '',
+    config.logger.logToFile and 'lunastream.log' or '',
   20, self)
   self._sources = source(self)
   self._services = {
@@ -212,7 +212,7 @@ function LunaStream:setupWebsocket()
         client = {
           name = client_info[1]:match('(.+)/[^%s]+'),
           version = client_info[1]:match('[^%s]+/(.+)'),
-          link = client_info[2]:sub(1, -2):sub(2)
+          link = client_info[2] and client_info[2]:sub(1, -2):sub(2) or "Unknown"
         },
         write = write,
         user_id = user_id,

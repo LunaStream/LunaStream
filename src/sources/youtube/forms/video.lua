@@ -3,12 +3,12 @@ local http = require("coro-http")
 local encoder = require("../../../track/encoder.lua")
 
 return function(query, src_type, youtube)
-  local videoId = query:match("v=([%w%-]+)")
+  local videoId = query:match("v=([%w%-_]+)")
   local response, data = http.request(
     "POST",
     string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
     {
-      { "User-Agent", youtube._clientManager.ytContext.client.userAgent },
+      { "User-Agent",                youtube._clientManager.ytContext.client.userAgent },
       { "X-GOOG-API-FORMAT-VERSION", "2" }
     },
     json.encode({
@@ -17,7 +17,7 @@ return function(query, src_type, youtube)
       contentCheckOk = true,
       racyCheckOk = true
     })
-)
+  )
 
 
   if response.code ~= 200 then
@@ -49,7 +49,7 @@ return function(query, src_type, youtube)
   end
 
   local video = data.videoDetails
-  
+
   local track = {
     identifier = video.videoId,
     isSeekable = true,
@@ -61,7 +61,7 @@ return function(query, src_type, youtube)
     uri = string.format("https://%s/watch?v=%s", youtube:baseHostRequest(src_type), video.videoId),
     artworkUrl = video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url,
     isrc = nil,
-    sourceName = src_type
+    sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube'
   }
 
   return {

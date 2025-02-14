@@ -6,12 +6,19 @@ server:
 
 luna:
   youtube: true
+  youtube_music: true
   soundcloud: true
   bandcamp: true
   deezer: true
+  vimeo: true
   http: true
   nicovideo: true
-
+  twitch: true
+  spotify: true
+  instagram: true
+  facebook: true
+  kwai: true
+  
 sources:
   fallbackSearchSource: 'bcsearch'
   maxSearchResults: 25

@@ -32,7 +32,7 @@ return function (answer, guild_id, players)
       volume = player.volume or 0,
       paused = player.paused or false,
       state = player.state or {},
-      voice = player.voice or {},
+      voice = player.voiceState or {},
       filters = player.filters or {}
     }), 200, { ["Content-Type"] = "application/json" })
   end
