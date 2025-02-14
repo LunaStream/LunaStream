@@ -12,6 +12,11 @@ local deezer = require("../sources/deezer.lua")
 local vimeo = require("../sources/vimeo.lua")
 local httpdirectplay = require("../sources/http.lua")
 local nicovideo = require("../sources/nicovideo.lua")
+local twitch = require("../sources/twitch.lua")
+local spotify = require("../sources/spotify.lua")
+local instagram = require("../sources/instagram.lua")
+local facebook = require("../sources/facebook.lua")
+local kwai = require("../sources/kwai.lua")
 
 local class = require('class')
 
@@ -56,6 +61,16 @@ function Sources:__init(luna)
     self._source_avaliables["youtube_music"] = self._source_avaliables["youtube"] or youtube(luna):setup()
     self._search_avaliables["ytmsearch"] = "youtube_music"
     self._luna.logger:info('SourceManager', 'Registered [YouTube Music] audio source manager')
+
+  if config.luna.twitch then
+    self._source_avaliables["twitch"] = twitch(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [Twitch] audio source manager')
+  end
+  
+  if config.luna.spotify then
+    self._source_avaliables["spotify"] = spotify(luna):setup()
+    self._search_avaliables["spsearch"] = "spotify"
+    self._luna.logger:info('SourceManager', 'Registered [Spotify] audio source manager')
   end
 
   if config.luna.soundcloud then
@@ -68,6 +83,21 @@ function Sources:__init(luna)
     self._source_avaliables["deezer"] = deezer(luna):setup()
     self._search_avaliables["dzsearch"] = "deezer"
     self._luna.logger:info('SourceManager', 'Registered [Deezer] audio source manager')
+  end
+
+  if config.luna.instagram then
+    self._source_avaliables["instagram"] = instagram(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [Instagram] audio source manager')
+  end
+
+  if config.luna.facebook then
+    self._source_avaliables["facebook"] = facebook(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [Facebook] audio source manager')
+  end
+
+  if config.luna.kwai then
+    self._source_avaliables["kwai"] = kwai(luna):setup()
+    self._luna.logger:info('SourceManager', 'Registered [Kwai] audio source manager')
   end
 end
 
