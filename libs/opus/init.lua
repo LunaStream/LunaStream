@@ -7,20 +7,12 @@ local Opus, get = class('Opus')
 
 local typeof = ffi.typeof
 
-function Opus:__init(production)
+function Opus:__init(path)
   self._enums = enums
-  local os_name = require('los').type()
-  local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = {
-    win32 = '.dll',
-    linux = '.so',
-    darwin = '.dylib'
-  }
-  local bin_dir = string.format('./bin/opus_%s_%s%s', os_name, arch, lib_name_list[os_name])
 
   ffi.cdef(require('./cdef.lua'))
 
-  local loaded, lib = pcall(ffi.load, production and './native/opus' or bin_dir)
+  local loaded, lib = pcall(ffi.load, path)
 
   self._lib = lib
 

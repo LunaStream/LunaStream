@@ -212,7 +212,7 @@ function LunaStream:setupWebsocket()
         client = {
           name = client_info[1]:match('(.+)/[^%s]+'),
           version = client_info[1]:match('[^%s]+/(.+)'),
-          link = client_info[2]:sub(1, -2):sub(2)
+          link = client_info[2] and client_info[2]:sub(1, -2):sub(2) or "Unknown"
         },
         write = write,
         user_id = user_id,

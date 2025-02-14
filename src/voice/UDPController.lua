@@ -14,9 +14,21 @@ function UDPController:__init(production_mode)
   self._port = nil
   self._ssrc = nil
   self._sec_key = nil
-  self._crypto = sodium(production_mode)
+  self._crypto = sodium(self:getBinaryPath('sodium', production_mode))
 
   self:setupEvents()
+end
+
+function UDPController:getBinaryPath(name, production)
+  local os_name = require('los').type()
+  local arch = os_name == 'darwin' and 'universal' or jit.arch
+  local lib_name_list = {
+    win32 = '.dll',
+    linux = '.so',
+    darwin = '.dylib'
+  }
+  local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
+  return production and './native/' .. name or bin_dir
 end
 
 function UDPController:updateCredentials(address, port, ssrc, sec_key)
@@ -49,8 +61,8 @@ function UDPController:ipDiscovery()
   }
 end
 
-function UDPController:send(packet)
-  self.udp:send(packet, self._port, self._address)
+function UDPController:send(packet, cb)
+  self.udp:send(packet, self._port, self._address, cb)
 end
 
 function UDPController:start()
@@ -71,6 +83,7 @@ function UDPController:setupEvents()
 
   self.udp:on('error', function (err)
     print('[LunaStream / Voice | UDP]: Received error from UDP server with Discord.')
+    ---@diagnostic disable-next-line: undefined-global
     p(err)
   end)
 end

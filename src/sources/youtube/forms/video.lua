@@ -61,7 +61,7 @@ return function(query, src_type, youtube)
     uri = string.format("https://%s/watch?v=%s", youtube:baseHostRequest(src_type), video.videoId),
     artworkUrl = video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url,
     isrc = nil,
-    sourceName = src_type
+    sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube'
   }
 
   return {

@@ -6,6 +6,7 @@ server:
 
 luna:
   youtube: true
+  youtube_music: true
   soundcloud: true
   bandcamp: true
   deezer: true

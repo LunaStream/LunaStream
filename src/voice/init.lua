@@ -1,39 +1,60 @@
 -- External library
-local class = require('class')
-local timer = require('timer')
+local class               = require('class')
+local timer               = require('timer')
+local ffi                 = require('ffi')
+local uv                  = require('uv')
 
 -- Internal Library
-local Emitter = require('./Emitter')
-local WebSocket = require('./WebSocket')
-local Opus = require('opus')
-local UDPController = require('./UDPController')
+local Emitter             = require('./Emitter')
+local WebSocket           = require('./WebSocket')
+local Opus                = require('opus')
+local UDPController       = require('./UDPController')
+local VoiceStream         = require('./stream/Voice')
 
 -- Useful functions
-local sf = string.format
-local setInterval = timer.setInterval
-local clearInterval = timer.clearInterval
+local sf                  = string.format
+local setInterval         = timer.setInterval
+local clearInterval       = timer.clearInterval
 
 -- OP code
-local IDENTIFY        = 0
-local SELECT_PROTOCOL = 1
-local READY           = 2
-local HEARTBEAT       = 3
-local DESCRIPTION     = 4
-local SPEAKING        = 5
-local RESUME          = 7
-local HELLO           = 8
+local IDENTIFY            = 0
+local SELECT_PROTOCOL     = 1
+local READY               = 2
+local HEARTBEAT           = 3
+local DESCRIPTION         = 4
+local SPEAKING            = 5
+local RESUME              = 7
+local HELLO               = 8
 -- local RESUMED         = 9
 
 -- Vitural enums
-local VOICE_STATE = {
+local VOICE_STATE         = {
   disconnected = 'disconnected',
   connected = 'connected',
 }
-local PLAYER_STATE = {
-  idle = 'idle'
+local PLAYER_STATE        = {
+  idle = 'idle',
+  playing = 'playing',
 }
 
-local VoiceManager, get = class('VoiceManager', Emitter)
+-- Constants
+
+local OPUS_SAMPLE_RATE    = 48000
+local OPUS_CHANNELS       = 2
+local OPUS_FRAME_DURATION = 20
+-- Size of chucks to read from the stream at a time
+local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+local OPUS_SILENCE_FRAME  = '\248\255\254'
+
+-- Max Values Constants for RTP
+-- Maximum value for the RTP sequence number.  A 16-bit unsigned integer.  Used for packet ordering and loss detection. 0xFFFF (65535)
+local MAX_SEQUENCE        = 0xFFFF
+-- Maximum value for the RTP timestamp. A 32-bit unsigned integer.  Reflects the sampling instant of the first audio frame in the packet. Used for synchronization and jitter buffering. 0xFFFFFFFF (4294967295)
+local MAX_TIMESTAMP       = 0xFFFFFFFF
+-- Maximum value for the nonce. A 32-bit unsigned integer.  0xFFFFFFFF (4294967295)
+local MAX_NONCE           = 0xFFFFFFFF
+
+local VoiceManager, get   = class('VoiceManager', Emitter)
 
 function VoiceManager:__init(guildId, userId, production_mode)
   Emitter.__init(self)
@@ -54,11 +75,39 @@ function VoiceManager:__init(guildId, userId, production_mode)
   -- Gateway
   self._ws = nil
   self._seq_ack = -1
+  self._timestamp = -1
+
 
   -- UDP
   self._udp = UDPController(production_mode)
   self._encryption = self._udp._crypto._mode
-  self._opus = Opus(production_mode)
+  self._opus = Opus(self:getBinaryPath('opus', production_mode))
+  self._nonce = 0
+
+  self._packetStats = {
+    sent = 0,
+    lost = 0,
+    expected = 0,
+  }
+
+  self._stream = nil
+  self._voiceStream = nil
+
+  -- self._nextAudioPacketTimestamp = NULL
+
+  self._opusEncoder = nil
+end
+
+function VoiceManager:getBinaryPath(name, production)
+  local os_name = require('los').type()
+  local arch = os_name == 'darwin' and 'universal' or jit.arch
+  local lib_name_list = {
+    win32 = '.dll',
+    linux = '.so',
+    darwin = '.dylib'
+  }
+  local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
+  return production and './native/' .. name or bin_dir
 end
 
 function VoiceManager:voiceCredential(session_id, endpoint, token)
@@ -82,7 +131,7 @@ function VoiceManager:connect(reconnect)
     }
   })
 
-  self.ws:on('open', function ()
+  self.ws:on('open', function()
     self.ws:send({
       op = reconnect and RESUME or IDENTIFY,
       d = {
@@ -95,12 +144,13 @@ function VoiceManager:connect(reconnect)
     })
   end)
 
-  self.ws:on('message', function (data)
+  self.ws:on('message', function(data)
     print('[LunaStream / Voice | WS ]: ' .. data.payload)
     self:messageEvent(data.json_payload)
   end)
 
-  self.ws:on('close', function (code, reason)
+  self.ws:on('close', function(code, reason)
+    --- @diagnostic disable-next-line: undefined-global
     p(code, reason)
     if not self.ws then return end
     self:destroyConnection(code, reason)
@@ -114,8 +164,8 @@ function VoiceManager:messageEvent(payload)
   local data = payload.d
 
   if payload.seq then
-		self._seq_ack = payload.seq
-	end
+    self._seq_ack = payload.seq
+  end
 
   if op == READY then
     self:readyOP(payload)
@@ -156,7 +206,7 @@ function VoiceManager:readyOP(ws_payload)
 end
 
 function VoiceManager:startHeartbeat(heartbeat_timeout)
-  self._heartbeat = setInterval(heartbeat_timeout, function ()
+  self._heartbeat = setInterval(heartbeat_timeout, function()
     coroutine.wrap(VoiceManager.sendKeepAlive)(self)
   end)
 end
@@ -186,6 +236,9 @@ function VoiceManager:destroyConnection(code, reason)
   self.udp:stop()
 end
 
+--- Sets the speaking state
+---@param speaking integer speaking mode to set (0 = not speaking, 1(1 << 0) = Microphone, 2(1 << 1) = Soundshare, 4(1 << 2) = Priority)
+---@return integer speaking state given to it
 function VoiceManager:setSpeaking(speaking)
   self._ws:send({
     op = SPEAKING,
@@ -197,6 +250,107 @@ function VoiceManager:setSpeaking(speaking)
   })
 
   return speaking
+end
+
+--- Plays a audio stream through the voice connection
+---@param options any
+function VoiceManager:play(stream, options)
+  -- Just in case, play gets triggered when _ws is not present;
+  options = options or {}
+  local needs_encoder = options.encoder or true
+  local filter_pipes = options.filters or nil
+
+  if not self._ws then
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
+
+    return
+  end;
+  if self._stream and self._stream._readableState.ended == false then
+    error("Already playing a stream")
+  end;
+
+  print('[LunaStream / Voice / ' .. self.guild_id .. ']: Playing audio stream...')
+
+  self._stream = stream
+
+  self:setSpeaking(1)
+  if needs_encoder then
+    self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
+  end
+
+  self._player_state = PLAYER_STATE.playing
+
+  self._voiceStream = VoiceStream(self, filter_pipes):setup()
+
+  return true
+end
+
+-- Wrapper
+function VoiceManager:pause()
+  if not self._voiceStream then return end
+  self._voiceStream:pause()
+end
+
+-- Wrapper
+function VoiceManager:resume()
+  if not self._voiceStream then return end
+  self._voiceStream:resume()
+end
+
+function VoiceManager:stop()
+  p('[LunaStream / Voice / ' .. self.guild_id .. ']: Total stream stats: ', self._packetStats)
+  self._voiceStream:stop()
+  self._voiceStream:clear()
+
+  setmetatable(self._voiceStream, { __mode = "kv" })
+  setmetatable(self._stream, { __mode = "kv" })
+
+  self._voiceStream = nil
+  self._stream = nil
+  self._packetStats = {
+    sent = 0,
+    lost = 0,
+    expected = 0,
+  }
+
+  self._player_state = PLAYER_STATE.idle
+
+  self.udp:send(OPUS_SILENCE_FRAME, function (err)
+    if err then
+      print('[LunaStream / Voice / ' .. self.guild_id .. ']: Failed to sent opus silent frame!')
+    else
+      print('[LunaStream / Voice / ' .. self.guild_id .. ']: Opus silent frame sent!')
+    end
+  end)
+
+  self:setSpeaking(0)
+
+  collectgarbage('collect')
+end
+
+function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
+  -- TODO: Implement max value handle
+  self._seq_ack = self._seq_ack >= MAX_SEQUENCE and 0 or self._seq_ack + 1
+
+  self._timestamp = self._timestamp >= MAX_TIMESTAMP and 0 or self._timestamp + OPUS_CHUNK_SIZE
+
+  self._nonce = self._nonce >= MAX_NONCE and 0 or self._nonce + 1
+
+  local packetWithBasicInfo = string.pack('>BBI2I4I4', 0x80, 0x78, self._seq_ack, self._timestamp, ssrc)
+
+  local nonce = self._udp._crypto:nonce(self._nonce)
+  local nonce_padding = ffi.string(nonce, 4)
+
+  local encryptedAudio, encryptedAudioLen = self._udp._crypto:encrypt(opus_data, opus_length, packetWithBasicInfo,
+    #packetWithBasicInfo, nonce, key)
+
+  self._packetStats.expected = self._packetStats.expected + 1;
+
+  if not encryptedAudio then
+    return nil, encryptedAudioLen
+  end
+
+  return packetWithBasicInfo .. ffi.string(encryptedAudio, encryptedAudioLen) .. nonce_padding
 end
 
 function get:guild_id()

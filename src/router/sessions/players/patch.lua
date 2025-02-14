@@ -1,28 +1,32 @@
 local json = require("json")
+local Player = require("../../../managers/player.lua")
 
-return function (req, answer, guild_id, players)
+return function (req, answer, luna, guild_id, players, session_id)
+  local noReplace = req.path:match("?noReplace=([^%s]+)") or false
+
   if not guild_id then
     return answer('{ "error": "Missing guild_id field" }', 400, { ["Content-Type"] = "application/json" })
   end
 
-  local body = json.decode(req.body or "{}")
-  local player = players[guild_id] or {}
+  local body = json.decode(req.body)
 
-  if body.track then
-    player.track = {
-      encoded = body.track.encoded or player.track and player.track.encoded or "",
-      identifier = body.track.identifier or player.track and player.track.identifier or nil,
-      userData = body.track.userData or player.track and player.track.userData or nil
-    }
+  if not body then
+    return answer('{ "error": "Missing body field" }', 400, { ["Content-Type"] = "application/json" })
   end
 
-  player.position = body.position or player.position or 0
-  player.endTime = body.endTime or player.endTime or 0
-  player.volume = body.volume or player.volume or 0
-  player.paused = body.paused or player.paused or false
-  player.filters = body.filters or player.filters or {}
-  player.voice = body.voice or player.voice or {}
-  player.state = body.state or player.state or {}
+  local player = players[guild_id] or Player(luna, guild_id, session_id):new()
+  
+  if player.guild == nil then
+    player.guild = guild_id
+  end
+  
+  if body.voice ~= player.voiceState then
+    player:updateVoiceState(body.voice)
+  end
+
+  if body.track then
+    player:play(body.track)
+  end
 
   players[guild_id] = player
 
@@ -31,8 +35,8 @@ return function (req, answer, guild_id, players)
       track = player.track,
       volume = player.volume,
       paused = player.paused,
-      state = player.state,
-      voice = player.voice,
-      filters = player.filters
+      state = player.voiceState,
+      voice = player.voiceState,
+      filters = nil
   }), 200, { ["Content-Type"] = "application/json" })
 end

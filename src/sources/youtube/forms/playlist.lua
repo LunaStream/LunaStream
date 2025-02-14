@@ -106,7 +106,7 @@ return function(query, src_type, youtube)
         uri = string.format("https://%s/watch?v=%s", youtube:baseHostRequest(src_type), video.videoId),
         artworkUrl = video.thumbnail and video.thumbnail.thumbnails and video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url or nil,
         isrc = nil,
-        sourceName = src_type
+        sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube'
       }
 
       tracks[#tracks + 1] = {

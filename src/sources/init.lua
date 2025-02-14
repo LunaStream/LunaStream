@@ -1,5 +1,8 @@
+local http = require("coro-http")
+local MusicUtils = require('musicutils')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
+local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
@@ -51,9 +54,13 @@ function Sources:__init(luna)
   if config.luna.youtube then
     self._source_avaliables["youtube"] = youtube(luna):setup()
     self._search_avaliables["ytsearch"] = "youtube"
-    self._search_avaliables["ytmsearch"] = "youtube"
     self._luna.logger:info('SourceManager', 'Registered [YouTube] audio source manager')
   end
+
+  if config.luna.youtube_music then
+    self._source_avaliables["youtube_music"] = self._source_avaliables["youtube"] or youtube(luna):setup()
+    self._search_avaliables["ytmsearch"] = "youtube_music"
+    self._luna.logger:info('SourceManager', 'Registered [YouTube Music] audio source manager')
 
   if config.luna.twitch then
     self._source_avaliables["twitch"] = twitch(luna):setup()
@@ -133,6 +140,7 @@ end
 
 function Sources:loadStream(encodedTrack)
   local track = decoder(encodedTrack)
+
   local getSrc = self._source_avaliables[track.info.sourceName]
   if not getSrc then
     self._luna.logger:error('SourceManager', 'Source invalid or not avaliable!')
@@ -147,6 +155,29 @@ function Sources:loadStream(encodedTrack)
   end
 
   return getSrc:loadStream(track, self._luna)
+end
+
+function Sources:getStream(track)
+  local streamInfo = self:loadStream(track.encoded)
+  
+  if not streamInfo.url then 
+    return nil
+  end
+
+  local request, data = http.request("GET", streamInfo.url)
+
+  if request.code ~= 200 then
+    return nil
+  end
+
+  if data == nil then
+    return nil
+  end
+
+  local stream = HTTPStream:new(data)
+    :pipe(MusicUtils.opus.WebmDemuxer:new())
+
+  return stream
 end
 
 return Sources
