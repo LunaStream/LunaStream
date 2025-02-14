@@ -34,6 +34,7 @@ function Sources:__init(luna)
     self._search_avaliables["bcsearch"] = "bandcamp"
     self._luna.logger:info('SourceManager', 'Registered [BandCamp] audio source manager')
   end
+
   if config.luna.vimeo then
     self._source_avaliables["vimeo"] = vimeo(luna):setup()
     self._search_avaliables["vmsearch"] = "vimeo"
@@ -177,7 +178,8 @@ function Sources:getStream(track)
   local stream = HTTPStream:new(data)
     :pipe(MusicUtils.opus.WebmDemuxer:new())
 
-  return stream
+    return stream
+  end
 end
 
 return Sources

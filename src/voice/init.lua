@@ -324,6 +324,7 @@ function VoiceManager:stop()
   end)
 
   self:setSpeaking(0)
+  self:emit("ended")
 
   collectgarbage('collect')
 end
