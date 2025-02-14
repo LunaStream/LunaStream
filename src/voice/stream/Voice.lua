@@ -35,7 +35,7 @@ local function asyncResume(thread)
 end
 
 function VoiceStream:__init(voiceManager, filters)
-  self._cache = {}
+  self._cache = setmetatable({}, { __mode = 'kv' })
   self._passthrough_class = PCMReader:new()
   self._voiceManager = voiceManager
   self._current_processing = false
@@ -88,10 +88,12 @@ function VoiceStream:intervalHandling(start)
     end
     local nextChunk = table.remove(self._cache, 1)
     self:chunkPass(nextChunk, start)
+    nextChunk = nil
+    collectgarbage('collect')
   end
   if self._finished_transform then
-    self:clear()
     self._voiceManager:stop()
+    self._voiceManager = nil
     return
   end
   if not self._paused then
@@ -184,16 +186,20 @@ function VoiceStream:chunkPass(chunk, start)
   self._elapsed = self._elapsed + OPUS_FRAME_DURATION
   local delay = self._elapsed - (uv.hrtime() - start) * MS_PER_NS
   sleep(math.max(delay, 0))
+  -- Free mem (useful for multiplay)
+  encodedData, encodedLen, audioChuck, audioPacket = nil, nil, {}, nil
+  collectgarbage('collect')
 end
 
 function VoiceStream:clear()
-  self._cache = {}
-  self._passthrough_class = PCMReader:new()
-  self._current_processing = false
-  self._elapsed = 0
-  self._paused = false
-  self._finished_transform = false
-  self._stop = false
+  self._cache = nil
+  self._passthrough_class = nil
+  self._current_processing = nil
+  self._elapsed = nil
+  self._paused = nil
+  self._finished_transform = nil
+  self._stop = nil
+  self._filters = nil
 end
 
 return VoiceStream

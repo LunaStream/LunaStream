@@ -33,3 +33,9 @@ setTimeout(5000, coroutine.wrap(function()
     -- filters = { Filter() }
   })
 end))
+
+setTimeout(7000, coroutine.wrap(function()
+  p('[Voice EXP]: Clear res data')
+  data = nil
+  collectgarbage('collect')
+end))

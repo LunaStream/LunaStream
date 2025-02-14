@@ -302,8 +302,8 @@ function VoiceManager:stop()
   self._voiceStream:stop()
   self._voiceStream:clear()
 
-  setmetatable(self._voiceStream, { __mode = "k" })
-  setmetatable(self._stream, { __mode = "k" })
+  setmetatable(self._voiceStream, { __mode = "kv" })
+  setmetatable(self._stream, { __mode = "kv" })
 
   self._voiceStream = nil
   self._stream = nil
@@ -325,7 +325,7 @@ function VoiceManager:stop()
 
   self:setSpeaking(0)
 
-  collectgarbage()
+  collectgarbage('collect')
 end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
