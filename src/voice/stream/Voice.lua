@@ -136,7 +136,6 @@ end
 
 function VoiceStream:stop()
   self._passthrough_class:removeAllListeners()
-  self._voiceManager._stream:removeAllListeners()
   self._stop = true
 end
 

@@ -299,6 +299,7 @@ end
 
 function VoiceManager:stop()
   p('[LunaStream / Voice / ' .. self.guild_id .. ']: Total stream stats: ', self._packetStats)
+  self._stream:removeAllListeners()
   self._voiceStream:stop()
   self._voiceStream:clear()
 
