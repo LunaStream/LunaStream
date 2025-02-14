@@ -18,7 +18,7 @@ return function(req, res, answer, luna)
   if req.method == "GET" then
     return getMethod(answer, guild_id, players)
   elseif req.method == "PATCH" then
-    return patchMethod(req, answer, guild_id, players)
+    return patchMethod(req, answer, luna, guild_id, players, session_id)
   elseif req.method == "DELETE" then
     return deleteMethod(answer, guild_id, players)
   else

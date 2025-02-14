@@ -145,6 +145,11 @@ function VoiceStream:chunkPass(chunk, start)
 
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
+  if #chunk < pcmLen then
+      print("[LunaStream / Voice / " .. self._voiceManager.guild_id .. "]: Chunk is too short, skipping")
+      return
+  end
+
   local audioChuck = { string.unpack(FMT(pcmLen), chunk) }
 
   table.remove(audioChuck)
