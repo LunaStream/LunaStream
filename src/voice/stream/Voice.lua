@@ -191,14 +191,14 @@ function VoiceStream:chunkPass(chunk, start)
 end
 
 function VoiceStream:clear()
-  self._cache = nil
+  self._cache = setmetatable({}, { __mode = 'kv' })
   self._passthrough_class = nil
-  self._current_processing = nil
-  self._elapsed = nil
-  self._paused = nil
-  self._finished_transform = nil
-  self._stop = nil
-  self._filters = nil
+  self._current_processing = false
+  self._elapsed = 0
+  self._filters = setmetatable({}, { __mode = 'kv' })
+  self._paused = false
+  self._finished_transform = false
+  self._stop = false
 end
 
 return VoiceStream
