@@ -89,11 +89,9 @@ function VoiceStream:intervalHandling(start)
     local nextChunk = table.remove(self._cache, 1)
     self:chunkPass(nextChunk, start)
     nextChunk = nil
-    collectgarbage('collect')
   end
   if self._finished_transform then
     self._voiceManager:stop()
-    self._voiceManager = nil
     return
   end
   if not self._paused then
@@ -187,7 +185,6 @@ function VoiceStream:chunkPass(chunk, start)
   sleep(math.max(delay, 0))
   -- Free mem (useful for multiplay)
   encodedData, encodedLen, audioChuck, audioPacket = nil, nil, {}, nil
-  collectgarbage('collect')
 end
 
 function VoiceStream:clear()
