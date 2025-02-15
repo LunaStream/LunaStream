@@ -96,6 +96,9 @@ function VoiceManager:__init(guildId, userId, production_mode)
   -- self._nextAudioPacketTimestamp = NULL
 
   self._opusEncoder = nil
+
+  -- Memory debug value
+  self._mem_before = process.memoryUsage()
 end
 
 function VoiceManager:getBinaryPath(name, production)
@@ -302,6 +305,7 @@ function VoiceManager:stop()
   self._stream:removeAllListeners()
   self._voiceStream:stop()
   self._voiceStream:clear()
+  self._voiceStream._voiceManager = nil
 
   setmetatable(self._voiceStream, { __mode = "kv" })
   setmetatable(self._stream, { __mode = "kv" })
@@ -328,6 +332,8 @@ function VoiceManager:stop()
   self:emit("ended")
 
   collectgarbage('collect')
+  p('[LunaStream / Voice]: Memory before', self._mem_before)
+  p('[LunaStream / Voice]: Memory after', process.memoryUsage())
 end
 
 function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)

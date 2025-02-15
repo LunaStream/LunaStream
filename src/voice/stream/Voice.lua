@@ -47,9 +47,11 @@ function VoiceStream:__init(voiceManager, filters)
 end
 
 function VoiceStream:setup()
+  if not self._voiceManager then return end
   local start = uv.hrtime()
 
   self._passthrough_class:on('raw-pcm-data', function (chunk)
+    if not self._voiceManager then return end
     if self._stop then return end
     coroutine.wrap(function ()
       if self._current_processing then
@@ -66,6 +68,7 @@ function VoiceStream:setup()
   end)
 
   self._passthrough_class:on('end', function ()
+    if not self._voiceManager then return end
     print('[LunaStream / Voice / ' .. self._voiceManager.guild_id .. ']: Finished transforming, ready for sending silence frame before stopping')
     self._finished_transform = true
   end)
@@ -89,6 +92,7 @@ function VoiceStream:intervalHandling(start)
     local nextChunk = table.remove(self._cache, 1)
     self:chunkPass(nextChunk, start)
     nextChunk = nil
+    collectgarbage('collect')
   end
   if self._finished_transform then
     self._voiceManager:stop()
@@ -188,14 +192,14 @@ function VoiceStream:chunkPass(chunk, start)
 end
 
 function VoiceStream:clear()
-  self._cache = setmetatable({}, { __mode = 'kv' })
+  self._cache = nil
   self._passthrough_class = nil
-  self._current_processing = false
-  self._elapsed = 0
-  self._filters = setmetatable({}, { __mode = 'kv' })
-  self._paused = false
-  self._finished_transform = false
-  self._stop = false
+  self._current_processing = nil
+  self._elapsed = nil
+  self._filters = nil
+  self._paused = nil
+  self._finished_transform = nil
+  self._stop = nil
 end
 
 return VoiceStream

@@ -7,6 +7,8 @@ local HTTPStream = require('../src/voice/stream/HTTPStream')
 local http = require("coro-http")
 local stream_link = 'https://raw.githubusercontent.com/LunaStream/LunaStream/add/voice/vexp/videoplayback.weba'
 
+local second_play = false
+
 local response, data = http.request("GET", stream_link)
 p('HTTP Response: ', response)
 
@@ -23,7 +25,7 @@ VoiceClass:connect()
 
 p('[Voice EXP]: Song will play after 5s')
 
-setTimeout(5000, coroutine.wrap(function()
+local function playfunction()
   p('[Voice EXP]: Now play the song from github stream')
   local audioStream = HTTPStream:new(data)
     :pipe(MusicUtils.opus.WebmDemuxer:new())
@@ -32,10 +34,8 @@ setTimeout(5000, coroutine.wrap(function()
     encoder = true,
     -- filters = { Filter() }
   })
-end))
-
-setTimeout(7000, coroutine.wrap(function()
-  p('[Voice EXP]: Clear res data')
   data = nil
-  collectgarbage('collect')
-end))
+  collectgarbage("collect")
+end
+
+setTimeout(5000, coroutine.wrap(playfunction))
