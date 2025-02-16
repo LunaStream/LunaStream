@@ -2,7 +2,7 @@ local http = require("coro-http")
 local MusicUtils = require('musicutils')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
-local HTTPStream = require("../voice/stream/HTTPStream")
+local StringStream = require("../voice/stream/StringStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
@@ -175,7 +175,7 @@ function Sources:getStream(track)
     return nil
   end
 
-  local stream = HTTPStream:new(data)
+  local stream = StringStream:new(data)
     :pipe(MusicUtils.opus.WebmDemuxer:new())
 
     return stream
