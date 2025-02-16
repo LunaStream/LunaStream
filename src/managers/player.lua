@@ -36,7 +36,7 @@ function Player:updateVoiceState(voiceState)
     end
 
     self.voiceState = voiceState
-    
+
     if not self.voice then
         self.voice = voice(self._guildId, self._userId)
     end
@@ -45,14 +45,14 @@ function Player:updateVoiceState(voiceState)
     self.voice:connect()
 end
 
-function Player:play(track) 
+function Player:play(track)
     if self.track.encoded ~= nil and self.playing == true then
         self:stop()
     end
 
     self.track.info = decoder(track.encoded)
     self.track.encoded = track.encoded
-    if next(track.userData) == nil then
+    if track.userData == nil or next(track.userData) == nil then
         track.userData = nil
     end
 
@@ -64,7 +64,7 @@ function Player:play(track)
         self.voice:play(self._stream, {
                 encoder = true,
         })
-        
+
         self._luna.logger:info('Player', string.format('Track %s started for guild %s', self.track.info.title, self._guildId))
         self:sendWsMessage({
             op = "event",
@@ -106,7 +106,6 @@ function Player:sendWsMessage(data)
         })
     end)()
   end
-  
+
 
 return Player
-
