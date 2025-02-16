@@ -3,7 +3,8 @@ local http = require("coro-http")
 local encoder = require("../../../track/encoder.lua")
 
 return function(query, src_type, youtube)
-  local videoId = query:match("v=([%w%-_]+)")
+  local videoId = query:match("v=([%w%-]+)") or query:match("https?://youtu%.be/(.+)%?si=.+")
+
   local response, data = http.request(
     "POST",
     string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
