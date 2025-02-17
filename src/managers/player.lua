@@ -8,22 +8,22 @@ local json = require('json')
 
 local setTimeout = timer.setTimeout
 function Player:__init(luna, guildId, sessionId)
-  self._luna = luna
-  self._stream = nil
-  self._sessionId = sessionId
-  self._guildId = guildId
-  self._userId = self._luna.sessions[sessionId].user_id
-  self._write = self._luna.sessions[sessionId].write
-  self.track = {}
-  self.playing = false
-  self.position = 0
-  self.endTime = 0
-  self.volume = 0
-  self.paused = false
-  self.filters = {}
-  self.voiceState = {}
-  self.state = {}
-  self.voice = voice(self._guildId, self._userId)
+    self._luna = luna
+    self._stream = nil
+    self._sessionId = sessionId
+    self._guildId = guildId
+    self._userId = self._luna.sessions[sessionId].user_id
+    self._write = self._luna.sessions[sessionId].write
+    self.track = {}
+    self.playing = false
+    self.position = 0
+    self.endTime = 0
+    self.volume = 0
+    self.paused = false
+    self.filters = {}
+    self.voiceState = {}
+    self.state = {}
+    self.voice = voice(self._guildId, self._userId)
 end
 
 function Player:new()
@@ -50,22 +50,23 @@ function Player:play(track)
         self:stop()
     end
 
-    self.track.info = decoder(track.encoded)
-    self.track.encoded = track.encoded
+    self.track = decoder(track.encoded)
     if track.userData == nil or next(track.userData) == nil then
         track.userData = nil
     end
 
     self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
 
-    self._stream = self._luna.sources:getStream(decoder(track.encoded)):pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
+    self._stream = self._luna.sources:getStream(self.track):pipe(MusicUtils.opus.Decoder:new(self
+        .voice._opus))
 
     if self.voice then
         self.voice:play(self._stream, {
-                encoder = true,
+            encoder = true,
         })
 
-        self._luna.logger:info('Player', string.format('Track %s started for guild %s', self.track.info.title, self._guildId))
+        self._luna.logger:info('Player',
+            string.format('Track %s started for guild %s', self.track.info.title, self._guildId))
         self:sendWsMessage({
             op = "event",
             type = "TrackStartEvent",
@@ -76,7 +77,8 @@ function Player:play(track)
         self.playing = true
 
         self.voice:on("ended", function()
-            self._luna.logger:info('Player', string.format('Track %s ended for guild %s', self.track.info.title, self._guildId))
+            self._luna.logger:info('Player',
+                string.format('Track %s ended for guild %s', self.track.info.title, self._guildId))
             self:sendWsMessage({
                 op = "event",
                 type = "TrackEndEvent",
@@ -93,7 +95,8 @@ function Player:stop()
     if self.voice then
         self.voice:stop()
         self.playing = false
-        self._luna.logger:info('Player', string.format('Track %s stopped for guild %s', self.track.info.title, self._guildId))
+        self._luna.logger:info('Player',
+            string.format('Track %s stopped for guild %s', self.track.info.title, self._guildId))
     end
 end
 
@@ -105,7 +108,6 @@ function Player:sendWsMessage(data)
             payload = payload
         })
     end)()
-  end
-
+end
 
 return Player
