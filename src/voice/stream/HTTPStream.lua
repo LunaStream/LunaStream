@@ -2,7 +2,6 @@ local http = require('coro-http')
 local uv = require('uv')
 local Readable = require('stream').Readable
 
-
 local function sleep(delay)
 	local thread = coroutine.running()
 	local t = uv.new_timer()
@@ -157,37 +156,5 @@ function HTTPStream:restore()
   self.eos = false
   self.start = nil
 end
-
--- function HTTPStream:push(chunk)
---   p('Pushed: ', #chunk)
---   Readable.push(self, chunk)
--- end
-
--- -- WebM compability
--- function HTTPStream:pusher(item)
---   if #self.push_cache < 65536 and #item < 65536 then
---     self.push_cache = self.push_cache .. item
---     return
---   end
-
---   if #self.push_cache < 65536 and #item >= 65536 then
---     local new_index = #item - #self.push_cache
---     self:push(self.push_cache .. string.sub(item, 1, new_index))
---     self.push_cache = string.sub(item, new_index + 1, #item)
---     return
---   end
-
---   if #self.push_cache == 65536 then
---     self:push(self.push_cache)
---     self.push_cache = item
---     return
---   end
-
---   if #self.push_cache > 65536 then
---     self:push(string.sub(self.push_cache, 1, 65536))
---     self.push_cache = string.sub(self.push_cache, 65536 + 1, #self.push_cache) .. item
---     return
---   end
--- end
 
 return HTTPStream

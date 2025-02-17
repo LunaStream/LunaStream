@@ -53,11 +53,10 @@ function VoiceStream:setup()
   self._passthrough_class:on('raw-pcm-data', function (chunk)
     if not self._voiceManager then return end
     if self._stop then return end
-    if self._current_processing then
-      return table.insert(self._cache, chunk)
-    end
-    if self._paused then
-      return table.insert(self._cache, chunk)
+    if self._current_processing or self._paused then
+      coroutine.wrap(table.insert)(self._cache, chunk)
+      sleep(1)
+      return
     end
     coroutine.wrap(function ()
       self:chunkPass(chunk, start)
@@ -147,8 +146,8 @@ function VoiceStream:chunkPass(chunk, start)
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
   if #chunk < pcmLen then
-      print("[LunaStream / Voice / " .. self._voiceManager.guild_id .. "]: Chunk is too short, skipping")
-      return
+    print("[LunaStream / Voice / " .. self._voiceManager.guild_id .. "]: Chunk is too short, skipping")
+    return
   end
 
   local audioChuck = { string.unpack(FMT(pcmLen), chunk) }
