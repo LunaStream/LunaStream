@@ -4,13 +4,8 @@ local fs = require('fs')
 local MusicUtils = require('musicutils')
 local Voice = require('../src/voice')
 local HTTPStream = require('../src/voice/stream/HTTPStream')
-local http = require("coro-http")
-local stream_link = 'https://raw.githubusercontent.com/LunaStream/LunaStream/add/voice/vexp/videoplayback.weba'
-
-local second_play = false
-
-local response, data = http.request("GET", stream_link)
-p('HTTP Response: ', response)
+local stream_link = 'https://raw.githubusercontent.com/LunaStream/StreamEmulator/refs/heads/main/livetune_decorator.weba'
+local large_stream_link = 'https://media.githubusercontent.com/media/LunaStream/StreamEmulator/refs/heads/main/large_audio_100mb.webm'
 
 local setTimeout = timer.setTimeout
 
@@ -25,17 +20,22 @@ VoiceClass:connect()
 
 p('[Voice EXP]: Song will play after 5s')
 
+local streamClient = HTTPStream:new('GET', process.argv[2] and large_stream_link or stream_link)
+local requestStream = streamClient:setup()
+
 local function playfunction()
   p('[Voice EXP]: Now play the song from github stream')
-  local audioStream = HTTPStream:new(data)
+
+  p('HTTP Response: ', requestStream.reponse)
+
+  local audioStream = requestStream.parent
     :pipe(MusicUtils.opus.WebmDemuxer:new())
     :pipe(MusicUtils.opus.Decoder:new(VoiceClass._opus))
+
   VoiceClass:play(audioStream, {
     encoder = true,
     -- filters = { Filter() }
   })
-  data = nil
-  collectgarbage("collect")
 end
 
 setTimeout(5000, coroutine.wrap(playfunction))

@@ -53,17 +53,15 @@ function VoiceStream:setup()
   self._passthrough_class:on('raw-pcm-data', function (chunk)
     if not self._voiceManager then return end
     if self._stop then return end
+    if self._current_processing then
+      return table.insert(self._cache, chunk)
+    end
+    if self._paused then
+      return table.insert(self._cache, chunk)
+    end
     coroutine.wrap(function ()
-      if self._current_processing then
-        table.insert(self._cache, chunk)
-      else
-        if self._paused then
-          table.insert(self._cache, chunk)
-        else
-          self:chunkPass(chunk, start)
-          self:intervalHandling(start)
-        end
-      end
+      self:chunkPass(chunk, start)
+      self:intervalHandling(start)
     end)()
   end)
 

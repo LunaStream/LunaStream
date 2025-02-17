@@ -1,5 +1,18 @@
 local http = require('coro-http')
+local uv = require('uv')
 local Readable = require('stream').Readable
+
+
+local function sleep(delay)
+	local thread = coroutine.running()
+	local t = uv.new_timer()
+	t:start(delay, 0, function()
+		t:stop()
+		t:close()
+		return assert(coroutine.resume(thread))
+	end)
+	return coroutine.yield()
+end
 
 local HTTPStream = Readable:extend()
 
@@ -15,7 +28,7 @@ function HTTPStream:initialize(method, url, headers, body, customOptions)
   self.http_write = nil
   self.connection = nil
   self.started_pushing = false
-  self.need_to_push = ''
+  self.eos = false
 end
 
 function HTTPStream:setup(custom_uri)
@@ -91,6 +104,13 @@ end
 
 function HTTPStream:_read(n)
   if self.started_pushing then return end
+
+  if self.eos then
+    self:push()
+    self:restore()
+    return
+  end
+
   coroutine.wrap(function ()
     self.started_pushing = true
 
@@ -101,15 +121,73 @@ function HTTPStream:_read(n)
       end
       if #item == 0 then break end
       self:push(item)
+      item = nil
+      collectgarbage('collect')
+      sleep(1)
     end
+
+    self:push(self.push_cache)
+    self.push_cache = nil
+
+    self.eos = true
 
     if self.res.keepAlive then
       http.saveConnection(self.connection)
     else
       self.http_write()
     end
+
     collectgarbage('collect')
   end)()
 end
+
+function HTTPStream:restore()
+  self.method = ''
+  self.uri = ''
+  self.headers = {}
+  self.body = ''
+  self.customOptions = {}
+  self.res = nil
+  self.http_read = nil
+  self.http_write = nil
+  self.connection = nil
+  self.started_pushing = false
+  self.push_cache = ''
+  self._elapsed = 0
+  self.eos = false
+  self.start = nil
+end
+
+-- function HTTPStream:push(chunk)
+--   p('Pushed: ', #chunk)
+--   Readable.push(self, chunk)
+-- end
+
+-- -- WebM compability
+-- function HTTPStream:pusher(item)
+--   if #self.push_cache < 65536 and #item < 65536 then
+--     self.push_cache = self.push_cache .. item
+--     return
+--   end
+
+--   if #self.push_cache < 65536 and #item >= 65536 then
+--     local new_index = #item - #self.push_cache
+--     self:push(self.push_cache .. string.sub(item, 1, new_index))
+--     self.push_cache = string.sub(item, new_index + 1, #item)
+--     return
+--   end
+
+--   if #self.push_cache == 65536 then
+--     self:push(self.push_cache)
+--     self.push_cache = item
+--     return
+--   end
+
+--   if #self.push_cache > 65536 then
+--     self:push(string.sub(self.push_cache, 1, 65536))
+--     self.push_cache = string.sub(self.push_cache, 65536 + 1, #self.push_cache) .. item
+--     return
+--   end
+-- end
 
 return HTTPStream
