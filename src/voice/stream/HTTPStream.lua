@@ -83,6 +83,12 @@ function HTTPStream:setup(custom_uri)
     connection.reset()
   end
 
+  if res.keepAlive then
+    http.saveConnection(connection)
+  else
+    write()
+  end
+
   self.http_read = read
   self.http_write = write
   self.res = res
@@ -99,7 +105,6 @@ function HTTPStream:_read(n)
       end
     end
   end)()
-  -- self:push(true)
 end
 
 function HTTPStream:restore()

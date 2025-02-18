@@ -15,3 +15,5 @@ lit
 tests/
 
 vcred.json
+
+workspace/
