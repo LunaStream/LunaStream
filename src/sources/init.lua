@@ -1,3 +1,4 @@
+local fs = require("fs")
 local http = require("coro-http")
 local MusicUtils = require('musicutils')
 local config = require("../utils/config")
@@ -11,6 +12,7 @@ local bandcamp = require("../sources/bandcamp.lua")
 local deezer = require("../sources/deezer.lua")
 local vimeo = require("../sources/vimeo.lua")
 local httpdirectplay = require("../sources/http.lua")
+local localdirectplay = require("../sources/local.lua")
 local nicovideo = require("../sources/nicovideo.lua")
 local twitch = require("../sources/twitch.lua")
 local spotify = require("../sources/spotify.lua")
@@ -44,6 +46,12 @@ function Sources:__init(luna)
   if config.luna.http then
     self._source_avaliables["http"] = httpdirectplay(luna):setup()
     self._luna.logger:info('SourceManager', 'Registered [HTTPDirectPlay] audio source manager')
+  end
+  
+  if config.luna.localFile then
+    self._source_avaliables["local"] = localdirectplay(luna):setup()
+    self._search_avaliables["local"] = "local"
+    self._luna.logger:info('SourceManager', 'Registered [LocalDirectPlay] audio source manager')
   end
 
   if config.luna.nicovideo then
@@ -160,9 +168,17 @@ end
 
 function Sources:getStream(track)
   local streamInfo = self:loadStream(track.encoded)
-  
+
   if not streamInfo.url then 
     return nil
+  end
+  
+  if streamInfo.protocol == "file" then
+    local file = fs.readFileSync(streamInfo.url)
+    local stream = StringStream:new(file)
+      :pipe(MusicUtils.opus.WebmDemuxer:new())
+
+    return stream
   end
 
   local request, data = http.request("GET", streamInfo.url)
@@ -175,8 +191,7 @@ function Sources:getStream(track)
     return nil
   end
 
-  local stream = StringStream:new(data)
-    :pipe(MusicUtils.opus.WebmDemuxer:new())
+  local stream = StringStream:new(data):pipe(MusicUtils.opus.WebmDemuxer:new())
 
     return stream
   end

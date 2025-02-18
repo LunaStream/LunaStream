@@ -12,6 +12,7 @@ luna:
   deezer: true
   vimeo: true
   http: true
+  localFile: true
   nicovideo: true
   twitch: true
   spotify: true
