@@ -54,8 +54,10 @@ function VoiceStream:setup()
     if not self._voiceManager then return end
     if self._stop then return end
     if self._current_processing or self._paused then
-      coroutine.wrap(table.insert)(self._cache, chunk)
-      sleep(1)
+      coroutine.wrap(function ()
+        coroutine.wrap(table.insert)(self._cache, chunk)
+        sleep(1)
+      end)()
       return
     end
     coroutine.wrap(function ()

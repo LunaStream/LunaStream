@@ -20,13 +20,13 @@ VoiceClass:connect()
 
 p('[Voice EXP]: Song will play after 5s')
 
-local streamClient = HTTPStream:new('GET', process.argv[2] and large_stream_link or stream_link)
-local requestStream = streamClient:setup()
-
-p('HTTP Response: ', requestStream.reponse)
-
 local function playfunction()
   p('[Voice EXP]: Now play the song from github stream ' .. (process.argv[2] and 'large_stream_link' or 'stream_link'))
+
+  local streamClient = HTTPStream:new('GET', process.argv[2] and large_stream_link or stream_link)
+  local requestStream = streamClient:setup()
+
+  p('HTTP Response: ', requestStream.reponse)
 
   local audioStream = requestStream.parent
     :pipe(MusicUtils.opus.WebmDemuxer:new())
