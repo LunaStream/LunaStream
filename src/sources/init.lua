@@ -4,6 +4,7 @@ local MusicUtils = require('musicutils')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 local StringStream = require("../voice/stream/StringStream")
+local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
@@ -181,17 +182,11 @@ function Sources:getStream(track)
     return stream
   end
 
-  local request, data = http.request("GET", streamInfo.url)
+  local streamClient = HTTPStream:new('GET', streamInfo.url)
+  local request = streamClient:setup()
 
-  if request.code ~= 200 then
-    return nil
-  end
-
-  if data == nil then
-    return nil
-  end
-
-  local stream = StringStream:new(data):pipe(MusicUtils.opus.WebmDemuxer:new())
+  local stream = request.parent
+  :pipe(MusicUtils.opus.WebmDemuxer:new())
 
     return stream
   end
