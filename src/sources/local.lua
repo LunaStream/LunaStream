@@ -2,22 +2,22 @@ local AbstractSource = require('./abstract')
 local encoder = require("../track/encoder.lua")
 local class = require('class')
 
-local LocalDirectPlay = class('LocalDirectPlay', AbstractSource)
+local LocalFile = class('LocalFile', AbstractSource)
 
-function LocalDirectPlay:__init(luna)
+function LocalFile:__init(luna)
   self._luna = luna
   AbstractSource.__init(self)
 end
 
-function LocalDirectPlay:setup()
+function LocalFile:setup()
   return self
 end
 
-function LocalDirectPlay:search(query)
+function LocalFile:search(query)
     return self:loadForm(query)
 end
 
-function LocalDirectPlay:isLinkMatch(query)
+function LocalFile:isLinkMatch(query)
   local f = io.open(query, "rb")
   if f then
     f:close()
@@ -26,12 +26,12 @@ function LocalDirectPlay:isLinkMatch(query)
   return false
 end
 
-function LocalDirectPlay:loadForm(query)
-  self._luna.logger:debug('LocalDirectPlay', 'Loading file: %s', query)
+function LocalFile:loadForm(query)
+  self._luna.logger:debug('LocalFile', 'Loading file: %s', query)
   
   local f = io.open(query, "rb")
   if not f then
-    self._luna.logger:error('LocalDirectPlay', "File not found: %s", query)
+    self._luna.logger:error('LocalFile', "File not found: %s", query)
     return self:buildError("File not found")
   end
   f:close()
@@ -50,7 +50,7 @@ function LocalDirectPlay:loadForm(query)
     sourceName = 'local'
   }
   
-  self._luna.logger:debug('LocalDirectPlay', 'File loaded: %s', query)
+  self._luna.logger:debug('LocalFile', 'File loaded: %s', query)
   
   return {
     loadType = 'track',
@@ -62,7 +62,7 @@ function LocalDirectPlay:loadForm(query)
   }
 end
 
-function LocalDirectPlay:loadStream(track, additionalData)
+function LocalFile:loadStream(track, additionalData)
   return {
     url = track.info.uri,
     protocol = 'file',
@@ -70,4 +70,4 @@ function LocalDirectPlay:loadStream(track, additionalData)
   }
 end
 
-return LocalDirectPlay
+return LocalFile

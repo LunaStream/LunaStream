@@ -12,7 +12,7 @@ local bandcamp = require("../sources/bandcamp.lua")
 local deezer = require("../sources/deezer.lua")
 local vimeo = require("../sources/vimeo.lua")
 local httpdirectplay = require("../sources/http.lua")
-local localdirectplay = require("../sources/local.lua")
+local LocalFile = require("../sources/local.lua")
 local nicovideo = require("../sources/nicovideo.lua")
 local twitch = require("../sources/twitch.lua")
 local spotify = require("../sources/spotify.lua")
@@ -49,9 +49,9 @@ function Sources:__init(luna)
   end
   
   if config.luna.localFile then
-    self._source_avaliables["local"] = localdirectplay(luna):setup()
+    self._source_avaliables["local"] = LocalFile(luna):setup()
     self._search_avaliables["local"] = "local"
-    self._luna.logger:info('SourceManager', 'Registered [LocalDirectPlay] audio source manager')
+    self._luna.logger:info('SourceManager', 'Registered [LocalFile] audio source manager')
   end
 
   if config.luna.nicovideo then
