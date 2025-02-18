@@ -1,5 +1,4 @@
 local http = require('coro-http')
-local uv = require('uv')
 local Readable = require('stream').Readable
 
 local HTTPStream = Readable:extend()
