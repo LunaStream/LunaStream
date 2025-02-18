@@ -9,7 +9,6 @@ local Emitter             = require('./Emitter')
 local WebSocket           = require('./WebSocket')
 local Opus                = require('opus')
 local UDPController       = require('./UDPController')
-local VoiceStream         = require('./stream/Voice')
 
 -- Useful functions
 local sf                  = string.format
@@ -44,7 +43,9 @@ local OPUS_CHANNELS       = 2
 local OPUS_FRAME_DURATION = 20
 -- Size of chucks to read from the stream at a time
 local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+local OPUS_CHUNK_STRING_SIZE = OPUS_CHUNK_SIZE * 2 * 2
 local OPUS_SILENCE_FRAME  = '\248\255\254'
+local MS_PER_NS = 1 / (1000 * 1000)
 
 -- Max Values Constants for RTP
 -- Maximum value for the RTP sequence number.  A 16-bit unsigned integer.  Used for packet ordering and loss detection. 0xFFFF (65535)
@@ -53,6 +54,53 @@ local MAX_SEQUENCE        = 0xFFFF
 local MAX_TIMESTAMP       = 0xFFFFFFFF
 -- Maximum value for the nonce. A 32-bit unsigned integer.  0xFFFFFFFF (4294967295)
 local MAX_NONCE           = 0xFFFFFFFF
+
+function FMT(n)
+  return '<' .. string.rep('i2', n)
+end
+
+local function sleep(delay)
+	local thread = coroutine.running()
+	local t = uv.new_timer()
+	t:start(delay, 0, function()
+		t:stop()
+		t:close()
+		return assert(coroutine.resume(thread))
+	end)
+	return coroutine.yield()
+end
+
+local function asyncResume(thread)
+	local t = uv.new_timer()
+	t:start(0, 0, function()
+		t:stop()
+		t:close()
+		return assert(coroutine.resume(thread))
+	end)
+end
+
+local function truncate(num)
+  if num >= 0 then
+    return math.floor(num)
+  else
+    return math.ceil(num)
+  end
+end
+
+local function round_then_truncate(num)
+  local rounded = math.floor(num + 0.5)
+  return truncate(rounded)
+end
+
+local function splitByChunk(text, chunkSize)
+  local s = {}
+  for i=1, #text, chunkSize do
+      s[#s+1] = text:sub(i,i+chunkSize - 1)
+  end
+  return s
+end
+
+
 
 local VoiceManager, get   = class('VoiceManager', Emitter)
 
@@ -93,8 +141,10 @@ function VoiceManager:__init(guildId, userId, production_mode)
   self._stream = nil
   self._voiceStream = nil
 
-  -- self._nextAudioPacketTimestamp = NULL
-
+  self._elapsed = 0
+  self._start = 0
+  self._filters = {}
+  self._chunk_cache = {}
   self._opusEncoder = nil
 
   -- Memory debug value
@@ -255,13 +305,15 @@ function VoiceManager:setSpeaking(speaking)
   return speaking
 end
 
+
+
 --- Plays a audio stream through the voice connection
 ---@param options any
 function VoiceManager:play(stream, options)
   -- Just in case, play gets triggered when _ws is not present;
   options = options or {}
   local needs_encoder = options.encoder or true
-  local filter_pipes = options.filters or nil
+  self._filters = options.filters or {}
 
   if not self._ws then
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
@@ -283,34 +335,149 @@ function VoiceManager:play(stream, options)
 
   self._player_state = PLAYER_STATE.playing
 
-  self._voiceStream = VoiceStream(self, filter_pipes):setup()
+  coroutine.wrap(self.intervalHandling)(self)
 
   return true
 end
 
--- Wrapper
-function VoiceManager:pause()
-  if not self._voiceStream then return end
-  self._voiceStream:pause()
+function VoiceManager:intervalHandling()
+  self._start = uv.hrtime()
+
+  while true do
+    local data = self:cacheReader()
+
+    if type(data) == 'table' then
+      self._chunk_cache = {}
+      break
+    end
+
+    if self._stop then break end
+    if self._paused then
+      asyncResume(self._paused)
+			self._paused = coroutine.running()
+			local pause = uv.hrtime()
+			coroutine.yield()
+			self._start = self._start + uv.hrtime() - pause
+			asyncResume(self._resumed)
+			self._resumed = nil
+    end
+
+    self:packetSender(data)
+
+    self._elapsed = self._elapsed + OPUS_FRAME_DURATION
+    local delay = self._elapsed - (uv.hrtime() - self._start) * MS_PER_NS
+
+    sleep(math.max(delay, 0))
+  end
+
+  self:stop()
 end
 
--- Wrapper
+function VoiceManager:cacheReader()
+  local res
+
+  if #self._chunk_cache > 0 then
+    res = table.remove(self._chunk_cache, 1)
+  else
+    local data = self._stream:read()
+    if type(data) ~= "string" then return data end
+
+    if #data == OPUS_CHUNK_STRING_SIZE then
+      return data
+    else
+      local caculation = round_then_truncate(#data / OPUS_CHUNK_STRING_SIZE)
+      for _, mini_chunk in pairs(splitByChunk(data, round_then_truncate(#data / caculation))) do
+        table.insert(self._chunk_cache, mini_chunk)
+      end
+    end
+
+    res = table.remove(self._chunk_cache, 1)
+  end
+
+  return res
+end
+
+function VoiceManager:packetSender(chunk)
+  chunk = self:chunkMixer(chunk)
+
+  local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
+
+  if not chunk or #chunk < pcmLen then
+    print("[LunaStream / Voice / " .. self.guild_id .. "]: Chunk is too short, skipping")
+    return
+  end
+
+  local audioChuck = { string.unpack(FMT(pcmLen), chunk) }
+
+  table.remove(audioChuck)
+
+  local encodedData, encodedLen
+  if self._opusEncoder then
+    encodedData, encodedLen = self._opusEncoder:encode(audioChuck, pcmLen, OPUS_CHUNK_SIZE, pcmLen * 2)
+  else
+    encodedData = audioChuck
+    encodedLen = #audioChuck
+  end
+  local audioPacket = coroutine.wrap(self._prepareAudioPacket)(
+    self, encodedData, encodedLen,
+    self.udp.ssrc, self.udp._sec_key
+  )
+  if not audioPacket then
+    print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet is nil/lost')
+    self._packetStats.lost = self._packetStats.lost + 1
+  else
+    self.udp:send(audioPacket, function (err)
+      local curr_lost = self._packetStats.lost
+      local curr_sent = self._packetStats.sent
+      if err then
+        print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet is nil/lost')
+        self._packetStats.lost = curr_lost + 1
+      else
+        print('[LunaStream / Voice / ' .. self.guild_id .. ']: audio packet sent, elapsed: ', self._elapsed)
+        self._packetStats.sent = curr_sent + 1
+      end
+    end)
+  end
+  encodedData, encodedLen, audioChuck, audioPacket = nil, nil, {}, nil
+end
+
+function VoiceManager:addFilter(filterClass)
+  self._filters[filterClass.__name] = filterClass
+end
+
+function VoiceManager:removeFilter(name)
+  self._filters[name] = nil
+end
+
+function VoiceManager:chunkMixer(chunk)
+  if #self._filters == 0 then return chunk end
+  local res = chunk
+  for _, filterClass in pairs(self._filters) do
+    res = filterClass:convert(chunk)
+  end
+  return res
+end
+
+function VoiceManager:pause()
+	-- if not self._speaking then return end
+	if self._paused then return end
+	self._paused = coroutine.running()
+	return coroutine.yield()
+end
+
 function VoiceManager:resume()
-  if not self._voiceStream then return end
-  self._voiceStream:resume()
+	if not self._paused then return end
+	asyncResume(self._paused)
+	self._paused = nil
+	self._resumed = coroutine.running()
+	return coroutine.yield()
 end
 
 function VoiceManager:stop()
   p('[LunaStream / Voice / ' .. self.guild_id .. ']: Total stream stats: ', self._packetStats)
   self._stream:removeAllListeners()
-  self._voiceStream:stop()
-  self._voiceStream:clear()
-  self._voiceStream._voiceManager = nil
-
-  setmetatable(self._voiceStream, { __mode = "kv" })
   setmetatable(self._stream, { __mode = "kv" })
 
-  self._voiceStream = nil
   self._stream = nil
   self._packetStats = {
     sent = 0,

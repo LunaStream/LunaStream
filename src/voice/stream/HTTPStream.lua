@@ -2,21 +2,10 @@ local http = require('coro-http')
 local uv = require('uv')
 local Readable = require('stream').Readable
 
-local function sleep(delay)
-	local thread = coroutine.running()
-	local t = uv.new_timer()
-	t:start(delay, 0, function()
-		t:stop()
-		t:close()
-		return assert(coroutine.resume(thread))
-	end)
-	return coroutine.yield()
-end
-
 local HTTPStream = Readable:extend()
 
 function HTTPStream:initialize(method, url, headers, body, customOptions)
-  Readable.initialize(self)
+  Readable.initialize(self, { objectMode = true })
   self.method = method
   self.uri = http.parseUrl(url)
   self.headers = headers
@@ -102,42 +91,16 @@ function HTTPStream:setup(custom_uri)
 end
 
 function HTTPStream:_read(n)
-  if self.started_pushing then return end
-
-  if self.eos then
-    self:push()
-    self:restore()
-    return
-  end
-
   coroutine.wrap(function ()
-    self.started_pushing = true
-
-    for item in self.http_read do
-      if not item then
-        self.res.keepAlive = false
-        break
+    for chunk in self.http_read do
+      if type(chunk) == "string" and #chunk == 0 then
+        return self:push({})
+      elseif type(chunk) == "string" then
+        return self:push(chunk)
       end
-      if #item == 0 then break end
-      self:push(item)
-      item = nil
-      collectgarbage('collect')
-      sleep(1)
     end
-
-    self:push(self.push_cache)
-    self.push_cache = nil
-
-    self.eos = true
-
-    if self.res.keepAlive then
-      http.saveConnection(self.connection)
-    else
-      self.http_write()
-    end
-
-    collectgarbage('collect')
   end)()
+  -- self:push(true)
 end
 
 function HTTPStream:restore()

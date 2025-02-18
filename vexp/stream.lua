@@ -32,10 +32,7 @@ local function playfunction()
     :pipe(MusicUtils.opus.WebmDemuxer:new())
     :pipe(MusicUtils.opus.Decoder:new(VoiceClass._opus))
 
-  VoiceClass:play(audioStream, {
-    encoder = true,
-    -- filters = { Filter() }
-  })
+  VoiceClass:play(audioStream, { encoder = true })
 end
 
 setTimeout(5000, coroutine.wrap(playfunction))
