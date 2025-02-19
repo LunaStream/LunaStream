@@ -19,7 +19,7 @@ return {
   homepage = "https://github.com/LunaticSea/LunaStream",
   dependencies = {
     "creationix/coro-http@v3.2.3",
-    "luvit/luvit@2.2.3",
+    "luvit/luvit@2.18.1",
     "luvit/process@2.1.3",
     "luvit/dns@2.0.4",
     "luvit/secure-socket@1.2.3",

@@ -146,6 +146,7 @@ function VoiceManager:__init(guildId, userId, production_mode)
   self._filters = {}
   self._chunk_cache = {}
   self._opusEncoder = nil
+  self._chunkTooShortCount = 0
 
   -- Memory debug value
   self._mem_before = process.memoryUsage()
@@ -344,6 +345,7 @@ function VoiceManager:intervalHandling()
   self._start = uv.hrtime()
 
   while true do
+    if self._stop then break end
     local data = self:cacheReader()
 
     if type(data) == 'table' then
@@ -351,7 +353,6 @@ function VoiceManager:intervalHandling()
       break
     end
 
-    if self._stop then break end
     if self._paused then
       asyncResume(self._paused)
 			self._paused = coroutine.running()
@@ -403,9 +404,13 @@ function VoiceManager:packetSender(chunk)
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
   if not chunk or #chunk < pcmLen then
+    self._chunkTooShortCount = self._chunkTooShortCount + 1
     print("[LunaStream / Voice / " .. self.guild_id .. "]: Chunk is too short, skipping")
+    if self._chunkTooShortCount == 10 then os.exit() end
     return
   end
+
+  self._chunkTooShortCount = 0
 
   local audioChuck = { string.unpack(FMT(pcmLen), chunk) }
 

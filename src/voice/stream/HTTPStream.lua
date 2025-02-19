@@ -1,4 +1,5 @@
 local http = require('coro-http')
+local timer = require('timer')
 local Readable = require('stream').Readable
 
 local HTTPStream = Readable:extend()
@@ -11,23 +12,12 @@ function HTTPStream:initialize(method, url, headers, body, customOptions)
   self.body = body
   self.customOptions = customOptions
   self.res = nil
-  self.http_read = nil
-  self.http_write = nil
   self.connection = nil
-  self.started_pushing = false
-  self.eos = false
+  self.content_length = 'not_avaliable'
+  self.readed = 0
+  self.reconnecting = false
+  self.ended = false
 end
-
-local function removeHeader(headers, headerName)
-  headerName = headerName:lower()
-  for i = #headers, 1, -1 do
-    if headers[i][1]:lower() == headerName then
-      table.remove(headers, i)
-    end
-  end
-end
-
-local DEFAULT_MAX_REDIRECTS = 10
 
 function HTTPStream:setup(custom_uri, redirect_count)
   redirect_count = redirect_count or 0
@@ -119,40 +109,51 @@ function HTTPStream:setup(custom_uri, redirect_count)
     write()
   end
 
-  self.http_read = read
-  self.http_write = write
   self.res = res
-  return { response = self.res, parent = self }
+  self:emit('response', self)
+  local content_length = self:getHeader('content-length')
+  if content_length then self.content_length = tonumber(content_length) end
+  return self
+end
+
+function HTTPStream:getHeader(inp_key)
+  if not self.res or not inp_key then return end
+
+  for _, value in pairs(self.res) do
+    if type(value) == "table" and string.lower(value[1]) == inp_key then
+      return value[2]
+    end
+  end
+
+  return nil
 end
 
 function HTTPStream:_read(n)
+  if self.ended then return end
   coroutine.wrap(function ()
-    for chunk in self.http_read do
-      p('chunks arrives: ', type(chunk) == "string" and #chunk or " not available")
+    while true do
+      p('Perform reading...')
+      local chunk = self.connection.read()
       if type(chunk) == "string" and #chunk == 0 then
-        return self:push({})
+        self:restore()
+        self:push({})
+        self.ended = true
+        return
       elseif type(chunk) == "string" then
+        self.readed = self.readed + #chunk
+        p('Chunk valided, status:', self.readed, self.content_length)
         return self:push(chunk)
+      else
+        p('Invalid chunk: ', chunk)
       end
     end
   end)()
 end
 
 function HTTPStream:restore()
-  self.method = ''
-  self.uri = ''
-  self.headers = {}
-  self.body = ''
-  self.customOptions = {}
   self.res = nil
-  self.http_read = nil
-  self.http_write = nil
   self.connection = nil
-  self.started_pushing = false
-  self.push_cache = ''
   self._elapsed = 0
-  self.eos = false
-  self.start = nil
 end
 
 return HTTPStream
