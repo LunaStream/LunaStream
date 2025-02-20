@@ -4,7 +4,7 @@ local https = require("https")
 local MusicUtils = require("musicutils")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
-local StringStream = require("../voice/stream/StringStream")
+local FileStream = require("../voice/stream/FileStream")
 local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
@@ -176,7 +176,7 @@ function Sources:getStream(track, callback)
 
   if streamInfo.protocol == "file" then
     local file = fs.readFileSync(streamInfo.url)
-    local stream = StringStream:new(file)
+    local stream = FileStream:new(file)
       :pipe(MusicUtils.opus.WebmDemuxer:new())
     return callback(stream)
   end
