@@ -51,22 +51,34 @@ function Player:play(track)
     end
 
     self.track = decoder(track.encoded)
+
     if track.userData == nil or next(track.userData) == nil then
         track.userData = nil
     end
 
     self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
 
-    self._stream = self._luna.sources:getStream(self.track):pipe(MusicUtils.opus.Decoder:new(self
-        .voice._opus))
+    local co = coroutine.running()
+
+    self._luna.sources:getStream(self.track, function(stream)
+        coroutine.resume(co, stream)
+    end)
+
+    local stream = coroutine.yield()
+
+    if not stream then
+        self._luna.logger:error('Player', 'Failed to load stream')
+        return
+    end
+
+    self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
 
     if self.voice then
-        self.voice:play(self._stream, {
-            encoder = true,
-        })
+        self.voice:play(self._stream, { encoder = true })
 
-        self._luna.logger:info('Player',
+        self._luna.logger:info('Player', 
             string.format('Track %s started for guild %s', self.track.info.title, self._guildId))
+        
         self:sendWsMessage({
             op = "event",
             type = "TrackStartEvent",
@@ -77,8 +89,9 @@ function Player:play(track)
         self.playing = true
 
         self.voice:on("ended", function()
-            self._luna.logger:info('Player',
+            self._luna.logger:info('Player', 
                 string.format('Track %s ended for guild %s', self.track.info.title, self._guildId))
+
             self:sendWsMessage({
                 op = "event",
                 type = "TrackEndEvent",
@@ -90,6 +103,7 @@ function Player:play(track)
         end)
     end
 end
+
 
 function Player:stop()
     if self.voice then
