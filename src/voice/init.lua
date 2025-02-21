@@ -674,6 +674,7 @@ function VoiceManager:stop()
 
   self:setSpeaking(0)
   self:emit("ended")
+  self._bufferPos = 0;
 
   collectgarbage('collect')
   p('[LunaStream / Voice]: Memory before', self._mem_before)
