@@ -1,11 +1,10 @@
-local fs = require("fs")
 local http = require("coro-http")
 local https = require("https")
 local MusicUtils = require("musicutils")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 local FileStream = require("../voice/stream/FileStream")
--- local HTTPStream = require("../voice/stream/HTTPStream")
+local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
@@ -167,32 +166,29 @@ function Sources:loadStream(encodedTrack)
   return getSrc:loadStream(track, self._luna)
 end
 
-function Sources:getStream(track, callback)
+function Sources:getStream(track)
   local streamInfo = self:loadStream(track.encoded)
 
   if not streamInfo or not streamInfo.url then
-    return callback(nil)
+    return nil
   end
 
   if streamInfo.protocol == "file" then
-    local file = fs.readFileSync(streamInfo.url)
-    local stream = FileStream:new(file)
+    local stream = FileStream:new(streamInfo.url)
       :pipe(MusicUtils.opus.WebmDemuxer:new())
-    return callback(stream)
+    return stream
   end
 
-  local urlParsed = http.parseUrl(streamInfo.url)
-  local req = https.request(urlParsed, function(res)
-    if res.statusCode ~= 200 then
-      return self._luna.logger:error("SourceManager", "Stream url response error: "
-        .. res.statusCode .. ' ' .. res.statusMessage
-      )
-    end
-    local stream = res:pipe(MusicUtils.opus.WebmDemuxer:new())
-    callback(stream)
-  end)
+  local streamClient = HTTPStream:new('GET', streamInfo.url)
+  local request = streamClient:setup()
 
-  req:done()
+  if request.res.code ~= 200 then
+    return self._luna.logger:error("SourceManager", "Stream url response error: "
+      .. request.res.code
+    )
+  end
+
+  return request:pipe(MusicUtils.opus.WebmDemuxer:new())
 end
 
 return Sources

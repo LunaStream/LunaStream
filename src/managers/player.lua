@@ -31,6 +31,7 @@ function Player:__init(luna, guildId, sessionId)
     self.voiceState = {}
     self.state = {}
     self.voice = voice(self._guildId, self._userId)
+    self.update_loop_interval = nil
 end
 
 function Player:new()
@@ -66,13 +67,7 @@ function Player:play(track)
 
     self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
 
-    local co = coroutine.running()
-
-    self._luna.sources:getStream(self.track, function(stream)
-        coroutine.resume(co, stream)
-    end)
-
-    local stream = coroutine.yield()
+    local stream = self._luna.sources:getStream(self.track)
 
     if not stream then
         self._luna.logger:error('Player', 'Failed to load stream')
@@ -96,7 +91,7 @@ function Player:play(track)
 
         self.playing = true
 
-        self:_updateLoop()
+        self:_startUpdateLoop()
 
         self.voice:on("ended", function()
             self._luna.logger:info('Player', 
@@ -122,6 +117,8 @@ function Player:play(track)
                 guildId = self._guildId,
                 state = self.state,
             })
+            timer.clearInterval(self.update_loop_interval)
+            self.update_loop_interval = nil
         end)
     end
 end
@@ -146,6 +143,8 @@ function Player:sendWsMessage(data)
 end
 
 function Player:_sendPlayerUpdate()
+    if not self.playing then return end
+
     self.state = {
         time = os.time(),
         position = self.voice.position,
@@ -160,10 +159,10 @@ function Player:_sendPlayerUpdate()
     })
 end
 
-function Player:_updateLoop()
-    if not self.playing then return end
-    self:_sendPlayerUpdate()
-    timer.setTimeout(1000, function() self:_updateLoop() end)
+function Player:_startUpdateLoop()
+    self.update_loop_interval = timer.setInterval(1000, function ()
+        coroutine.wrap(self._sendPlayerUpdate)(self)
+    end)
 end
 
 return Player
