@@ -22,6 +22,7 @@ local READY           = 2
 local HEARTBEAT       = 3
 local DESCRIPTION     = 4
 local SPEAKING        = 5
+local HEARTBEAT_ACK   = 6
 local RESUME          = 7
 local HELLO           = 8
 -- local RESUMED      = 9
@@ -163,6 +164,8 @@ function VoiceManager:__init(guildId, userId, production_mode)
   self._ws = nil
   self._seq_ack = -1
   self._timestamp = -1
+  self._lastHeartbeatSent = 0
+  self._ping = -1
 
   -- UDP
   self._udp = UDPController(production_mode)
@@ -178,12 +181,14 @@ function VoiceManager:__init(guildId, userId, production_mode)
 
   self._stream = nil
   self._voiceStream = nil
-
+  
+  -- Audio Stream
   self._elapsed = 0
   self._start = 0
   self._filters = {}
   self._chunk_cache = {}   -- Queue of chunks ready to send
   self._buffer = ""        -- Buffer to accumulate data that does not yet form a complete chunk
+  self._bufferPos = 0      -- Position in the buffer to start reading from
   self._opusEncoder = nil
   self._chunkTooShortCount = 0
 
@@ -297,6 +302,10 @@ function VoiceManager:messageEvent(payload)
     self:emit('ready')
   elseif op == HELLO then
     self:startHeartbeat(data.heartbeat_interval)
+  elseif op == HEARTBEAT_ACK then
+    local elapsed_ns = uv.hrtime() - self._lastHeartbeatSent
+    self._ping = math.floor(elapsed_ns / 1000000)
+    print('[LunaStream / Voice]: Heartbeat ACK received, ping: ' .. self.ping .. 'ms')
   end
 end
 
@@ -350,6 +359,7 @@ end
 ---------------------------------------------------------------
 function VoiceManager:sendKeepAlive()
   if not self._ws then return end
+  self._lastHeartbeatSent = uv.hrtime()
   self._ws:send({
     op = HEARTBEAT,
     d = {
@@ -584,6 +594,8 @@ function VoiceManager:packetSender(chunk)
       else
         self._packetStats.sent = curr_sent + 1
       end
+      self._bufferPos = self._bufferPos + #chunk
+      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' .. self.position)
     end)
   end
   encodedData, encodedLen, audioChuck, audioPacket = nil, nil, {}, nil
@@ -743,6 +755,13 @@ function get:player_state()
   return self._player_state
 end
 
+-- Getter: Position
+-- Returns the current position in the audio stream.
+function get:position()
+  if not self._bufferPos and self._bufferPos == 0 then return 0 end
+  return self._bufferPos / OPUS_CHUNK_STRING_SIZE
+end
+
 -- Getter: session_id
 -- Returns the session ID.
 function get:session_id()
@@ -765,6 +784,12 @@ end
 -- Returns the WebSocket instance.
 function get:ws()
   return self._ws
+end
+
+-- Getter: ping
+-- Returns the current ping value.
+function get:ping()
+  return self._ping
 end
 
 -- Getter: seq_ack

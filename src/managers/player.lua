@@ -7,6 +7,7 @@ local MusicUtils = require('musicutils')
 local json = require('json')
 
 local setTimeout = timer.setTimeout
+
 function Player:__init(luna, guildId, sessionId)
     self._luna = luna
     self._stream = nil
@@ -14,6 +15,12 @@ function Player:__init(luna, guildId, sessionId)
     self._guildId = guildId
     self._userId = self._luna.sessions[sessionId].user_id
     self._write = self._luna.sessions[sessionId].write
+    self._state = {
+        time = 0,
+        position = 0,
+        connected = false,
+        ping = -1,
+    }
     self.track = {}
     self.playing = false
     self.position = 0
@@ -43,6 +50,7 @@ function Player:updateVoiceState(voiceState)
 
     self.voice:voiceCredential(voiceState.sessionId, voiceState.endpoint, voiceState.token)
     self.voice:connect()
+    self._state.connected = true
 end
 
 function Player:play(track)
@@ -88,6 +96,8 @@ function Player:play(track)
 
         self.playing = true
 
+        self:_updateLoop()
+
         self.voice:on("ended", function()
             self._luna.logger:info('Player', 
                 string.format('Track %s ended for guild %s', self.track.info.title, self._guildId))
@@ -100,10 +110,21 @@ function Player:play(track)
             })
 
             self.playing = false
+            self.state = {
+                time = 0,
+                position = 0,
+                connected = self._state.connected,
+                ping = self.voice.ping,
+            }
+
+            self:sendWsMessage({
+                op = "playerUpdate",
+                guildId = self._guildId,
+                state = self.state,
+            })
         end)
     end
 end
-
 
 function Player:stop()
     if self.voice then
@@ -122,6 +143,27 @@ function Player:sendWsMessage(data)
             payload = payload
         })
     end)()
+end
+
+function Player:_sendPlayerUpdate()
+    self.state = {
+        time = os.time(),
+        position = self.voice.position,
+        connected = self._state.connected,
+        ping = self.voice.ping,
+    }
+
+    self:sendWsMessage({
+        op = "playerUpdate",
+        guildId = self._guildId,
+        state = self.state,
+    })
+end
+
+function Player:_updateLoop()
+    if not self.playing then return end
+    self:_sendPlayerUpdate()
+    timer.setTimeout(1000, function() self:_updateLoop() end)
 end
 
 return Player
