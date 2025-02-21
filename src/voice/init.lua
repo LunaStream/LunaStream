@@ -744,7 +744,7 @@ end
 -- Returns the current position in the audio stream.
 function get:position()
   if not self._bufferPos and self._bufferPos == 0 then return 0 end
-  return self._bufferPos / OPUS_CHUNK_STRING_SIZE
+  return (self._bufferPos / OPUS_CHUNK_STRING_SIZE) * OPUS_FRAME_DURATION
 end
 
 -- Getter: session_id
