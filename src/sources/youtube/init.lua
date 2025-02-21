@@ -151,7 +151,6 @@ function YouTube:checkURLType(inp_url, src_type)
       shorts = "https?://w?w?w?%.?youtube%.com/shorts/[%w%-]+"
     }
   }
-  print(src_type)
   local selectedPatterns = patterns[src_type] or patterns.default
 
   if string.match(inp_url, selectedPatterns.selectedVideo) or string.match(inp_url, selectedPatterns.playlist) then

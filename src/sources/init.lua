@@ -5,7 +5,7 @@ local MusicUtils = require("musicutils")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 local FileStream = require("../voice/stream/FileStream")
-local HTTPStream = require("../voice/stream/HTTPStream")
+-- local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
@@ -42,17 +42,6 @@ function Sources:__init(luna)
     self._source_avaliables["vimeo"] = vimeo(luna):setup()
     self._search_avaliables["vmsearch"] = "vimeo"
     self._luna.logger:info("SourceManager", "Registered [Vimeo] audio source manager")
-  end
-
-  if config.luna.http then
-    self._source_avaliables["http"] = httpdirectplay(luna):setup()
-    self._luna.logger:info("SourceManager", "Registered [HTTPDirectPlay] audio source manager")
-  end
-
-  if config.luna.localFile then
-    self._source_avaliables["local"] = LocalFile(luna):setup()
-    self._search_avaliables["local"] = "local"
-    self._luna.logger:info("SourceManager", "Registered [LocalFile] audio source manager")
   end
 
   if config.luna.nicovideo then
@@ -109,6 +98,17 @@ function Sources:__init(luna)
   if config.luna.kwai then
     self._source_avaliables["kwai"] = kwai(luna):setup()
     self._luna.logger:info("SourceManager", "Registered [Kwai] audio source manager")
+  end
+
+  if config.luna.http then
+    self._source_avaliables["http"] = httpdirectplay(luna):setup()
+    self._luna.logger:info("SourceManager", "Registered [HTTPDirectPlay] audio source manager")
+  end
+
+  if config.luna.localFile then
+    self._source_avaliables["local"] = LocalFile(luna):setup()
+    self._search_avaliables["local"] = "local"
+    self._luna.logger:info("SourceManager", "Registered [LocalFile] audio source manager")
   end
 end
 
@@ -170,7 +170,7 @@ end
 function Sources:getStream(track, callback)
   local streamInfo = self:loadStream(track.encoded)
 
-  if not streamInfo or not streamInfo.url then 
+  if not streamInfo or not streamInfo.url then
     return callback(nil)
   end
 
@@ -183,6 +183,11 @@ function Sources:getStream(track, callback)
 
   local urlParsed = http.parseUrl(streamInfo.url)
   local req = https.request(urlParsed, function(res)
+    if res.statusCode ~= 200 then
+      return self._luna.logger:error("SourceManager", "Stream url response error: "
+        .. res.statusCode .. ' ' .. res.statusMessage
+      )
+    end
     local stream = res:pipe(MusicUtils.opus.WebmDemuxer:new())
     callback(stream)
   end)

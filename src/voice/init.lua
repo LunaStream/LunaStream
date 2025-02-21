@@ -190,7 +190,6 @@ function VoiceManager:__init(guildId, userId, production_mode)
   self._buffer = ""        -- Buffer to accumulate data that does not yet form a complete chunk
   self._bufferPos = 0      -- Position in the buffer to start reading from
   self._opusEncoder = nil
-  self._chunkTooShortCount = 0
 
   -- Memory debug value
   self._mem_before = process.memoryUsage()
@@ -509,41 +508,28 @@ end
 ---------------------------------------------------------------
 --- Reads data from the stream and returns a complete chunk for sending.
 function VoiceManager:cacheReader()
-  -- If there are already chunks in the cache, return the next one.
+  local res
+
   if #self._chunk_cache > 0 then
-    local chunk = table.remove(self._chunk_cache, 1)
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Returning chunk from cache, size: ' .. #chunk)
-    return chunk
-  end
-
-  -- Initialize or maintain the accumulating buffer.
-  self._buffer = self._buffer or ""
-  -- Try reading from the stream until there is enough data for a complete chunk.
-  while #self._buffer < OPUS_CHUNK_STRING_SIZE do
+    res = table.remove(self._chunk_cache, 1)
+  else
     local data = self._stream:read()
-    if type(data) == "string" and #data > 0 then
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Read ' .. #data .. ' bytes from the stream.')
-      self._buffer = self._buffer .. data
+
+    if type(data) ~= "string" then return data end
+
+    if #data == OPUS_CHUNK_STRING_SIZE then
+      return data
     else
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Waiting for more stream data...')
-      sleep(5)  -- Wait 5ms (less than 1000ms) before trying to read again.
+      local caculation = round_then_truncate(#data / OPUS_CHUNK_STRING_SIZE)
+      for _, mini_chunk in pairs(splitByChunk(data, round_then_truncate(#data / caculation))) do
+        table.insert(self._chunk_cache, mini_chunk)
+      end
     end
+
+    res = table.remove(self._chunk_cache, 1)
   end
 
-  -- If the buffer has more than one complete chunk, separate the extra chunks and store them in the cache.
-  if #self._buffer > OPUS_CHUNK_STRING_SIZE then
-    local fullChunks = math.floor(#self._buffer / OPUS_CHUNK_STRING_SIZE)
-    for i = 1, fullChunks - 1 do
-      local chunk = self._buffer:sub(1, OPUS_CHUNK_STRING_SIZE)
-      table.insert(self._chunk_cache, chunk)
-      self._buffer = self._buffer:sub(OPUS_CHUNK_STRING_SIZE + 1)
-    end
-  end
-
-  local chunk = self._buffer:sub(1, OPUS_CHUNK_STRING_SIZE)
-  self._buffer = self._buffer:sub(OPUS_CHUNK_STRING_SIZE + 1)
-  print('[LunaStream / Voice / ' .. self._guild_id .. ']: Returning chunk of size: ' .. #chunk)
-  return chunk
+  return res
 end
 
 ---------------------------------------------------------------
@@ -558,8 +544,7 @@ function VoiceManager:packetSender(chunk)
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
   if not chunk or #chunk < pcmLen then
-    self._chunkTooShortCount = self._chunkTooShortCount + 1
-    if self._chunkTooShortCount == 10 then os.exit() end
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk too short')
     return
   end
 

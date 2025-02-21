@@ -26,7 +26,11 @@ local function playfunction()
   local streamClient = HTTPStream:new('GET', process.argv[2] and large_stream_link or stream_link)
   local requestStream = streamClient:setup()
 
-  p('HTTP Response: ', requestStream.reponse)
+  p('[HTTPStream / Response]: ', requestStream.reponse)
+
+  requestStream:on('ECONNREFUSED', function ()
+    p('[HTTPStream]: Connection terminated')
+  end)
 
   local audioStream = requestStream
     :pipe(MusicUtils.opus.WebmDemuxer:new())

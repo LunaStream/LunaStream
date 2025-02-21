@@ -63,6 +63,7 @@ function FileStream:_read(n)
     end
     self:push(bytes)
   else
+    self:close()
     self:push({})
   end
 end

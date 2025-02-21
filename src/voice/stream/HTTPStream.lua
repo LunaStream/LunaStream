@@ -1,5 +1,4 @@
 local http = require('coro-http')
-local timer = require('timer')
 local Readable = require('stream').Readable
 
 local HTTPStream = Readable:extend()
@@ -14,9 +13,9 @@ function HTTPStream:initialize(method, url, headers, body, customOptions)
   self.res = nil
   self.connection = nil
   self.content_length = 'not_avaliable'
-  self.readed = 0
   self.reconnecting = false
   self.ended = false
+  self.read_coro_running = false
 end
 
 function HTTPStream:setup(custom_uri, redirect_count)
@@ -113,6 +112,7 @@ function HTTPStream:setup(custom_uri, redirect_count)
   self:emit('response', self)
   local content_length = self:getHeader('content-length')
   if content_length then self.content_length = tonumber(content_length) end
+  for _ = 1, 5, 1 do self:_read() end
   return self
 end
 
@@ -128,24 +128,30 @@ function HTTPStream:getHeader(inp_key)
   return nil
 end
 
+function HTTPStream:read(n)
+  local data = Readable.read(self, n)
+  if
+    #self._readableState.buffer == 0
+    and self.read_coro_running == true
+    and data == nil
+    and not self.ended
+  then
+    self:emit('ECONNREFUSED')
+  end
+  return data
+end
+
 function HTTPStream:_read(n)
   if self.ended then return end
+  self.read_coro_running = true
   coroutine.wrap(function ()
-    while true do
-      p('Perform reading...')
-      local chunk = self.connection.read()
-      if type(chunk) == "string" and #chunk == 0 then
-        self:restore()
-        self:push({})
-        self.ended = true
-        return
-      elseif type(chunk) == "string" then
-        self.readed = self.readed + #chunk
-        p('Chunk valided, status:', self.readed, self.content_length)
-        return self:push(chunk)
-      else
-        p('Invalid chunk: ', chunk)
-      end
+    local chunk = self.connection.read()
+    self.read_coro_running = false
+    if type(chunk) == "string" and #chunk == 0 then
+      self.ended = true
+      return self:push({})
+    elseif type(chunk) == "string" then
+      return self:push(chunk)
     end
   end)()
 end
