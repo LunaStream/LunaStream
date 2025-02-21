@@ -112,7 +112,6 @@ function HTTPStream:setup(custom_uri, redirect_count)
   self:emit('response', self)
   local content_length = self:getHeader('content-length')
   if content_length then self.content_length = tonumber(content_length) end
-  for _ = 1, 5, 1 do self:_read() end
   return self
 end
 
@@ -129,7 +128,10 @@ function HTTPStream:getHeader(inp_key)
 end
 
 function HTTPStream:read(n)
+  -- Add _read to request data will fix the buffer lost about 80%
+  self:_read()
   local data = Readable.read(self, n)
+  -- ECONNREFUSED event is experimental and not handle very well, we know that
   if
     #self._readableState.buffer == 0
     and self.read_coro_running == true
@@ -142,9 +144,9 @@ function HTTPStream:read(n)
 end
 
 function HTTPStream:_read(n)
-  if self.ended then return end
-  self.read_coro_running = true
+  if self.ended == true then return end
   coroutine.wrap(function ()
+    self.read_coro_running = true
     local chunk = self.connection.read()
     self.read_coro_running = false
     if type(chunk) == "string" and #chunk == 0 then

@@ -26,7 +26,7 @@ local function playfunction()
   local streamClient = HTTPStream:new('GET', process.argv[2] and large_stream_link or stream_link)
   local requestStream = streamClient:setup()
 
-  p('[HTTPStream / Response]: ', requestStream.reponse)
+  p('[HTTPStream / Response]: ', requestStream.res)
 
   requestStream:on('ECONNREFUSED', function ()
     p('[HTTPStream]: Connection terminated')
