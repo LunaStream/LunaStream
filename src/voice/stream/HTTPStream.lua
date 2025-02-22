@@ -151,9 +151,18 @@ function HTTPStream:_read(n)
     self.read_coro_running = false
     if type(chunk) == "string" and #chunk == 0 then
       self.ended = true
+      if not self.connection.socket:is_closing() then
+        self.connection.socket:close()
+      end
       return self:push({})
     elseif type(chunk) == "string" then
       return self:push(chunk)
+    else 
+      self.ended = true
+      if not self.connection.socket:is_closing() then
+        self.connection.socket:close()
+      end
+      return self:push({})
     end
   end)()
 end
