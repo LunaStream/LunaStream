@@ -47,7 +47,9 @@ function WebSocket:connect()
 end
 
 function WebSocket:read_status_code(str)
-  if #str < 2 then return nil, "Invalid data" end
+  if #str < 2 then
+    return nil, "Invalid data"
+  end
   local byte1, byte2 = str:byte(1, 2)
   return bit.lshift(byte1, 8) + byte2
 end
@@ -104,7 +106,9 @@ end
 ---@param payload string
 ---@return boolean
 function WebSocket:send(payload)
-  if type(payload) ~= "string" then payload = json.encode(payload) end
+  if type(payload) ~= "string" then
+    payload = json.encode(payload)
+  end
 
   self._ws_write(
     {

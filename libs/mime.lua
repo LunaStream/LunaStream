@@ -186,6 +186,8 @@ local table = {
 mime.table = table
 mime.default = "application/octet-stream"
 
-function mime.getType(path) return mime.table[path:lower():match("[^.]*$")] or mime.default end
+function mime.getType(path)
+  return mime.table[path:lower():match("[^.]*$")] or mime.default
+end
 
 return mime

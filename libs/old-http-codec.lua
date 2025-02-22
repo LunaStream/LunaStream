@@ -113,7 +113,9 @@ local function encoder()
     for i = 1, #item do
       local key, value = item[i][1], item[i][2]
       local lowerKey = lower(key)
-      if lowerKey == "transfer-encoding" then chunkedEncoding = lower(value) == "chunked" end
+      if lowerKey == "transfer-encoding" then
+        chunkedEncoding = lower(value) == "chunked"
+      end
       value = gsub(tostring(value), "[\r\n]+", " ")
       head[#head + 1] = key .. ': ' .. tostring(value) .. '\r\n'
     end
@@ -141,12 +143,16 @@ local function encoder()
         return "0\r\n\r\n"
       end
     end
-    if #item == 0 then mode = encodeHead end
+    if #item == 0 then
+      mode = encodeHead
+    end
     return format("%x", #item) .. "\r\n" .. item .. "\r\n"
   end
 
   mode = encodeHead
-  return function(item) return mode(item) end
+  return function(item)
+    return mode(item)
+  end
 end
 
 local function decoder()
@@ -158,12 +164,16 @@ local function decoder()
 
   -- This state is for decoding the status line and headers.
   function decodeHead(chunk)
-    if not chunk then return end
+    if not chunk then
+      return
+    end
 
     local _, length = find(chunk, "\r?\n\r?\n", 1)
     -- First make sure we have all the head before continuing
     if not length then
-      if #chunk < 8 * 1024 then return end
+      if #chunk < 8 * 1024 then
+        return
+      end
       -- But protect against evil clients by refusing heads over 8K long.
       error("entity too large")
     end
@@ -177,7 +187,9 @@ local function decoder()
       head.code = tonumber(head.code)
     else
       _, offset, head.method, head.path, version = find(chunk, "^(%u+) ([^ ]+) HTTP/(%d%.%d)\r?\n")
-      if not offset then error("expected HTTP data") end
+      if not offset then
+        error("expected HTTP data")
+      end
     end
     version = tonumber(version)
     head.version = version
@@ -191,7 +203,9 @@ local function decoder()
     while true do
       local key, value
       _, offset, key, value = find(chunk, "^([^:\r\n]+): *([^\r\n]*)\r?\n", offset + 1)
-      if not offset then break end
+      if not offset then
+        break
+      end
       local lowerKey = lower(key)
 
       -- Inspect a few headers and remember the values
@@ -228,24 +242,36 @@ local function decoder()
   end
 
   function decodeRaw(chunk)
-    if not chunk then return "", "" end
-    if #chunk == 0 then return end
+    if not chunk then
+      return "", ""
+    end
+    if #chunk == 0 then
+      return
+    end
     return chunk, ""
   end
 
   function decodeChunked(chunk)
     local len, term
     len, term = match(chunk, "^(%x+)(..)")
-    if not len then return end
+    if not len then
+      return
+    end
     if term ~= "\r\n" then
       -- Wait for full chunk-size\r\n header
-      if #chunk < 18 then return end
+      if #chunk < 18 then
+        return
+      end
       -- But protect against evil clients by refusing chunk-sizes longer than 16 hex digits.
       error("chunk-size field too large")
     end
     local length = tonumber(len, 16)
-    if #chunk < length + 4 + #len then return end
-    if length == 0 then mode = decodeHead end
+    if #chunk < length + 4 + #len then
+      return
+    end
+    if length == 0 then
+      mode = decodeHead
+    end
     chunk = sub(chunk, #len + 3)
     assert(sub(chunk, length + 1, length + 2) == "\r\n")
     return sub(chunk, 1, length), sub(chunk, length + 3)
@@ -258,9 +284,13 @@ local function decoder()
     end
     local length = #chunk
     -- Make sure we have at least one byte to process
-    if length == 0 then return end
+    if length == 0 then
+      return
+    end
 
-    if length >= bytesLeft then mode = decodeEmpty end
+    if length >= bytesLeft then
+      mode = decodeEmpty
+    end
 
     -- If the entire chunk fits, pass it all through
     if length <= bytesLeft then
@@ -273,7 +303,9 @@ local function decoder()
 
   -- Switch between states by changing which decoder mode points to
   mode = decodeHead
-  return function(chunk) return mode(chunk) end
+  return function(chunk)
+    return mode(chunk)
+  end
 
 end
 

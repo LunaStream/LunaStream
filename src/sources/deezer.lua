@@ -55,7 +55,9 @@ function Deezer:setup()
     end
   end
 
-  if not self._cookie then self._luna.logger:error('Deezer', 'Cookie not found in response headers') end
+  if not self._cookie then
+    self._luna.logger:error('Deezer', 'Cookie not found in response headers')
+  end
 
   return self
 end
@@ -85,7 +87,9 @@ function Deezer:search(query)
   end
 
   local max_results = self._luna.config.sources.maxSearchResults
-  if data.total > max_results then data.data = { table.unpack(data.data, 1, max_results) } end
+  if data.total > max_results then
+    data.data = { table.unpack(data.data, 1, max_results) }
+  end
 
   local tracks = {}
 

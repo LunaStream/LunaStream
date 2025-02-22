@@ -119,7 +119,9 @@ function Vimeo:loadForm(query)
 
   data = json.decode(data)
 
-  if not data then return { loadType = "empty", tracks = {} } end
+  if not data then
+    return { loadType = "empty", tracks = {} }
+  end
 
   local trackInfo = {
     title = data[1].title,
@@ -141,7 +143,9 @@ function Vimeo:loadForm(query)
 end
 
 function Vimeo:loadStream(track)
-  if not self._jwt then return nil, "License token not available" end
+  if not self._jwt then
+    return nil, "License token not available"
+  end
 
   local apiUrl = string.format("https://api.vimeo.com/videos/%s", track.info.identifier)
   local headers = { { "Authorization", "jwt " .. self._jwt }, { "Accept", "application/json" } }
@@ -153,11 +157,15 @@ function Vimeo:loadStream(track)
     return self:loadStream(track)
   end
 
-  if responseGetConfig.code ~= 200 then return nil, "Failed to fetch video data" end
+  if responseGetConfig.code ~= 200 then
+    return nil, "Failed to fetch video data"
+  end
 
   dataConfig = json.decode(dataConfig)
 
-  if not dataConfig then return nil, "Failed to decode video data" end
+  if not dataConfig then
+    return nil, "Failed to decode video data"
+  end
 
   local apiUrl = dataConfig.config_url
   local response, data = http.request("GET", apiUrl, headers)

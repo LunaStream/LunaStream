@@ -21,7 +21,9 @@ local function requireRoute(target, req, res, luna)
   local answer = function(body, code, headers)
     res.body = body
     res.code = code
-    for key, value in pairs(headers) do res.headers[key] = value end
+    for key, value in pairs(headers) do
+      res.headers[key] = value
+    end
   end
   require(target)(req, res, answer, luna)
 end
@@ -43,17 +45,29 @@ function LunaStream:__init(devmode)
   self._services = { statusMonitor = require('./services/statusMonitor')(self) }
 end
 
-function get:sources() return self._sources end
+function get:sources()
+  return self._sources
+end
 
-function get:config() return self._config end
+function get:config()
+  return self._config
+end
 
-function get:logger() return self._logger end
+function get:logger()
+  return self._logger
+end
 
-function get:manifest() return self._manifest end
+function get:manifest()
+  return self._manifest
+end
 
-function get:services() return self._services end
+function get:services()
+  return self._services
+end
 
-function get:sessions() return self._sessions end
+function get:sessions()
+  return self._sessions
+end
 
 function LunaStream:printInitialInfo()
   local table_data = {
@@ -98,7 +112,11 @@ function LunaStream:setupAddon()
   local addons_list = { "./addon/auth.lua", "./addon/req_logger.lua" }
 
   for _, path in pairs(addons_list) do
-    self._app.use(function(req, res, go) require(path)(req, res, go, self) end)
+    self._app.use(
+      function(req, res, go)
+        require(path)(req, res, go, self)
+      end
+    )
     count = count + 1
   end
 
@@ -161,7 +179,9 @@ function LunaStream:setupRoutes()
 
   for _, route in ipairs(processed_routes) do
     self._app.route(
-      { path = route.path, method = route.method }, function(req, res) requireRoute(route.file, req, res, self) end
+      { path = route.path, method = route.method }, function(req, res)
+        requireRoute(route.file, req, res, self)
+      end
     )
     count = count + 1
   end
@@ -253,7 +273,8 @@ function LunaStream:setupWebsocket()
       )
 
       -- Keep connection
-      for message in read do end
+      for message in read do
+      end
 
       -- End stream
       write()
@@ -274,7 +295,9 @@ function LunaStream:setupWebsocket()
 
       setTimeout(
         timeout, function()
-          if type(self._waiting_sessions[session_id]) == "nil" then return end
+          if type(self._waiting_sessions[session_id]) == "nil" then
+            return
+          end
           self._sessions[session_id] = nil
           self._waiting_sessions[session_id] = nil
           self._logger:info('WebSocket', 'Timeout! Session %s deleted!', session_id, timeout)

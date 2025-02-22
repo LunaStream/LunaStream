@@ -29,7 +29,9 @@ function FileStream:initialize(path, options)
   self.chunkSize = options.chunkSize
   self.length = options.length
   self.bytesRead = 0
-  if not self.fd then self:open() end
+  if not self.fd then
+    self:open()
+  end
   self:on('end', bind(self.close, self))
 end
 
@@ -45,14 +47,22 @@ end
 function FileStream:_read(n)
   local to_read = self.chunkSize or n
 
-  if self.length then if to_read + self.bytesRead > self.length then to_read = self.length - self.bytesRead end end
+  if self.length then
+    if to_read + self.bytesRead > self.length then
+      to_read = self.length - self.bytesRead
+    end
+  end
 
   local bytes = fs.readSync(self.fd, to_read, self.offset)
-  if type(bytes) ~= "string" then return self:destroy(bytes) end
+  if type(bytes) ~= "string" then
+    return self:destroy(bytes)
+  end
 
   if #bytes > 0 then
     self.bytesRead = self.bytesRead + #bytes
-    if self.offset then self.offset = self.offset + #bytes end
+    if self.offset then
+      self.offset = self.offset + #bytes
+    end
     self:push(bytes)
   else
     self:close()
@@ -60,10 +70,14 @@ function FileStream:_read(n)
   end
 end
 
-function FileStream:close() self:destroy() end
+function FileStream:close()
+  self:destroy()
+end
 
 function FileStream:destroy(err)
-  if err then self:emit('error', err) end
+  if err then
+    self:emit('error', err)
+  end
   if self.fd then
     fs.close(self.fd)
     self.fd = nil

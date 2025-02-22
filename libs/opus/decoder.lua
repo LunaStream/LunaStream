@@ -35,7 +35,9 @@ return function(opus_main)
   end
 
   function Decoder:set(id, value)
-    if type(value) ~= 'number' then return opus_main:throw(opus_main.enums.BAD_ARG) end
+    if type(value) ~= 'number' then
+      return opus_main:throw(opus_main.enums.BAD_ARG)
+    end
     local ret = opus_main.lib.opus_decoder_ctl(self, id, opus_main._opus_int32_t(value))
     return opus_main:check(ret)
   end

@@ -56,7 +56,9 @@ function IncomingMessage:initialize(head, socket)
   self.socket = socket
 end
 
-function IncomingMessage:_read() self.socket:resume() end
+function IncomingMessage:_read()
+  self.socket:resume()
+end
 
 local ServerResponse = Writable:extend()
 
@@ -72,7 +74,9 @@ function ServerResponse:initialize(socket)
   local extra = self._extra_http or {}
   self._extra_http = extra
   for _, evt in pairs({ 'close', 'drain', 'end' }) do
-    if extra[evt] then self.socket:removeListener(evt, extra[evt]) end
+    if extra[evt] then
+      self.socket:removeListener(evt, extra[evt])
+    end
     extra[evt] = utils.bind(self.emit, self, evt)
     self.socket:on(evt, extra[evt])
   end
@@ -97,7 +101,9 @@ function ServerResponse:removeHeader(name)
 end
 
 function ServerResponse:flushHeaders()
-  if self.headersSent then return end
+  if self.headersSent then
+    return
+  end
   self.headersSent = true
   local headers = self.headers
   local statusCode = self.statusCode
@@ -121,7 +127,9 @@ function ServerResponse:flushHeaders()
     head[i] = headers[i]
   end
 
-  if not sent_date and self.sendDate then head[#head + 1] = { "Date", date("!%a, %d %b %Y %H:%M:%S GMT") } end
+  if not sent_date and self.sendDate then
+    head[#head + 1] = { "Date", date("!%a, %d %b %Y %H:%M:%S GMT") }
+  end
   if self.hasBody and not sent_transfer_encoding and not sent_content_length then
     sent_transfer_encoding = true
     head[#head + 1] = { "Transfer-Encoding", "chunked" }
@@ -153,25 +161,39 @@ function ServerResponse:flushHeaders()
 end
 
 function ServerResponse:write(chunk, callback)
-  if chunk and #chunk > 0 then self.hasBody = true end
+  if chunk and #chunk > 0 then
+    self.hasBody = true
+  end
   self:flushHeaders()
   return self.socket:write(self.encode(chunk), callback)
 end
 
-function ServerResponse:_end() self:finish() end
+function ServerResponse:_end()
+  self:finish()
+end
 
 function ServerResponse:finish(chunk)
-  if chunk and #chunk > 0 then self.hasBody = true end
+  if chunk and #chunk > 0 then
+    self.hasBody = true
+  end
   self:flushHeaders()
   local last = ""
-  if chunk then last = last .. self.encode(chunk) end
+  if chunk then
+    last = last .. self.encode(chunk)
+  end
   last = last .. (self.encode("") or "")
   local function maybeClose()
     self:emit('finish')
-    if not self.keepAlive then self.socket:_end() end
+    if not self.keepAlive then
+      self.socket:_end()
+    end
   end
   if #last > 0 then
-    self.socket:write(last, function() maybeClose() end)
+    self.socket:write(
+      last, function()
+        maybeClose()
+      end
+    )
   else
     maybeClose()
   end
@@ -196,12 +218,16 @@ local function handleConnection(socket, onRequest)
     req = nil
   end
 
-  local function onTimeout() socket:_end() end
+  local function onTimeout()
+    socket:_end()
+  end
 
   local function onEnd()
     -- Just in case the stream ended and we still had an open request,
     -- end it.
-    if req then flush() end
+    if req then
+      flush()
+    end
   end
 
   local function onData(chunk)
@@ -211,12 +237,16 @@ local function handleConnection(socket, onRequest)
       local R, event, extra = pcall(decode, buffer)
       if R then
         -- nil extra means the decoder needs more data, we're done here.
-        if not extra then break end
+        if not extra then
+          break
+        end
         -- Store the leftover data.
         buffer = extra
         if type(event) == "table" then
           -- If there was an old request that never closed, end it.
-          if req then flush() end
+          if req then
+            flush()
+          end
           -- Create a new request object
           req = IncomingMessage:new(event, socket)
           -- Create a new response object
@@ -268,13 +298,19 @@ local function handleConnection(socket, onRequest)
 end
 
 local function createServer(onRequest)
-  return net.createServer(function(socket) return handleConnection(socket, onRequest) end)
+  return net.createServer(
+    function(socket)
+      return handleConnection(socket, onRequest)
+    end
+  )
 end
 
 local ClientRequest = Writable:extend()
 
 function ClientRequest.getDefaultUserAgent()
-  if ClientRequest._defaultUserAgent == nil then ClientRequest._defaultUserAgent = 'luvit/http luvi/' .. luvi.version end
+  if ClientRequest._defaultUserAgent == nil then
+    ClientRequest._defaultUserAgent = 'luvit/http luvi/' .. luvi.version
+  end
   return ClientRequest._defaultUserAgent
 end
 
@@ -288,20 +324,30 @@ function ClientRequest:initialize(options, callback)
     self[#self + 1] = headers[i]
     local key, value = headers[i][1], headers[i][2]
     local klower = key:lower()
-    if klower == 'host' then host_found = value end
-    if klower == 'connection' then connection_found = value end
-    if klower == 'user-agent' then user_agent = value end
+    if klower == 'host' then
+      host_found = value
+    end
+    if klower == 'connection' then
+      connection_found = value
+    end
+    if klower == 'user-agent' then
+      user_agent = value
+    end
   end
 
   if not user_agent then
     user_agent = self.getDefaultUserAgent()
 
-    if user_agent ~= '' then table.insert(self, 1, { 'User-Agent', user_agent }) end
+    if user_agent ~= '' then
+      table.insert(self, 1, { 'User-Agent', user_agent })
+    end
   end
 
   options.host = host_found or options.hostname or options.host
 
-  if not host_found and options.host then table.insert(self, 1, { 'Host', options.host }) end
+  if not host_found and options.host then
+    table.insert(self, 1, { 'Host', options.host })
+  end
 
   self.host = options.host
   self.method = (options.method or 'GET'):upper()
@@ -313,7 +359,9 @@ function ClientRequest:initialize(options, callback)
   self.encode = codec.encoder()
   self.decode = codec.decoder()
 
-  if callback then self:once('response', callback) end
+  if callback then
+    self:once('response', callback)
+  end
 
   local buffer = ''
   local res
@@ -329,7 +377,11 @@ function ClientRequest:initialize(options, callback)
   local connect_emitter = options.connect_emitter or 'connect'
 
   self.socket = socket
-  socket:on('error', function(...) self:emit('error', ...) end)
+  socket:on(
+    'error', function(...)
+      self:emit('error', ...)
+    end
+  )
   socket:on(
     connect_emitter, function()
       self.connected = true
@@ -342,7 +394,9 @@ function ClientRequest:initialize(options, callback)
           local R, event, extra = pcall(self.decode, buffer)
           if R == true then
             -- nil extra means the decoder needs more data, we're done here.
-            if not extra then return end
+            if not extra then
+              return
+            end
             -- Store the leftover data.
             buffer = extra
             if type(event) == "table" then
@@ -388,7 +442,9 @@ function ClientRequest:initialize(options, callback)
       socket:on('data', onData)
       socket:on('end', flush)
 
-      if self.ended then return self:_done(self.ended.data, self.ended.cb) end
+      if self.ended then
+        return self:_done(self.ended.data, self.ended.cb)
+      end
     end
   )
 end
@@ -410,23 +466,45 @@ function ClientRequest:write(data, cb)
   if encoded and #encoded > 0 then
     Writable.write(self, encoded, cb)
   else
-    if cb then cb() end
+    if cb then
+      cb()
+    end
   end
 end
 
-function ClientRequest:_write(data, cb) self.socket:write(data, cb) end
+function ClientRequest:_write(data, cb)
+  self.socket:write(data, cb)
+end
 
-function ClientRequest:_done(data, cb) self:_end(data, function() if cb then cb() end end) end
+function ClientRequest:_done(data, cb)
+  self:_end(
+    data, function()
+      if cb then
+        cb()
+      end
+    end
+  )
+end
 
-function ClientRequest:_setConnection() if not self.connection then table.insert(self, { 'connection', 'close' }) end end
+function ClientRequest:_setConnection()
+  if not self.connection then
+    table.insert(self, { 'connection', 'close' })
+  end
+end
 
 function ClientRequest:done(data, cb)
   -- Optionally send one more chunk
-  if data then self:write(data) end
+  if data then
+    self:write(data)
+  end
 
   self:flushHeaders()
 
-  local ended = { cb = cb or function() end, data = '' }
+  local ended = {
+    cb = cb or function()
+    end,
+    data = '',
+  }
   if self.connected then
     self:_done(ended.data, ended.cb)
   else
@@ -434,16 +512,28 @@ function ClientRequest:done(data, cb)
   end
 end
 
-function ClientRequest:setTimeout(msecs, callback) if self.socket then self.socket:setTimeout(msecs, callback) end end
+function ClientRequest:setTimeout(msecs, callback)
+  if self.socket then
+    self.socket:setTimeout(msecs, callback)
+  end
+end
 
-function ClientRequest:destroy() if self.socket then self.socket:destroy() end end
+function ClientRequest:destroy()
+  if self.socket then
+    self.socket:destroy()
+  end
+end
 
 local function parseUrl(options)
-  if type(options) == 'string' then options = url.parse(options) end
+  if type(options) == 'string' then
+    options = url.parse(options)
+  end
   return options
 end
 
-local function request(options, onResponse) return ClientRequest:new(parseUrl(options), onResponse) end
+local function request(options, onResponse)
+  return ClientRequest:new(parseUrl(options), onResponse)
+end
 
 local function get(options, onResponse)
   options = parseUrl(options)

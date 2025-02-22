@@ -58,7 +58,9 @@ return function(query, src_type, youtube)
   end
   local contentsRoot = data.contents.singleColumnWatchNextResults
 
-  if not contentsRoot then return { loadType = "empty", data = {} } end
+  if not contentsRoot then
+    return { loadType = "empty", data = {} }
+  end
 
   local playlistName = data.contents.singleColumnWatchNextResults.playlist.playlist.title
 
@@ -66,7 +68,9 @@ return function(query, src_type, youtube)
 
   local playlistContent = contentsRoot.playlist.playlist.contents
 
-  if not playlistContent then return { loadType = "empty", data = {} } end
+  if not playlistContent then
+    return { loadType = "empty", data = {} }
+  end
 
   local tracks = {}
 
@@ -80,7 +84,9 @@ return function(query, src_type, youtube)
 
       if timeText then
         local minutes, seconds = timeText:match("(%d+):(%d+)")
-        if minutes and seconds then lengthMs = (tonumber(minutes) * 60 + tonumber(seconds)) * 1000 end
+        if minutes and seconds then
+          lengthMs = (tonumber(minutes) * 60 + tonumber(seconds)) * 1000
+        end
       end
 
       local track = {

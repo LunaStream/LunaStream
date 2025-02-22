@@ -55,25 +55,37 @@ function HTTPStream:setup(custom_uri, redirect_count)
       req[#req + 1] = self.headers[i]
     end
   end
-  if not hasHost then req[#req + 1] = { "Host", uri.host } end
+  if not hasHost then
+    req[#req + 1] = { "Host", uri.host }
+  end
 
   if type(self.body) == "string" then
-    if not chunked and not contentLength then req[#req + 1] = { "Content-Length", #self.body } end
+    if not chunked and not contentLength then
+      req[#req + 1] = { "Content-Length", #self.body }
+    end
   end
 
   write(req)
-  if self.body then write(self.body) end
+  if self.body then
+    write(self.body)
+  end
 
   local res = read()
   if not res then
-    if not connection.socket:is_closing() then connection.socket:close() end
-    if connection.reused then return self:setup(nil, redirect_count) end
+    if not connection.socket:is_closing() then
+      connection.socket:close()
+    end
+    if connection.reused then
+      return self:setup(nil, redirect_count)
+    end
     error("Connection closed")
   end
 
   if options.followRedirects and
     (res.code == 301 or res.code == 302 or res.code == 303 or res.code == 307 or res.code == 308) then
-    if redirect_count >= max_redirects then error("Too many redirects") end
+    if redirect_count >= max_redirects then
+      error("Too many redirects")
+    end
     local new_location
     for _, header in ipairs(res) do
       if header[1]:lower() == "location" then
@@ -81,10 +93,14 @@ function HTTPStream:setup(custom_uri, redirect_count)
         break
       end
     end
-    if new_location then return self:setup(new_location, redirect_count + 1) end
+    if new_location then
+      return self:setup(new_location, redirect_count + 1)
+    end
   end
 
-  if req.method == "HEAD" then connection.reset() end
+  if req.method == "HEAD" then
+    connection.reset()
+  end
 
   -- Shouldn't save the connection because may cause some trouble with sable stream
   -- If we need this in the future, this function may help: http.saveConnection(connection)
@@ -93,15 +109,21 @@ function HTTPStream:setup(custom_uri, redirect_count)
   self.res = res
   self:emit('response', self)
   local content_length = self:getHeader('content-length')
-  if content_length then self.content_length = tonumber(content_length) end
+  if content_length then
+    self.content_length = tonumber(content_length)
+  end
   return self
 end
 
 function HTTPStream:getHeader(inp_key)
-  if not self.res or not inp_key then return end
+  if not self.res or not inp_key then
+    return
+  end
 
   for _, value in pairs(self.res) do
-    if type(value) == "table" and string.lower(value[1]) == inp_key then return value[2] end
+    if type(value) == "table" and string.lower(value[1]) == inp_key then
+      return value[2]
+    end
   end
 
   return nil
@@ -119,7 +141,9 @@ function HTTPStream:read(n)
 end
 
 function HTTPStream:_read(n)
-  if self.ended == true then return end
+  if self.ended == true then
+    return
+  end
   coroutine.wrap(
     function()
       self.read_coro_running = true

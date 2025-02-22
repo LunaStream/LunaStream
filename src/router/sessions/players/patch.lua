@@ -24,11 +24,17 @@ return function(req, answer, luna, guild_id, players, session_id)
 
   local player = players[guild_id] or Player(luna, guild_id, session_id):new()
 
-  if player.guild == nil then player.guild = guild_id end
+  if player.guild == nil then
+    player.guild = guild_id
+  end
 
-  if body.voice ~= player.voiceState then player:updateVoiceState(body.voice) end
+  if body.voice ~= player.voiceState then
+    player:updateVoiceState(body.voice)
+  end
 
-  if body.track then player:play(body.track) end
+  if body.track then
+    player:play(body.track)
+  end
 
   players[guild_id] = player
 

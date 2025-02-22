@@ -51,7 +51,9 @@ local MAX_NONCE = 0xFFFFFFFF
 -- Parameters: n (number) - number of 2-byte integers to pack.
 -- Objective: Returns a format string for packing 'n' 2-byte integers.
 ---------------------------------------------------------------
-function FMT(n) return '<' .. string.rep('i2', n) end
+function FMT(n)
+  return '<' .. string.rep('i2', n)
+end
 
 ---------------------------------------------------------------
 -- Function: sleep
@@ -119,7 +121,9 @@ end
 ---------------------------------------------------------------
 local function splitByChunk(text, chunkSize)
   local s = {}
-  for i = 1, #text, chunkSize do s[#s + 1] = text:sub(i, i + chunkSize - 1) end
+  for i = 1, #text, chunkSize do
+    s[#s + 1] = text:sub(i, i + chunkSize - 1)
+  end
   return s
 end
 
@@ -221,7 +225,9 @@ end
 -- Objective: Establishes a WebSocket connection for voice communication, handling reconnection if needed.
 ---------------------------------------------------------------
 function VoiceManager:connect(reconnect)
-  if self.ws then self.ws:close(1000, 'Normal close') end
+  if self.ws then
+    self.ws:close(1000, 'Normal close')
+  end
 
   local uri = sf('wss://%s/', self.endpoint)
 
@@ -261,7 +267,9 @@ function VoiceManager:connect(reconnect)
     'close', function(code, reason)
       --- @diagnostic disable-next-line: undefined-global
       p(code, reason)
-      if not self.ws then return end
+      if not self.ws then
+        return
+      end
       self:destroyConnection(code, reason)
     end
   )
@@ -279,7 +287,9 @@ function VoiceManager:messageEvent(payload)
   local op = payload.op
   local data = payload.d
 
-  if payload.seq then self._seq_ack = payload.seq end
+  if payload.seq then
+    self._seq_ack = payload.seq
+  end
 
   if op == READY then
     self:readyOP(payload)
@@ -329,7 +339,11 @@ end
 -- Objective: Starts sending heartbeat messages at regular intervals to maintain the connection.
 ---------------------------------------------------------------
 function VoiceManager:startHeartbeat(heartbeat_timeout)
-  self._heartbeat = setInterval(heartbeat_timeout, function() coroutine.wrap(VoiceManager.sendKeepAlive)(self) end)
+  self._heartbeat = setInterval(
+    heartbeat_timeout, function()
+      coroutine.wrap(VoiceManager.sendKeepAlive)(self)
+    end
+  )
 end
 
 ---------------------------------------------------------------
@@ -338,7 +352,9 @@ end
 -- Objective: Sends a heartbeat message to keep the WebSocket connection alive.
 ---------------------------------------------------------------
 function VoiceManager:sendKeepAlive()
-  if not self._ws then return end
+  if not self._ws then
+    return
+  end
   self._lastHeartbeatSent = uv.hrtime()
   self._ws:send({ op = HEARTBEAT, d = { t = os.time(), seq_ack = self.seq_ack } })
 end
@@ -405,20 +421,28 @@ function VoiceManager:play(stream, options)
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
     return
   end
-  if self._stream and self._stream._readableState.ended == false then error("Already playing a stream") end
+  if self._stream and self._stream._readableState.ended == false then
+    error("Already playing a stream")
+  end
 
   print('[LunaStream / Voice / ' .. self._guild_id .. ']: Playing audio stream...')
 
   self._stream = stream
   self:setSpeaking(1)
-  if needs_encoder then self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS) end
+  if needs_encoder then
+    self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
+  end
 
   self._player_state = PLAYER_STATE.playing
 
   -- Starts the timing and continuous flow of chunks within a coroutine
   self._start = uv.hrtime()
   self._elapsed = 0
-  coroutine.wrap(function() self:continuousSend() end)()
+  coroutine.wrap(
+    function()
+      self:continuousSend()
+    end
+  )()
 
   return true
 end
@@ -485,7 +509,9 @@ function VoiceManager:cacheReader()
   else
     local data = self._stream:read()
 
-    if type(data) ~= "string" then return data end
+    if type(data) ~= "string" then
+      return data
+    end
 
     if #data == OPUS_CHUNK_STRING_SIZE then
       return data
@@ -569,7 +595,9 @@ end
 --    filterClass (table) - a filter class to apply.
 -- Objective: Adds an audio filter to the VoiceManager.
 ---------------------------------------------------------------
-function VoiceManager:addFilter(filterClass) self._filters[filterClass.__name] = filterClass end
+function VoiceManager:addFilter(filterClass)
+  self._filters[filterClass.__name] = filterClass
+end
 
 ---------------------------------------------------------------
 -- Function: removeFilter
@@ -577,7 +605,9 @@ function VoiceManager:addFilter(filterClass) self._filters[filterClass.__name] =
 --    name (string) - the name of the filter to remove.
 -- Objective: Removes an audio filter from the VoiceManager.
 ---------------------------------------------------------------
-function VoiceManager:removeFilter(name) self._filters[name] = nil end
+function VoiceManager:removeFilter(name)
+  self._filters[name] = nil
+end
 
 ---------------------------------------------------------------
 -- Function: chunkMixer
@@ -586,9 +616,13 @@ function VoiceManager:removeFilter(name) self._filters[name] = nil end
 -- Objective: Applies all added filters to the chunk and returns the modified data.
 ---------------------------------------------------------------
 function VoiceManager:chunkMixer(chunk)
-  if #self._filters == 0 then return chunk end
+  if #self._filters == 0 then
+    return chunk
+  end
   local res = chunk
-  for _, filterClass in pairs(self._filters) do res = filterClass:convert(chunk) end
+  for _, filterClass in pairs(self._filters) do
+    res = filterClass:convert(chunk)
+  end
   return res
 end
 
@@ -598,7 +632,9 @@ end
 -- Objective: Pauses the audio streaming process.
 ---------------------------------------------------------------
 function VoiceManager:pause()
-  if self._paused then return end
+  if self._paused then
+    return
+  end
   self._paused = coroutine.running()
   return coroutine.yield()
 end
@@ -609,7 +645,9 @@ end
 -- Objective: Resumes the audio streaming process after being paused.
 ---------------------------------------------------------------
 function VoiceManager:resume()
-  if not self._paused then return end
+  if not self._paused then
+    return
+  end
   asyncResume(self._paused)
   self._paused = nil
   self._resumed = coroutine.running()
@@ -695,7 +733,9 @@ function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
 
   self._packetStats.expected = self._packetStats.expected + 1
 
-  if not encryptedAudio then return nil, encryptedAudioLen end
+  if not encryptedAudio then
+    return nil, encryptedAudioLen
+  end
 
   return packetWithBasicInfo .. ffi.string(encryptedAudio, encryptedAudioLen) .. nonce_padding
 end
@@ -706,61 +746,89 @@ end
 
 -- Getter: guild_id
 -- Returns the guild ID.
-function get:guild_id() return self._guild_id end
+function get:guild_id()
+  return self._guild_id
+end
 
 -- Getter: user_id
 -- Returns the user ID.
-function get:user_id() return self._user_id end
+function get:user_id()
+  return self._user_id
+end
 
 -- Getter: voice_state
 -- Returns the current voice connection state.
-function get:voice_state() return self._voice_state end
+function get:voice_state()
+  return self._voice_state
+end
 
 -- Getter: player_state
 -- Returns the current audio player state.
-function get:player_state() return self._player_state end
+function get:player_state()
+  return self._player_state
+end
 
 -- Getter: Position
 -- Returns the current position in the audio stream.
 function get:position()
-  if not self._bufferPos and self._bufferPos == 0 then return 0 end
+  if not self._bufferPos and self._bufferPos == 0 then
+    return 0
+  end
   return (self._bufferPos / OPUS_CHUNK_STRING_SIZE) * OPUS_FRAME_DURATION
 end
 
 -- Getter: session_id
 -- Returns the session ID.
-function get:session_id() return self._session_id end
+function get:session_id()
+  return self._session_id
+end
 
 -- Getter: endpoint
 -- Returns the voice server endpoint.
-function get:endpoint() return self._endpoint end
+function get:endpoint()
+  return self._endpoint
+end
 
 -- Getter: token
 -- Returns the authentication token.
-function get:token() return self._token end
+function get:token()
+  return self._token
+end
 
 -- Getter: ws
 -- Returns the WebSocket instance.
-function get:ws() return self._ws end
+function get:ws()
+  return self._ws
+end
 
 -- Getter: ping
 -- Returns the current ping value.
-function get:ping() return self._ping end
+function get:ping()
+  return self._ping
+end
 
 -- Getter: seq_ack
 -- Returns the current sequence acknowledgment value.
-function get:seq_ack() return self._seq_ack end
+function get:seq_ack()
+  return self._seq_ack
+end
 
 -- Getter: udp
 -- Returns the UDP controller instance.
-function get:udp() return self._udp end
+function get:udp()
+  return self._udp
+end
 
 -- Getter: encryption
 -- Returns the current encryption mode.
-function get:encryption() return self._encryption end
+function get:encryption()
+  return self._encryption
+end
 
 -- Getter: heartbeat
 -- Returns the heartbeat timer.
-function get:heartbeat() return self._heartbeat end
+function get:heartbeat()
+  return self._heartbeat
+end
 
 return VoiceManager

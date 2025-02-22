@@ -18,17 +18,25 @@ function SoundCloud:__init(luna)
   self._sourceName = "soundcloud"
 end
 
-function get:clientId() return self._clientId end
+function get:clientId()
+  return self._clientId
+end
 
-function get:baseUrl() return self._baseUrl end
+function get:baseUrl()
+  return self._baseUrl
+end
 
 function SoundCloud:setup()
   self._luna.logger:debug('SoundCloud', 'Setting up clientId for fetch tracks...')
   local _, mainsite_body = http.request("GET", "https://soundcloud.com/")
-  if mainsite_body == nil then return self:fetchFailed() end
+  if mainsite_body == nil then
+    return self:fetchFailed()
+  end
 
   local assetId = string.gmatch(mainsite_body, "https://a%-v2%.sndcdn%.com/assets/[^%s]+%.js")
-  if assetId() == nil then return self:fetchFailed() end
+  if assetId() == nil then
+    return self:fetchFailed()
+  end
 
   local call_time = 0
   while call_time < 4 do
@@ -37,17 +45,23 @@ function SoundCloud:setup()
   end
 
   local _, data_body = http.request("GET", assetId())
-  if data_body == nil then return self:fetchFailed() end
+  if data_body == nil then
+    return self:fetchFailed()
+  end
 
   local matched = data_body:match("client_id=[^%s]+")
-  if matched == nil then self:fetchFailed() end
+  if matched == nil then
+    self:fetchFailed()
+  end
   local clientId = matched:sub(11, 41 - matched:len())
   self["_clientId"] = clientId
   self._luna.logger:debug('SoundCloud', 'Setting up clientId for fetch tracks successfully')
   return self
 end
 
-function SoundCloud:fetchFailed() self._luna.logger:error('SoundCloud', 'Failed to fetch clientId.') end
+function SoundCloud:fetchFailed()
+  self._luna.logger:error('SoundCloud', 'Failed to fetch clientId.')
+end
 
 function SoundCloud:search(query)
   self._luna.logger:debug('SoundCloud', 'Searching: ' .. query)
@@ -63,7 +77,9 @@ function SoundCloud:search(query)
   end
   local decoded = json.decode(res_body)
 
-  if #decoded.collection == 0 then return { loadType = "empty", data = {} } end
+  if #decoded.collection == 0 then
+    return { loadType = "empty", data = {} }
+  end
 
   local res = {}
   local counter = 1
@@ -117,7 +133,9 @@ function SoundCloud:loadForm(query)
     local is_one = false
 
     while playlist_stop == false do
-      if is_one then break end
+      if is_one then
+        break
+      end
       local notLoadedLimited
       local filtered
 
@@ -151,7 +169,9 @@ function SoundCloud:loadForm(query)
       else
         unloaded = filtered
       end
-      if #unloaded == 1 then is_one = true end
+      if #unloaded == 1 then
+        is_one = true
+      end
     end
 
     self._luna.logger:debug('SoundCloud', 'Loaded playlist %s from %s', body.title, query)
@@ -170,7 +190,9 @@ function SoundCloud:isLinkMatch(query)
   local check1 = query:match("https?://www%.soundcloud%.com/[^%s]+/[^%s]+")
   local check2 = query:match("https?://soundcloud%.com/[^%s]+/[^%s]+")
   local check3 = query:match("https?://m%.soundcloud%.com/[^%s]+/[^%s]+")
-  if check1 or check2 or check3 then return true end
+  if check1 or check2 or check3 then
+    return true
+  end
   return false
 end
 
@@ -179,7 +201,9 @@ function SoundCloud:merge(unloaded)
 
   for i = 1, #unloaded do
     res = res .. unloaded[i]
-    if i ~= #unloaded then res = res .. "%2C" end
+    if i ~= #unloaded then
+      res = res .. "%2C"
+    end
   end
 
   return res
@@ -187,7 +211,9 @@ end
 
 function SoundCloud:buildTrack(data)
   local isrc = nil
-  if type(data.publisher_metadata) == "table" then isrc = data.publisher_metadata.isrc end
+  if type(data.publisher_metadata) == "table" then
+    isrc = data.publisher_metadata.isrc
+  end
 
   local info = {
     title = data.title,
@@ -224,7 +250,9 @@ function SoundCloud:loadStream(track)
   end
 
   local oggOpus = table.find(
-    body.media.transcodings, function(transcoding) return transcoding.format.mime_type == 'audio/ogg; codecs="opus"' end
+    body.media.transcodings, function(transcoding)
+      return transcoding.format.mime_type == 'audio/ogg; codecs="opus"'
+    end
   )
 
   local transcoding = oggOpus or body.media.transcodings[0]

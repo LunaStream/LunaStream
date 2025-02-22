@@ -28,14 +28,20 @@ function Player:__init(luna, guildId, sessionId)
   self.close_connection_function = nil
 end
 
-function Player:new() return self end
+function Player:new()
+  return self
+end
 
 function Player:updateVoiceState(voiceState)
-  if not voiceState then return end
+  if not voiceState then
+    return
+  end
 
   self.voiceState = voiceState
 
-  if not self.voice then self.voice = voice(self._guildId, self._userId) end
+  if not self.voice then
+    self.voice = voice(self._guildId, self._userId)
+  end
 
   self.voice:voiceCredential(voiceState.sessionId, voiceState.endpoint, voiceState.token)
   self.voice:connect()
@@ -43,11 +49,15 @@ function Player:updateVoiceState(voiceState)
 end
 
 function Player:play(track)
-  if self.track.encoded ~= nil and self.playing == true then self:stop() end
+  if self.track.encoded ~= nil and self.playing == true then
+    self:stop()
+  end
 
   self.track = decoder(track.encoded)
 
-  if track.userData == nil or next(track.userData) == nil then track.userData = nil end
+  if track.userData == nil or next(track.userData) == nil then
+    track.userData = nil
+  end
 
   self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
 
@@ -59,7 +69,9 @@ function Player:play(track)
   end
 
   self.close_connection_function = function()
-    if stream.connection and stream.connection.socket.close then return stream.connection.socket:close() end
+    if stream.connection and stream.connection.socket.close then
+      return stream.connection.socket:close()
+    end
   end
 
   self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
@@ -130,11 +142,17 @@ end
 
 function Player:sendWsMessage(data)
   local payload = json.encode(data)
-  coroutine.wrap(function() self._write({ opcode = 1, payload = payload }) end)()
+  coroutine.wrap(
+    function()
+      self._write({ opcode = 1, payload = payload })
+    end
+  )()
 end
 
 function Player:_sendPlayerUpdate()
-  if not self.playing then return end
+  if not self.playing then
+    return
+  end
 
   self.state = {
     time = os.time(),
@@ -149,7 +167,11 @@ function Player:_sendPlayerUpdate()
 end
 
 function Player:_startUpdateLoop()
-  self.update_loop_interval = timer.setInterval(1000, function() coroutine.wrap(self._sendPlayerUpdate)(self) end)
+  self.update_loop_interval = timer.setInterval(
+    1000, function()
+      coroutine.wrap(self._sendPlayerUpdate)(self)
+    end
+  )
 end
 
 return Player

@@ -42,7 +42,9 @@ function Twitch:setup()
       end
     end
   end
-  if not self._device_id then self._luna.logger:error('Twitch', 'Failed to extract device ID') end
+  if not self._device_id then
+    self._luna.logger:error('Twitch', 'Failed to extract device ID')
+  end
   return self
 end
 
@@ -50,11 +52,17 @@ function Twitch:isLinkMatch(query)
   return string.match(query, "^https?://(www%.|go%.|m%.)?twitch%.tv/([%w_]+/clip/[%w%-_]+|videos/%d+|%w+)") ~= nil
 end
 
-function Twitch:getChannelName(url) return url:match("twitch%.tv/([%w_]+)") and url:match("twitch%.tv/([%w_]+)"):lower() end
+function Twitch:getChannelName(url)
+  return url:match("twitch%.tv/([%w_]+)") and url:match("twitch%.tv/([%w_]+)"):lower()
+end
 
-function Twitch:getClipSlug(url) return url:match("/clip/([%w%-_]+)$") end
+function Twitch:getClipSlug(url)
+  return url:match("/clip/([%w%-_]+)$")
+end
 
-function Twitch:getVodId(url) return url:match("/videos/(%d+)$") end
+function Twitch:getVodId(url)
+  return url:match("/videos/(%d+)$")
+end
 
 function Twitch:getLinkType(query)
   if string.find(query, "/clip/") then
@@ -176,7 +184,9 @@ function Twitch:fetchClipMetadata(slug)
     { "Content-Type", "application/json" },
   }
   local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
-  if response.code ~= 200 then return nil, "Failed to fetch clip metadata" end
+  if response.code ~= 200 then
+    return nil, "Failed to fetch clip metadata"
+  end
   local result = json.decode(data)
   return result.data.clip
 end
@@ -199,7 +209,9 @@ function Twitch:fetchVodMetadata(vod_id)
     { "Content-Type", "application/json" },
   }
   local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
-  if response.code ~= 200 then return nil, "Failed to fetch VOD metadata" end
+  if response.code ~= 200 then
+    return nil, "Failed to fetch VOD metadata"
+  end
   local result = json.decode(data)
   return result.data.video
 end
@@ -234,7 +246,9 @@ function Twitch:fetchVodAccessToken(vod_id)
     { "Content-Type", "application/json" },
   }
   local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
-  if response.code ~= 200 then return nil end
+  if response.code ~= 200 then
+    return nil
+  end
   local result = json.decode(data)
   return {
     value = result.data.videoPlaybackAccessToken.value,
@@ -272,7 +286,9 @@ function Twitch:fetchClipAccessToken(slug)
     { "Content-Type", "application/json" },
   }
   local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
-  if response.code ~= 200 then return nil, "Failed to fetch clip access token" end
+  if response.code ~= 200 then
+    return nil, "Failed to fetch clip access token"
+  end
   local result = json.decode(data)
   if result and result.data and result.data.clip and result.data.clip.playbackAccessToken then
     return {
@@ -286,11 +302,17 @@ end
 
 function Twitch:loadFrom(query)
   local vod_id = self:getVodId(query)
-  if vod_id then return self:loadVod(vod_id, query) end
+  if vod_id then
+    return self:loadVod(vod_id, query)
+  end
   local clip_slug = self:getClipSlug(query)
-  if clip_slug then return self:loadClip(clip_slug, query) end
+  if clip_slug then
+    return self:loadClip(clip_slug, query)
+  end
   local channel = self:getChannelName(query)
-  if not channel then return self:buildError("Invalid Twitch URL", "fault", "Twitch Source") end
+  if not channel then
+    return self:buildError("Invalid Twitch URL", "fault", "Twitch Source")
+  end
   local payload_table = {
     operationName = "StreamMetadata",
     variables = { channelLogin = channel },
@@ -308,13 +330,14 @@ function Twitch:loadFrom(query)
     { "Content-Type", "application/json" },
   }
   local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
-  if response.code ~= 200 then return self:buildError("Failed to fetch channel info", "fault", "Twitch Source") end
+  if response.code ~= 200 then
+    return self:buildError("Failed to fetch channel info", "fault", "Twitch Source")
+  end
   local result = json.decode(data)
   local streamInfo = result.data.user.stream
-  if not streamInfo or streamInfo.type ~= "live" then return {
-    loadType = "empty",
-    data = {},
-  } end
+  if not streamInfo or streamInfo.type ~= "live" then
+    return { loadType = "empty", data = {} }
+  end
   local thumbnail = string.format("https://static-cdn.jtvnw.net/previews-ttv/live_user_%s-440x248.jpg", channel)
   local trackInfo = {
     identifier = channel,
@@ -337,15 +360,21 @@ end
 
 function Twitch:loadClip(slug, original_url)
   local clip_data, error_msg = self:fetchClipMetadata(slug)
-  if not clip_data then return self:buildError(error_msg or "Clip not found", "fault", "Twitch Source") end
+  if not clip_data then
+    return self:buildError(error_msg or "Clip not found", "fault", "Twitch Source")
+  end
   local thumbnail = clip_data.thumbnailURL
   local duration = math.floor(clip_data.durationSeconds * 1000)
   local author = clip_data.broadcaster.displayName
   local best_url = nil
   for quality, url in pairs(clip_data.videoQualities) do
-    if not best_url or url.quality > best_url.quality then best_url = url end
+    if not best_url or url.quality > best_url.quality then
+      best_url = url
+    end
   end
-  if not best_url then return self:buildError("No playable sources found", "fault", "Twitch Source") end
+  if not best_url then
+    return self:buildError("No playable sources found", "fault", "Twitch Source")
+  end
   local trackInfo = {
     identifier = slug,
     uri = original_url,
@@ -367,7 +396,9 @@ end
 
 function Twitch:loadVod(vod_id, original_url)
   local vod_data, error_msg = self:fetchVodMetadata(vod_id)
-  if not vod_data then return self:buildError(error_msg or "VOD not found", "fault", "Twitch Source") end
+  if not vod_data then
+    return self:buildError(error_msg or "VOD not found", "fault", "Twitch Source")
+  end
   local thumbnail = vod_data.previewThumbnailURL
   thumbnail = thumbnail:gsub("{width}", "320"):gsub("{height}", "180")
   local duration = math.floor(vod_data.lengthSeconds * 1000)
@@ -398,9 +429,13 @@ function Twitch:loadStream(track)
     return self:loadClipStream(track)
   end
   local channel = self:getChannelName(track.info.uri)
-  if not channel then return self:buildError("Invalid Twitch URL", "fault", "Twitch Source") end
+  if not channel then
+    return self:buildError("Invalid Twitch URL", "fault", "Twitch Source")
+  end
   local token = self:fetchAccessToken(channel)
-  if not token then return self:buildError("Failed to get access token", "fault", "Twitch Source") end
+  if not token then
+    return self:buildError("Failed to get access token", "fault", "Twitch Source")
+  end
   local params = {
     player_type = "site",
     token = token.value,
@@ -411,9 +446,13 @@ function Twitch:loadStream(track)
   local query = self:buildParam(params)
   local hls_url = string.format("https://usher.ttvnw.net/api/channel/hls/%s.m3u8?%s", channel, query)
   local response, data = http.request("GET", hls_url)
-  if response.code ~= 200 then return self:buildError("Failed to fetch HLS playlist", "fault", "Twitch Source") end
+  if response.code ~= 200 then
+    return self:buildError("Failed to fetch HLS playlist", "fault", "Twitch Source")
+  end
   local best_quality = self:parseM3U8(data)
-  if not best_quality then return self:buildError("No playable streams found", "fault", "Twitch Source") end
+  if not best_quality then
+    return self:buildError("No playable streams found", "fault", "Twitch Source")
+  end
   return {
     url = best_quality.url,
     format = "ts",
@@ -425,13 +464,19 @@ end
 function Twitch:loadClipStream(track)
   local slug = self:getClipSlug(track.info.uri)
   local clip_data = self:fetchClipMetadata(slug)
-  if not clip_data then return self:buildError("Failed to load clip stream", "fault", "Twitch Source") end
+  if not clip_data then
+    return self:buildError("Failed to load clip stream", "fault", "Twitch Source")
+  end
   local best_quality = nil
   for _, quality in ipairs(clip_data.videoQualities) do
-    if not best_quality or quality.quality > best_quality.quality then best_quality = quality end
+    if not best_quality or quality.quality > best_quality.quality then
+      best_quality = quality
+    end
   end
   local tokenData, err = self:fetchClipAccessToken(slug)
-  if not tokenData then return self:buildError(err or "Failed to fetch clip access token", "fault", "Twitch Source") end
+  if not tokenData then
+    return self:buildError(err or "Failed to fetch clip access token", "fault", "Twitch Source")
+  end
   local params = { token = tokenData.value, sig = tokenData.signature }
   local query = self:buildParam(params)
   local final_url = best_quality.sourceURL .. "?" .. query
@@ -441,9 +486,13 @@ end
 function Twitch:loadVodStream(track)
   local vod_id = self:getVodId(track.info.uri)
   local vod_data = self:fetchVodMetadata(vod_id)
-  if not vod_data then return self:buildError("Failed to load VOD stream", "fault", "Twitch Source") end
+  if not vod_data then
+    return self:buildError("Failed to load VOD stream", "fault", "Twitch Source")
+  end
   local token = self:fetchVodAccessToken(vod_id)
-  if not token then return self:buildError("Failed to get VOD access token", "fault", "Twitch Source") end
+  if not token then
+    return self:buildError("Failed to get VOD access token", "fault", "Twitch Source")
+  end
   local params = {
     player_type = "html5",
     token = token.value,
@@ -458,7 +507,9 @@ end
 
 function Twitch:parseM3U8(data)
   local lines = {}
-  for line in data:gmatch("[^\r\n]+") do table.insert(lines, line) end
+  for line in data:gmatch("[^\r\n]+") do
+    table.insert(lines, line)
+  end
   local best_bandwidth = 0
   local best_url = nil
   for i = 1, #lines do
@@ -470,7 +521,9 @@ function Twitch:parseM3U8(data)
       end
     end
   end
-  if best_url then return { url = best_url } end
+  if best_url then
+    return { url = best_url }
+  end
   best_bandwidth = 0
   best_url = nil
   for _, line in ipairs(lines) do

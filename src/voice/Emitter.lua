@@ -15,7 +15,9 @@ local setTimeout, clearTimeout = timer.setTimeout, timer.clearTimeout
 local Emitter = require('class')('Emitter')
 
 ---Initial function for cache
-function Emitter:__init() self._listeners = {} end
+function Emitter:__init()
+  self._listeners = {}
+end
 
 local function new(self, name, listener)
   local listeners = self._listeners[name]
@@ -33,7 +35,9 @@ end
 ---@param name string
 ---@param fn function
 ---@return function
-function Emitter:on(name, fn) return new(self, name, { fn = fn }) end
+function Emitter:on(name, fn)
+  return new(self, name, { fn = fn })
+end
 
 ---Subscribes a callback to be called only the first time this event is emitted.
 ---Callbacks registered with this method will automatically be wrapped as a new
@@ -41,7 +45,9 @@ function Emitter:on(name, fn) return new(self, name, { fn = fn }) end
 ---@param name string
 ---@param fn function
 ---@return function
-function Emitter:once(name, fn) return new(self, name, { fn = fn, once = true }) end
+function Emitter:once(name, fn)
+  return new(self, name, { fn = fn, once = true })
+end
 
 ---Subscribes a callback to be called every time the named event is emitted.
 ---Callbacks registered with this method are not automatically wrapped as a
@@ -49,7 +55,9 @@ function Emitter:once(name, fn) return new(self, name, { fn = fn, once = true })
 ---@param name string
 ---@param fn function
 ---@return function
-function Emitter:onSync(name, fn) return new(self, name, { fn = fn, sync = true }) end
+function Emitter:onSync(name, fn)
+  return new(self, name, { fn = fn, sync = true })
+end
 
 ---Subscribes a callback to be called only the first time this event is emitted.
 ---Callbacks registered with this method are not automatically wrapped as a coroutine.
@@ -57,11 +65,9 @@ function Emitter:onSync(name, fn) return new(self, name, { fn = fn, sync = true 
 ---@param name string
 ---@param fn function
 ---@return function
-function Emitter:onceSync(name, fn) return new(self, name, {
-  fn = fn,
-  once = true,
-  sync = true,
-}) end
+function Emitter:onceSync(name, fn)
+  return new(self, name, { fn = fn, once = true, sync = true })
+end
 
 ---Emits the named event and a variable number of arguments to pass to the event callbacks.
 ---@param name string
@@ -69,12 +75,16 @@ function Emitter:onceSync(name, fn) return new(self, name, {
 ---@return nil
 function Emitter:emit(name, ...)
   local listeners = self._listeners[name]
-  if not listeners then return end
+  if not listeners then
+    return
+  end
   for i = 1, #listeners do
     local listener = listeners[i]
     if listener then
       local fn = listener.fn
-      if listener.once then listeners[i] = false end
+      if listener.once then
+        listeners[i] = false
+      end
       if listener.sync then
         fn(...)
       else
@@ -83,8 +93,14 @@ function Emitter:emit(name, ...)
     end
   end
   if listeners._removed then
-    for i = #listeners, 1, -1 do if not listeners[i] then remove(listeners, i) end end
-    if #listeners == 0 then self._listeners[name] = nil end
+    for i = #listeners, 1, -1 do
+      if not listeners[i] then
+        remove(listeners, i)
+      end
+    end
+    if #listeners == 0 then
+      self._listeners[name] = nil
+    end
     listeners._removed = nil
   end
 end
@@ -94,12 +110,17 @@ end
 ---@return function
 function Emitter:getListeners(name)
   local listeners = self._listeners[name]
-  if not listeners then return function() end end
+  if not listeners then
+    return function()
+    end
+  end
   local i = 0
   return function()
     while i < #listeners do
       i = i + 1
-      if listeners[i] then return listeners[i].fn end
+      if listeners[i] then
+        return listeners[i].fn
+      end
     end
   end
 end
@@ -109,9 +130,15 @@ end
 ---@return number
 function Emitter:getListenerCount(name)
   local listeners = self._listeners[name]
-  if not listeners then return 0 end
+  if not listeners then
+    return 0
+  end
   local n = 0
-  for _, listener in ipairs(listeners) do if listener then n = n + 1 end end
+  for _, listener in ipairs(listeners) do
+    if listener then
+      n = n + 1
+    end
+  end
   return n
 end
 
@@ -121,8 +148,14 @@ end
 ---@return nil
 function Emitter:removeListener(name, fn)
   local listeners = self._listeners[name]
-  if not listeners then return end
-  for i, listener in ipairs(listeners) do if listener and listener.fn == fn then listeners[i] = false end end
+  if not listeners then
+    return
+  end
+  for i, listener in ipairs(listeners) do
+    if listener and listener.fn == fn then
+      listeners[i] = false
+    end
+  end
   listeners._removed = true
 end
 
@@ -134,7 +167,9 @@ function Emitter:removeAllListeners(name)
   if name then
     self._listeners[name] = nil
   else
-    for k in pairs(self._listeners) do self._listeners[k] = nil end
+    for k in pairs(self._listeners) do
+      self._listeners[k] = nil
+    end
   end
 end
 
@@ -152,8 +187,12 @@ function Emitter:waitFor(name, timeout, predicate)
   local fn
   fn = self:onSync(
     name, function(...)
-      if predicate and not predicate(...) then return end
-      if timeout then clearTimeout(timeout) end
+      if predicate and not predicate(...) then
+        return
+      end
+      if timeout then
+        clearTimeout(timeout)
+      end
       self:removeListener(name, fn)
       return assert(resume(thread, true, ...))
     end

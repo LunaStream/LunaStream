@@ -46,7 +46,9 @@ end
 
 function Decoder:getTrack()
   local success, result = pcall(Decoder.getTrackUnsafe, self)
-  if not success then return nil end
+  if not success then
+    return nil
+  end
   return result
 end
 
@@ -87,7 +89,9 @@ function Decoder:trackVersionOne()
     end
   )
 
-  if not success then return nil end
+  if not success then
+    return nil
+  end
   return result
 end
 
@@ -114,7 +118,9 @@ function Decoder:trackVersionTwo()
     end
   )
 
-  if not success then return nil end
+  if not success then
+    return nil
+  end
   return result
 end
 
@@ -141,8 +147,12 @@ function Decoder:trackVersionThree()
     end
   )
 
-  if not success then return nil end
+  if not success then
+    return nil
+  end
   return result
 end
 
-return function(input) return Decoder(input):getTrack() end
+return function(input)
+  return Decoder(input):getTrack()
+end

@@ -17,7 +17,9 @@ function YouTube:__init(luna)
   self._clientManager = YouTubeClientManager(luna):setup()
 end
 
-function YouTube:setup() return self end
+function YouTube:setup()
+  return self
+end
 function YouTube:baseHostRequest(src_type)
   if src_type == "ytmsearch" then
     return "music.youtube.com"
@@ -26,8 +28,12 @@ function YouTube:baseHostRequest(src_type)
   end
 end
 function YouTube:search(query, src_type)
-  if src_type == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
-  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
+  if src_type == "ytmsearch" then
+    self._clientManager:switchClient('ANDROID_MUSIC')
+  end
+  if self._clientManager._currentClient ~= "ANDROID" then
+    self._clientManager:switchClient('ANDROID')
+  end
   self._luna.logger:debug('YouTube', 'Searching: ' .. query)
 
   local response, data = http.request(
@@ -55,7 +61,9 @@ function YouTube:search(query, src_type)
                .contents
   end
 
-  if #videos > config.sources.maxSearchResults then videos = { unpack(videos, 1, config.sources.maxSearchResults) } end
+  if #videos > config.sources.maxSearchResults then
+    videos = { unpack(videos, 1, config.sources.maxSearchResults) }
+  end
   if src_type == "ytmsearch" then
     baseUrl = "music.youtube.com"
   else
@@ -84,7 +92,9 @@ function YouTube:search(query, src_type)
       local lengthInSeconds = 0
       if length then
         local minutes, seconds = length:match("(%d+):(%d+)")
-        if minutes and seconds then lengthInSeconds = tonumber(minutes) * 60 + tonumber(seconds) end
+        if minutes and seconds then
+          lengthInSeconds = tonumber(minutes) * 60 + tonumber(seconds)
+        end
       end
       local track = {
         identifier = identifier,
@@ -165,8 +175,12 @@ function YouTube:isLinkMatch(query)
 end
 
 function YouTube:loadForm(query, src_type)
-  if src_type == "ytmsearch" then self._clientManager:switchClient('ANDROID_MUSIC') end
-  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
+  if src_type == "ytmsearch" then
+    self._clientManager:switchClient('ANDROID_MUSIC')
+  end
+  if self._clientManager._currentClient ~= "ANDROID" then
+    self._clientManager:switchClient('ANDROID')
+  end
 
   local urlType = self:checkURLType(query, src_type)
 
@@ -193,8 +207,12 @@ function YouTube:loadForm(query, src_type)
 end
 
 function YouTube:loadStream(track)
-  if track.sourceName == "youtube_music" then self._clientManager:switchClient('ANDROID_MUSIC') end
-  if self._clientManager._currentClient ~= "ANDROID" then self._clientManager:switchClient('ANDROID') end
+  if track.sourceName == "youtube_music" then
+    self._clientManager:switchClient('ANDROID_MUSIC')
+  end
+  if self._clientManager._currentClient ~= "ANDROID" then
+    self._clientManager:switchClient('ANDROID')
+  end
 
   self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
 

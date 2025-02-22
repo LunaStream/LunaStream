@@ -12,33 +12,55 @@ function meta:__call(...)
   return obj
 end
 
-function meta:__tostring() return 'class ' .. self.__name end
+function meta:__tostring()
+  return 'class ' .. self.__name
+end
 
 local default = {}
 
-function default:__tostring() return self.__name end
+function default:__tostring()
+  return self.__name
+end
 
-function default:__hash() return self end
+function default:__hash()
+  return self
+end
 
-local function isClass(cls) return not not classes[cls] end
+local function isClass(cls)
+  return not not classes[cls]
+end
 
-local function isObject(obj) return not not objects[obj] end
+local function isObject(obj)
+  return not not objects[obj]
+end
 
 local function isSubclass(sub, cls)
   if isClass(sub) and isClass(cls) then
     if sub == cls then
       return true
     else
-      for _, base in ipairs(sub.__bases) do if isSubclass(base, cls) then return true end end
+      for _, base in ipairs(sub.__bases) do
+        if isSubclass(base, cls) then
+          return true
+        end
+      end
     end
   end
   return false
 end
 
-local function isInstance(obj, cls) return isObject(obj) and isSubclass(obj.__class, cls) end
+local function isInstance(obj, cls)
+  return isObject(obj) and isSubclass(obj.__class, cls)
+end
 
 local function profile()
-  local ret = setmetatable({}, { __index = function() return 0 end })
+  local ret = setmetatable(
+    {}, {
+      __index = function()
+        return 0
+      end,
+    }
+  )
   for obj in pairs(objects) do
     local name = obj.__name
     ret[name] = ret[name] + 1
@@ -48,12 +70,16 @@ end
 
 local types = { ['string'] = true, ['number'] = true, ['boolean'] = true }
 
-local function _getPrimitive(v) return types[type(v)] and v or v ~= nil and tostring(v) or nil end
+local function _getPrimitive(v)
+  return types[type(v)] and v or v ~= nil and tostring(v) or nil
+end
 
 local function serialize(obj)
   if isObject(obj) then
     local ret = {}
-    for k, v in pairs(obj.__getters) do ret[k] = _getPrimitive(v(obj)) end
+    for k, v in pairs(obj.__getters) do
+      ret[k] = _getPrimitive(v(obj))
+    end
     return ret
   else
     return _getPrimitive(obj)
@@ -61,7 +87,9 @@ local function serialize(obj)
 end
 
 local rawtype = type
-local function type(obj) return isObject(obj) and obj.__name or rawtype(obj) end
+local function type(obj)
+  return isObject(obj) and obj.__name or rawtype(obj)
+end
 
 return setmetatable(
   {
@@ -78,12 +106,16 @@ return setmetatable(
   }, {
     __call = function(_, name, ...)
 
-      if names[name] then return error(format('Class %q already defined', name)) end
+      if names[name] then
+        return error(format('Class %q already defined', name))
+      end
 
       local class = setmetatable({}, meta)
       classes[class] = true
 
-      for k, v in pairs(default) do class[k] = v end
+      for k, v in pairs(default) do
+        class[k] = v
+      end
 
       local bases = { ... }
       local getters = {}
@@ -92,8 +124,12 @@ return setmetatable(
       for _, base in ipairs(bases) do
         for k1, v1 in pairs(base) do
           class[k1] = v1
-          for k2, v2 in pairs(base.__getters) do getters[k2] = v2 end
-          for k2, v2 in pairs(base.__setters) do setters[k2] = v2 end
+          for k2, v2 in pairs(base.__getters) do
+            getters[k2] = v2
+          end
+          for k2, v2 in pairs(base.__setters) do
+            setters[k2] = v2
+          end
         end
       end
 

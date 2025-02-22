@@ -9,9 +9,13 @@ function LocalFile:__init(luna)
   AbstractSource.__init(self)
 end
 
-function LocalFile:setup() return self end
+function LocalFile:setup()
+  return self
+end
 
-function LocalFile:search(query) return self:loadForm(query) end
+function LocalFile:search(query)
+  return self:loadForm(query)
+end
 
 function LocalFile:isLinkMatch(query)
   local f = io.open(query, "rb")

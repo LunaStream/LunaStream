@@ -53,9 +53,13 @@ function UDPController:ipDiscovery()
   }
 end
 
-function UDPController:send(packet, cb) self.udp:send(packet, self._port, self._address, cb) end
+function UDPController:send(packet, cb)
+  self.udp:send(packet, self._port, self._address, cb)
+end
 
-function UDPController:start() self.udp:recvStart() end
+function UDPController:start()
+  self.udp:recvStart()
+end
 
 function UDPController:stop()
   self.udp:recvStop()
@@ -80,16 +84,28 @@ function UDPController:setupEvents()
   )
 end
 
-function get:udp() return self._udp end
+function get:udp()
+  return self._udp
+end
 
-function get:address() return self._address end
+function get:address()
+  return self._address
+end
 
-function get:port() return self._port end
+function get:port()
+  return self._port
+end
 
-function get:ssrc() return self._ssrc end
+function get:ssrc()
+  return self._ssrc
+end
 
-function get:sec_key() return self._sec_key end
+function get:sec_key()
+  return self._sec_key
+end
 
-function get:crypto() return self._crypto end
+function get:crypto()
+  return self._crypto
+end
 
 return UDPController

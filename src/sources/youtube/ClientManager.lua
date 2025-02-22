@@ -34,7 +34,9 @@ function YouTubeClientManager:__init(luna)
   self._currentClient = ''
 end
 
-function get:ytContext() return self._ytContext end
+function get:ytContext()
+  return self._ytContext
+end
 
 function YouTubeClientManager:setup()
   self:buildContext()
@@ -42,7 +44,9 @@ function YouTubeClientManager:setup()
   return self
 end
 
-function YouTubeClientManager:buildContext() self:switchClient('ANDROID') end
+function YouTubeClientManager:buildContext()
+  self:switchClient('ANDROID')
+end
 
 function YouTubeClientManager:switchClient(clientName)
   if not self._avaliableClients[clientName] then
@@ -50,7 +54,9 @@ function YouTubeClientManager:switchClient(clientName)
     return false
   end
 
-  if self._currentClient == clientName then return end
+  if self._currentClient == clientName then
+    return
+  end
 
   self._luna.logger:debug('YouTubeClientManager', 'Switching to client: ' .. clientName)
   self._ytContext.client = self._avaliableClients[clientName]

@@ -35,14 +35,24 @@ function Opus:throw(code)
   return error(string.format('[%s] %s', version, message))
 end
 
-function Opus:check(value) return value >= enums.OK and value or self:throw(value) end
+function Opus:check(value)
+  return value >= enums.OK and value or self:throw(value)
+end
 
-function get:enums() return self._enums end
+function get:enums()
+  return self._enums
+end
 
-function get:lib() return self._lib end
+function get:lib()
+  return self._lib
+end
 
-function get:encoder() return self._encoder end
+function get:encoder()
+  return self._encoder
+end
 
-function get:decoder() return self._decoder end
+function get:decoder()
+  return self._decoder
+end
 
 return Opus

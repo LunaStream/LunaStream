@@ -2,9 +2,9 @@ local json = require("json")
 
 return function(answer, guild_id, players)
   if not guild_id then
-    if not players or next(players) == nil then return answer("[]", 200, {
-      ["Content-Type"] = "application/json",
-    }) end
+    if not players or next(players) == nil then
+      return answer("[]", 200, { ["Content-Type"] = "application/json" })
+    end
 
     local response = {}
 

@@ -41,7 +41,9 @@ end
 
 -- Reverse map from character code to 6-bit integer
 local map = {}
-for i = 1, #codes do map[byte(codes, i)] = i - 1 end
+for i = 1, #codes do
+  map[byte(codes, i)] = i - 1
+end
 
 -- loop over input 4 characters at a time
 -- The characters are mapped to 4 x 6-bit integers a,b,c,d

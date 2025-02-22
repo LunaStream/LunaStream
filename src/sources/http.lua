@@ -13,12 +13,17 @@ function HTTPDirectPlay:__init(luna)
   self._already_responded = nil
 end
 
-function HTTPDirectPlay:setup() return self end
+function HTTPDirectPlay:setup()
+  return self
+end
 
-function HTTPDirectPlay:search(query) end
+function HTTPDirectPlay:search(query)
+end
 
 -- This one is not optimized
-function HTTPDirectPlay:isLinkMatch(query) return url.parse(query).path:match("%.%w+$") ~= nil end
+function HTTPDirectPlay:isLinkMatch(query)
+  return url.parse(query).path:match("%.%w+$") ~= nil
+end
 
 function HTTPDirectPlay:loadForm(query)
   self._luna.logger:debug('HTTPDirectPlay', 'Loading url: %s', query)
@@ -60,7 +65,11 @@ function HTTPDirectPlay:loadForm(query)
 end
 
 function HTTPDirectPlay:getHttpHeaders(res, req)
-  for _, header in pairs(res) do if type(header) == "table" and header[1]:lower() == req then return header end end
+  for _, header in pairs(res) do
+    if type(header) == "table" and header[1]:lower() == req then
+      return header
+    end
+  end
   return nil
 end
 

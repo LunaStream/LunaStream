@@ -12,17 +12,25 @@ function Instagram:__init(luna)
   self._luna = luna
 end
 
-function Instagram:setup() return self end
+function Instagram:setup()
+  return self
+end
 
 function Instagram:search(query)
   return self:buildError("Search not supported for Instagram", "fault", "Instagram Source")
 end
 
 function Instagram:getPostId(url)
-  if not url then return nil, "Instagram URL not provided" end
+  if not url then
+    return nil, "Instagram URL not provided"
+  end
   local postId = url:match("instagram%.com/p/([%w_-]+)")
-  if not postId then postId = url:match("instagram%.com/reels?/([%w_-]+)") end
-  if not postId then return nil, "Instagram post/reel ID not found" end
+  if not postId then
+    postId = url:match("instagram%.com/reels?/([%w_-]+)")
+  end
+  if not postId then
+    return nil, "Instagram post/reel ID not found"
+  end
   return postId
 end
 
@@ -71,14 +79,20 @@ function Instagram:encodePostRequestData(shortcode)
   }
 
   local parts = {}
-  for key, value in pairs(requestData) do table.insert(parts, key .. "=" .. value) end
+  for key, value in pairs(requestData) do
+    table.insert(parts, key .. "=" .. value)
+  end
   return table.concat(parts, "&")
 end
 
-function Instagram:isLinkMatch(link) return link:match("instagram%.com") ~= nil, nil end
+function Instagram:isLinkMatch(link)
+  return link:match("instagram%.com") ~= nil, nil
+end
 
 function Instagram:fetchFromGraphQL(postId, timeout)
-  if not postId then return nil, "Post ID not provided" end
+  if not postId then
+    return nil, "Post ID not provided"
+  end
 
   local API_URL = "https://www.instagram.com/api/graphql"
   local headers = {
@@ -94,7 +108,9 @@ function Instagram:fetchFromGraphQL(postId, timeout)
   local encodedData = self:encodePostRequestData(postId)
   local response, body = http.request("POST", API_URL, headers, encodedData)
 
-  if response.code ~= 200 then return nil, "Request failed with code " .. response.code end
+  if response.code ~= 200 then
+    return nil, "Request failed with code " .. response.code
+  end
 
   local data = json.decode(body)
   if not data or not data.data or not data.data.xdt_shortcode_media then
@@ -102,10 +118,14 @@ function Instagram:fetchFromGraphQL(postId, timeout)
   end
 
   local media = data.data.xdt_shortcode_media
-  if not media.is_video then return nil, "This post is not a video" end
+  if not media.is_video then
+    return nil, "This post is not a video"
+  end
 
   local videoUrl = media.video_url
-  if not videoUrl then return nil, "Video URL not found" end
+  if not videoUrl then
+    return nil, "Video URL not found"
+  end
 
   return {
     videoUrl = videoUrl,
@@ -118,10 +138,14 @@ end
 
 function Instagram:loadForm(query)
   local postId, err = self:getPostId(query)
-  if not postId then return self:buildError(err or "Invalid Instagram URL", "fault", "Instagram Source") end
+  if not postId then
+    return self:buildError(err or "Invalid Instagram URL", "fault", "Instagram Source")
+  end
 
   local videoData, err = self:fetchFromGraphQL(postId)
-  if not videoData then return self:buildError(err or "Video not available", "fault", "Instagram Source") end
+  if not videoData then
+    return self:buildError(err or "Video not available", "fault", "Instagram Source")
+  end
 
   local trackInfo = {
     identifier = postId,
@@ -148,7 +172,9 @@ end
 function Instagram:loadStream(track)
   local videoUrl = self:fetchFromGraphQL(track.info.identifier).videoUrl
 
-  if not videoUrl then return self:buildError("Not found", "fault", "Instagram Source") end
+  if not videoUrl then
+    return self:buildError("Not found", "fault", "Instagram Source")
+  end
 
   return { url = videoUrl, format = "mp4", protocol = "http" }
 end

@@ -9,7 +9,9 @@ local class = require('class')
 
 local NicoVideo = class('NicoVideo', AbstractSource)
 
-function NicoVideo:__init(luna) self._luna = luna end
+function NicoVideo:__init(luna)
+  self._luna = luna
+end
 
 function NicoVideo:buildOutputData(fulldata)
   local response_json = fulldata.data.response
@@ -26,11 +28,17 @@ function NicoVideo:buildOutputData(fulldata)
     end
   end
 
-  if not top_audio_id then return outputs end
+  if not top_audio_id then
+    return outputs
+  end
 
   for _, video in pairs(response_json.media.domand.videos) do
-    if not table.includes(quality, video.label) then goto continue end
-    if video.isAvailable then table.insert(outputs, { video.id, top_audio_id }) end
+    if not table.includes(quality, video.label) then
+      goto continue
+    end
+    if video.isAvailable then
+      table.insert(outputs, { video.id, top_audio_id })
+    end
     ::continue::
   end
 
@@ -69,7 +77,9 @@ function NicoVideo:buildParam(params)
   return str
 end
 
-function NicoVideo:setup() return self end
+function NicoVideo:setup()
+  return self
+end
 
 function NicoVideo:search(query)
   self._luna.logger:debug('NicoVideo', 'Searching: ' .. query)
@@ -124,7 +134,9 @@ function NicoVideo:search(query)
   return { loadType = #tracks == 0 and 'empty' or "search", data = tracks }
 end
 
-function NicoVideo:isLinkMatch(query) return query:match("https?://(.-)%.nicovideo%.jp") end
+function NicoVideo:isLinkMatch(query)
+  return query:match("https?://(.-)%.nicovideo%.jp")
+end
 
 function NicoVideo:loadForm(query)
   self._luna.logger:debug('NicoVideo', 'Loading url: ' .. query)
@@ -139,7 +151,9 @@ function NicoVideo:loadForm(query)
   fulldata = json.decode(fulldata)
 
   local track_info = table.filter(
-                       fulldata.data.metadata.jsonLds, function(data) return data['@type'] == "VideoObject" end
+                       fulldata.data.metadata.jsonLds, function(data)
+      return data['@type'] == "VideoObject"
+    end
                      )[1]
 
   local track = {
@@ -192,7 +206,11 @@ function NicoVideo:loadStream(track)
   end
 
   local stream_res_cookie = table.find(
-    stream_res, function(res) if type(res) == "table" and string.lower(res[1]) == 'set-cookie' then return true end end
+    stream_res, function(res)
+      if type(res) == "table" and string.lower(res[1]) == 'set-cookie' then
+        return true
+      end
+    end
   )
 
   stream_data = json.decode(stream_data)

@@ -10,9 +10,13 @@ local class = require('class')
 
 local BandCamp = class('BandCamp', AbstractSource)
 
-function BandCamp:__init(luna) self._luna = luna end
+function BandCamp:__init(luna)
+  self._luna = luna
+end
 
-function BandCamp:setup() return self end
+function BandCamp:setup()
+  return self
+end
 
 function BandCamp:search(query)
   self._luna.logger:debug('BandCamp', 'Searching: ' .. query)
@@ -25,11 +29,14 @@ function BandCamp:search(query)
   end
 
   local names = table.map(
-    string.split(data, "<div class=\"heading\">%s+<a.->(.-)</a>"),
-      function(str) return str:gsub("^%s+", ""):gsub("%s+$", "") end
+    string.split(data, "<div class=\"heading\">%s+<a.->(.-)</a>"), function(str)
+      return str:gsub("^%s+", ""):gsub("%s+$", "")
+    end
   )
 
-  if #names == 0 then return { loadType = "empty", data = {} } end
+  if #names == 0 then
+    return { loadType = "empty", data = {} }
+  end
 
   local tracks = {}
 
@@ -60,18 +67,24 @@ function BandCamp:search(query)
   end
 
   local authors = table.map(
-    string.split(data, '<div class="subhead">%s+(?:from%s+)?[%s\\S]*?by (.-)%s+</div>'),
-      function(str) return str:gsub("^%s+", ""):gsub("%s+$", "") end
+    string.split(data, '<div class="subhead">%s+(?:from%s+)?[%s\\S]*?by (.-)%s+</div>'), function(str)
+      return str:gsub("^%s+", ""):gsub("%s+$", "")
+    end
   )
 
-  for i, author in pairs(authors) do tracks[i].info.author = author end
+  for i, author in pairs(authors) do
+    tracks[i].info.author = author
+  end
 
   local artworkUrls = table.map(
-    string.split(data, '<div class="art">%s*<img src="(.-)"'),
-      function(str) return str:gsub("^%s+", ""):gsub("%s+$", "") end
+    string.split(data, '<div class="art">%s*<img src="(.-)"'), function(str)
+      return str:gsub("^%s+", ""):gsub("%s+$", "")
+    end
   )
 
-  for i, artworkUrl in pairs(artworkUrls) do tracks[i].info.artworkUrl = artworkUrl end
+  for i, artworkUrl in pairs(artworkUrls) do
+    tracks[i].info.artworkUrl = artworkUrl
+  end
 
   local urls = string.split(data, '<div class="itemurl">%s*<a href="(.-)"')
 
@@ -95,7 +108,9 @@ function BandCamp:search(query)
   return { loadType = 'search', data = tracks }
 end
 
-function BandCamp:isLinkMatch(query) return query:match("https?://(.-)%.bandcamp%.com") end
+function BandCamp:isLinkMatch(query)
+  return query:match("https?://(.-)%.bandcamp%.com")
+end
 
 function BandCamp:loadForm(query)
   self._luna.logger:debug('BandCamp', 'Loading url: ' .. query)
