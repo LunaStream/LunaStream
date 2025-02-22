@@ -104,8 +104,11 @@ function HTTPStream:setup(custom_uri, redirect_count)
 
   -- Shouldn't save the connection because may cause some trouble with sable stream
   -- If we need this in the future, this function may help: http.saveConnection(connection)
-  write()
-
+  if res.keepAlive then
+    http.saveConnection(connection)
+  else
+    write()
+  end
   self.res = res
   self:emit('response', self)
   local content_length = self:getHeader('content-length')
