@@ -14,9 +14,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
---]]
-
---[[lit-meta
+--]] --[[lit-meta
   name = "luvit/http-codec"
   version = "2.0.5"
   homepage = "https://github.com/luvit/luvit/blob/master/deps/http-codec.lua"
@@ -24,9 +22,7 @@ limitations under the License.
   tags = {"codec", "http"}
   license = "Apache 2"
   author = { name = "Tim Caswell" }
-]]
-
-local sub = string.sub
+]] local sub = string.sub
 local gsub = string.gsub
 local lower = string.lower
 local find = string.find
@@ -37,7 +33,7 @@ local match = string.match
 local STATUS_CODES = {
   [100] = 'Continue',
   [101] = 'Switching Protocols',
-  [102] = 'Processing',                 -- RFC 2518, obsoleted by RFC 4918
+  [102] = 'Processing', -- RFC 2518, obsoleted by RFC 4918
   [200] = 'OK',
   [201] = 'Created',
   [202] = 'Accepted',
@@ -45,7 +41,7 @@ local STATUS_CODES = {
   [204] = 'No Content',
   [205] = 'Reset Content',
   [206] = 'Partial Content',
-  [207] = 'Multi-Status',               -- RFC 4918
+  [207] = 'Multi-Status', -- RFC 4918
   [300] = 'Multiple Choices',
   [301] = 'Moved Permanently',
   [302] = 'Moved Temporarily',
@@ -71,26 +67,26 @@ local STATUS_CODES = {
   [415] = 'Unsupported Media Type',
   [416] = 'Requested Range Not Satisfiable',
   [417] = 'Expectation Failed',
-  [418] = "I'm a teapot",                       -- RFC 2324
-  [422] = 'Unprocessable Entity',               -- RFC 4918
-  [423] = 'Locked',                             -- RFC 4918
-  [424] = 'Failed Dependency',                  -- RFC 4918
-  [425] = 'Unordered Collection',               -- RFC 4918
-  [426] = 'Upgrade Required',                   -- RFC 2817
-  [428] = 'Precondition Required',              -- RFC 6585
-  [429] = 'Too Many Requests',                  -- RFC 6585
-  [431] = 'Request Header Fields Too Large',    -- RFC 6585
+  [418] = "I'm a teapot", -- RFC 2324
+  [422] = 'Unprocessable Entity', -- RFC 4918
+  [423] = 'Locked', -- RFC 4918
+  [424] = 'Failed Dependency', -- RFC 4918
+  [425] = 'Unordered Collection', -- RFC 4918
+  [426] = 'Upgrade Required', -- RFC 2817
+  [428] = 'Precondition Required', -- RFC 6585
+  [429] = 'Too Many Requests', -- RFC 6585
+  [431] = 'Request Header Fields Too Large', -- RFC 6585
   [500] = 'Internal Server Error',
   [501] = 'Not Implemented',
   [502] = 'Bad Gateway',
   [503] = 'Service Unavailable',
   [504] = 'Gateway Time-out',
   [505] = 'HTTP Version not supported',
-  [506] = 'Variant Also Negotiates',            -- RFC 2295
-  [507] = 'Insufficient Storage',               -- RFC 4918
+  [506] = 'Variant Also Negotiates', -- RFC 2295
+  [507] = 'Insufficient Storage', -- RFC 4918
   [509] = 'Bandwidth Limit Exceeded',
-  [510] = 'Not Extended',                       -- RFC 2774
-  [511] = 'Network Authentication Required'     -- RFC 6585
+  [510] = 'Not Extended', -- RFC 2774
+  [511] = 'Network Authentication Required', -- RFC 6585
 }
 
 local function encoder()
@@ -117,9 +113,7 @@ local function encoder()
     for i = 1, #item do
       local key, value = item[i][1], item[i][2]
       local lowerKey = lower(key)
-      if lowerKey == "transfer-encoding" then
-        chunkedEncoding = lower(value) == "chunked"
-      end
+      if lowerKey == "transfer-encoding" then chunkedEncoding = lower(value) == "chunked" end
       value = gsub(tostring(value), "[\r\n]+", " ")
       head[#head + 1] = key .. ': ' .. tostring(value) .. '\r\n'
     end
@@ -147,16 +141,12 @@ local function encoder()
         return "0\r\n\r\n"
       end
     end
-    if #item == 0 then
-      mode = encodeHead
-    end
+    if #item == 0 then mode = encodeHead end
     return format("%x", #item) .. "\r\n" .. item .. "\r\n"
   end
 
   mode = encodeHead
-  return function (item)
-    return mode(item)
-  end
+  return function(item) return mode(item) end
 end
 
 local function decoder()
@@ -182,16 +172,12 @@ local function decoder()
     local head = {}
     local _, offset
     local version
-    _, offset, version, head.code, head.reason =
-      find(chunk, "^HTTP/(%d%.%d) (%d+) ([^\r\n]*)\r?\n")
+    _, offset, version, head.code, head.reason = find(chunk, "^HTTP/(%d%.%d) (%d+) ([^\r\n]*)\r?\n")
     if offset then
       head.code = tonumber(head.code)
     else
-      _, offset, head.method, head.path, version =
-        find(chunk, "^(%u+) ([^ ]+) HTTP/(%d%.%d)\r?\n")
-      if not offset then
-        error("expected HTTP data")
-      end
+      _, offset, head.method, head.path, version = find(chunk, "^(%u+) ([^ ]+) HTTP/(%d%.%d)\r?\n")
+      if not offset then error("expected HTTP data") end
     end
     version = tonumber(version)
     head.version = version
@@ -216,11 +202,11 @@ local function decoder()
       elseif lowerKey == "connection" then
         head.keepAlive = lower(value) == "keep-alive"
       end
-      head[#head + 1] = {key, value}
+      head[#head + 1] = { key, value }
     end
 
-    if head.keepAlive and (not (chunkedEncoding or (contentLength and contentLength > 0)))
-       or (head.method == "GET" or head.method == "HEAD") then
+    if head.keepAlive and (not (chunkedEncoding or (contentLength and contentLength > 0))) or
+      (head.method == "GET" or head.method == "HEAD") then
       mode = decodeEmpty
     elseif chunkedEncoding then
       mode = decodeChunked
@@ -259,9 +245,7 @@ local function decoder()
     end
     local length = tonumber(len, 16)
     if #chunk < length + 4 + #len then return end
-    if length == 0 then
-      mode = decodeHead
-    end
+    if length == 0 then mode = decodeHead end
     chunk = sub(chunk, #len + 3)
     assert(sub(chunk, length + 1, length + 2) == "\r\n")
     return sub(chunk, 1, length), sub(chunk, length + 3)
@@ -276,9 +260,7 @@ local function decoder()
     -- Make sure we have at least one byte to process
     if length == 0 then return end
 
-    if length >= bytesLeft then
-      mode = decodeEmpty
-    end
+    if length >= bytesLeft then mode = decodeEmpty end
 
     -- If the entire chunk fits, pass it all through
     if length <= bytesLeft then
@@ -291,13 +273,8 @@ local function decoder()
 
   -- Switch between states by changing which decoder mode points to
   mode = decodeHead
-  return function (chunk)
-    return mode(chunk)
-  end
+  return function(chunk) return mode(chunk) end
 
 end
 
-return {
-  encoder = encoder,
-  decoder = decoder,
-}
+return { encoder = encoder, decoder = decoder }

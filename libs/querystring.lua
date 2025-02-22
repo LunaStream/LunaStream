@@ -14,18 +14,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
---]]
-
---[[lit-meta
+--]] --[[lit-meta
   name = "luvit/querystring"
   version = "2.0.1"
   license = "Apache 2"
   homepage = "https://github.com/luvit/luvit/blob/master/deps/querystring.lua"
   description = "Node-style query-string codec for luvit"
   tags = {"luvit", "url", "codec"}
-]]
-
-local format = string.format
+]] local format = string.format
 local byte = string.byte
 local char = string.char
 local gsub = string.gsub
@@ -35,15 +31,9 @@ local match = string.match
 local insert = table.insert
 local concat = table.concat
 
+local function hexToChar(hex) return char(tonumber(hex, 16)) end
 
-local function hexToChar(hex)
-  return char(tonumber(hex, 16))
-end
-
-local function charToHex(character)
-  return format('%%%02X', byte(character))
-end
-
+local function charToHex(character) return format('%%%02X', byte(character)) end
 
 local function urldecode(str)
   if str then
@@ -54,17 +44,12 @@ local function urldecode(str)
 end
 
 local function urlencode(str)
-  if str then
-    str = gsub(str, '[^a-zA-Z0-9*%-%._]', charToHex)
-  end
+  if str then str = gsub(str, '[^a-zA-Z0-9*%-%._]', charToHex) end
   return str
 end
 
-
 local function stringify(tbl, sep, eq)
-  if type(tbl) ~= 'table' then
-    return ''
-  end
+  if type(tbl) ~= 'table' then return '' end
 
   sep = sep or '&'
   eq = eq or '='
@@ -74,9 +59,7 @@ local function stringify(tbl, sep, eq)
     local keyString = urlencode(tostring(key)) .. eq
 
     if type(value) == 'table' then
-      for _, subValue in ipairs(value) do
-        insert(fields, keyString .. urlencode(tostring(subValue)))
-      end
+      for _, subValue in ipairs(value) do insert(fields, keyString .. urlencode(tostring(subValue))) end
     else
       insert(fields, keyString .. urlencode(tostring(value)))
     end
@@ -108,7 +91,7 @@ local function parse(str, sep, eq)
         elseif type(existingValue) == 'table' then
           insert(existingValue, value)
         else
-          parsed[key] = {existingValue, value}
+          parsed[key] = { existingValue, value }
         end
       end
     end
@@ -116,7 +99,6 @@ local function parse(str, sep, eq)
 
   return parsed
 end
-
 
 return {
   urldecode = urldecode,

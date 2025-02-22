@@ -32,7 +32,7 @@ end
 
 function Decoder:readLong()
   local msb = self:readInt()
-  local lsb =  self:readInt()
+  local lsb = self:readInt()
 
   return msb * (2 ^ 32) + lsb
 end
@@ -65,81 +65,84 @@ function Decoder:getTrackUnsafe()
 end
 
 function Decoder:trackVersionOne()
-  local success, result = pcall(function ()
-    return {
-      encoded = self._track,
-      info = {
-        title = self:readUTF(),
-        author = self:readUTF(),
-        length = self:readLong(),
-        identifier = self:readUTF(),
-        isSeekable = true,
-        isStream = self:readByte() ~= 0,
-        uri = nil,
-        artworkUrl = nil,
-        isrc = nil,
-        sourceName =  string.lower(self:readUTF()),
-        position = self:readLong(),
-      },
-      pluginInfo = {},
-    }
-  end)
+  local success, result = pcall(
+    function()
+      return {
+        encoded = self._track,
+        info = {
+          title = self:readUTF(),
+          author = self:readUTF(),
+          length = self:readLong(),
+          identifier = self:readUTF(),
+          isSeekable = true,
+          isStream = self:readByte() ~= 0,
+          uri = nil,
+          artworkUrl = nil,
+          isrc = nil,
+          sourceName = string.lower(self:readUTF()),
+          position = self:readLong(),
+        },
+        pluginInfo = {},
+      }
+    end
+  )
 
   if not success then return nil end
   return result
 end
 
 function Decoder:trackVersionTwo()
-  local success, result = pcall(function ()
-    return {
-      encoded = self._track,
-      info = {
-        title = self:readUTF(),
-        author = self:readUTF(),
-        length = self:readLong(),
-        identifier = self:readUTF(),
-        isSeekable = true,
-        isStream = self:readByte() ~= 0,
-        uri = self:readByte() and self:readUTF() or nil,
-        artworkUrl = nil,
-        isrc = nil,
-        sourceName =  string.lower(self:readUTF()),
-        position = self:readLong(),
-      },
-      pluginInfo = {},
-    }
-  end)
+  local success, result = pcall(
+    function()
+      return {
+        encoded = self._track,
+        info = {
+          title = self:readUTF(),
+          author = self:readUTF(),
+          length = self:readLong(),
+          identifier = self:readUTF(),
+          isSeekable = true,
+          isStream = self:readByte() ~= 0,
+          uri = self:readByte() and self:readUTF() or nil,
+          artworkUrl = nil,
+          isrc = nil,
+          sourceName = string.lower(self:readUTF()),
+          position = self:readLong(),
+        },
+        pluginInfo = {},
+      }
+    end
+  )
 
   if not success then return nil end
   return result
 end
 
 function Decoder:trackVersionThree()
-  local success, result = pcall(function ()
-    return {
-      encoded = self._track,
-      info = {
-        title = self:readUTF(),
-        author = self:readUTF(),
-        length = self:readLong(),
-        identifier = self:readUTF(),
-        isSeekable = true,
-        isStream = self:readByte() ~= 0,
-        uri = self:readByte() ~= 0 and self:readUTF() or nil,
-        artworkUrl = self:readByte() ~= 0 and self:readUTF() or nil,
-        isrc = self:readByte() ~= 0 and self:readUTF() or nil,
-        sourceName =  string.lower(self:readUTF()),
-        position = self:readLong(),
-      },
-      pluginInfo = {},
-    }
-  end)
+  local success, result = pcall(
+    function()
+      return {
+        encoded = self._track,
+        info = {
+          title = self:readUTF(),
+          author = self:readUTF(),
+          length = self:readLong(),
+          identifier = self:readUTF(),
+          isSeekable = true,
+          isStream = self:readByte() ~= 0,
+          uri = self:readByte() ~= 0 and self:readUTF() or nil,
+          artworkUrl = self:readByte() ~= 0 and self:readUTF() or nil,
+          isrc = self:readByte() ~= 0 and self:readUTF() or nil,
+          sourceName = string.lower(self:readUTF()),
+          position = self:readLong(),
+        },
+        pluginInfo = {},
+      }
+    end
+  )
 
   if not success then return nil end
   return result
 end
 
-
-return function(input)
-  return Decoder(input):getTrack()
-end
+return function(input) return Decoder(input):getTrack() end

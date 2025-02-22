@@ -6,171 +6,150 @@ local decoder = require('../track/decoder')
 local MusicUtils = require('musicutils')
 local json = require('json')
 
-local setTimeout = timer.setTimeout
-
 function Player:__init(luna, guildId, sessionId)
-    self._luna = luna
-    self._stream = nil
-    self._sessionId = sessionId
-    self._guildId = guildId
-    self._userId = self._luna.sessions[sessionId].user_id
-    self._write = self._luna.sessions[sessionId].write
-    self._state = {
-        time = 0,
-        position = 0,
-        connected = false,
-        ping = -1,
-    }
-    self.track = {}
-    self.playing = false
-    self.position = 0
-    self.endTime = 0
-    self.volume = 0
-    self.paused = false
-    self.filters = {}
-    self.voiceState = {}
-    self.state = {}
-    self.voice = voice(self._guildId, self._userId)
-    self.update_loop_interval = nil
-    self.close_connection_function = nil
+  self._luna = luna
+  self._stream = nil
+  self._sessionId = sessionId
+  self._guildId = guildId
+  self._userId = self._luna.sessions[sessionId].user_id
+  self._write = self._luna.sessions[sessionId].write
+  self._state = { time = 0, position = 0, connected = false, ping = -1 }
+  self.track = {}
+  self.playing = false
+  self.position = 0
+  self.endTime = 0
+  self.volume = 0
+  self.paused = false
+  self.filters = {}
+  self.voiceState = {}
+  self.state = {}
+  self.voice = voice(self._guildId, self._userId)
+  self.update_loop_interval = nil
+  self.close_connection_function = nil
 end
 
-function Player:new()
-    return self
-end
+function Player:new() return self end
 
 function Player:updateVoiceState(voiceState)
-    if not voiceState then
-        return
-    end
+  if not voiceState then return end
 
-    self.voiceState = voiceState
+  self.voiceState = voiceState
 
-    if not self.voice then
-        self.voice = voice(self._guildId, self._userId)
-    end
+  if not self.voice then self.voice = voice(self._guildId, self._userId) end
 
-    self.voice:voiceCredential(voiceState.sessionId, voiceState.endpoint, voiceState.token)
-    self.voice:connect()
-    self._state.connected = true
+  self.voice:voiceCredential(voiceState.sessionId, voiceState.endpoint, voiceState.token)
+  self.voice:connect()
+  self._state.connected = true
 end
 
 function Player:play(track)
-    if self.track.encoded ~= nil and self.playing == true then
-        self:stop()
-    end
+  if self.track.encoded ~= nil and self.playing == true then self:stop() end
 
-    self.track = decoder(track.encoded)
+  self.track = decoder(track.encoded)
 
-    if track.userData == nil or next(track.userData) == nil then
-        track.userData = nil
-    end
+  if track.userData == nil or next(track.userData) == nil then track.userData = nil end
 
-    self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
+  self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
 
-    local stream = self._luna.sources:getStream(self.track)
+  local stream = self._luna.sources:getStream(self.track)
 
-    if not stream then
-        self._luna.logger:error('Player', 'Failed to load stream')
-        return
-    end
+  if not stream then
+    self._luna.logger:error('Player', 'Failed to load stream')
+    return
+  end
 
-    self.close_connection_function = function ()
-        if stream.connection and stream.connection.socket.close then
-            return stream.connection.socket:close()
-        end
-    end
+  self.close_connection_function = function()
+    if stream.connection and stream.connection.socket.close then return stream.connection.socket:close() end
+  end
 
-    self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
+  self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
 
-    if self.voice then
-        self.voice:play(self._stream, { encoder = true })
+  if self.voice then
+    self.voice:play(self._stream, { encoder = true })
 
-        self._luna.logger:info('Player', 
-            string.format('Track %s started for guild %s', self.track.info.title, self._guildId))
-        
-        self:sendWsMessage({
+    self._luna.logger:info(
+      'Player', string.format('Track %s started for guild %s', self.track.info.title, self._guildId)
+    )
+
+    self:sendWsMessage(
+      {
+        op = "event",
+        type = "TrackStartEvent",
+        guildId = self._guildId,
+        track = self.track,
+      }
+    )
+
+    self.playing = true
+
+    self:_startUpdateLoop()
+
+    self.voice:once(
+      "ended", function()
+        self._luna.logger:info(
+          'Player', string.format('Track %s ended for guild %s', self.track.info.title, self._guildId)
+        )
+
+        self:sendWsMessage(
+          {
             op = "event",
-            type = "TrackStartEvent",
+            type = "TrackEndEvent",
             guildId = self._guildId,
             track = self.track,
-        })
+          }
+        )
 
-        self.playing = true
+        self.playing = false
+        self.state = {
+          time = 0,
+          position = 0,
+          connected = self._state.connected,
+          ping = self.voice.ping,
+        }
 
-        self:_startUpdateLoop()
-
-        self.voice:once("ended", function()
-            self._luna.logger:info('Player', 
-                string.format('Track %s ended for guild %s', self.track.info.title, self._guildId))
-
-            self:sendWsMessage({
-                op = "event",
-                type = "TrackEndEvent",
-                guildId = self._guildId,
-                track = self.track,
-            })
-
-            self.playing = false
-            self.state = {
-                time = 0,
-                position = 0,
-                connected = self._state.connected,
-                ping = self.voice.ping,
-            }
-
-            self:sendWsMessage({
-                op = "playerUpdate",
-                guildId = self._guildId,
-                state = self.state,
-            })
-            timer.clearInterval(self.update_loop_interval)
-            self.update_loop_interval = nil
-        end)
-    end
+        self:sendWsMessage(
+          { op = "playerUpdate", guildId = self._guildId, state = self.state }
+        )
+        timer.clearInterval(self.update_loop_interval)
+        self.update_loop_interval = nil
+      end
+    )
+  end
 end
 
 function Player:stop()
-    if self.voice then
-        self.voice:stop()
-        self.close_connection_function()
-        self.playing = false
-        self._luna.logger:info('Player',
-            string.format('Track %s stopped for guild %s', self.track.info.title, self._guildId))
-    end
+  if self.voice then
+    self.voice:stop()
+    self.close_connection_function()
+    self.playing = false
+    self._luna.logger:info(
+      'Player', string.format('Track %s stopped for guild %s', self.track.info.title, self._guildId)
+    )
+  end
 end
 
 function Player:sendWsMessage(data)
-    local payload = json.encode(data)
-    coroutine.wrap(function()
-        self._write({
-            opcode = 1,
-            payload = payload
-        })
-    end)()
+  local payload = json.encode(data)
+  coroutine.wrap(function() self._write({ opcode = 1, payload = payload }) end)()
 end
 
 function Player:_sendPlayerUpdate()
-    if not self.playing then return end
+  if not self.playing then return end
 
-    self.state = {
-        time = os.time(),
-        position = self.voice.position,
-        connected = self._state.connected,
-        ping = self.voice.ping,
-    }
+  self.state = {
+    time = os.time(),
+    position = self.voice.position,
+    connected = self._state.connected,
+    ping = self.voice.ping,
+  }
 
-    self:sendWsMessage({
-        op = "playerUpdate",
-        guildId = self._guildId,
-        state = self.state,
-    })
+  self:sendWsMessage(
+    { op = "playerUpdate", guildId = self._guildId, state = self.state }
+  )
 end
 
 function Player:_startUpdateLoop()
-    self.update_loop_interval = timer.setInterval(1000, function ()
-        coroutine.wrap(self._sendPlayerUpdate)(self)
-    end)
+  self.update_loop_interval = timer.setInterval(1000, function() coroutine.wrap(self._sendPlayerUpdate)(self) end)
 end
 
 return Player

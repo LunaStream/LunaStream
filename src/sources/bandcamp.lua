@@ -10,38 +10,26 @@ local class = require('class')
 
 local BandCamp = class('BandCamp', AbstractSource)
 
-function BandCamp:__init(luna)
-  self._luna = luna
-end
+function BandCamp:__init(luna) self._luna = luna end
 
-function BandCamp:setup()
-  return self
-end
+function BandCamp:setup() return self end
 
 function BandCamp:search(query)
   self._luna.logger:debug('BandCamp', 'Searching: ' .. query)
-	local query_link = "https://bandcamp.com/search?q=%s&item_type=t&from=results"
-	local response, data = http.request("GET", string.format(query_link, urlp.encode(query)))
+  local query_link = "https://bandcamp.com/search?q=%s&item_type=t&from=results"
+  local response, data = http.request("GET", string.format(query_link, urlp.encode(query)))
 
   if response.code ~= 200 then
-		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
-		return self:buildError(
-		"Server response error: " .. response.code,
-		"fault", "BandCamp Source"
-	)
-	end
+    self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
+    return self:buildError("Server response error: " .. response.code, "fault", "BandCamp Source")
+  end
 
   local names = table.map(
     string.split(data, "<div class=\"heading\">%s+<a.->(.-)</a>"),
-    function (str)
-      return str:gsub("^%s+", ""):gsub("%s+$", "")
-    end
+      function(str) return str:gsub("^%s+", ""):gsub("%s+$", "") end
   )
 
-  if #names == 0 then return {
-    loadType = "empty",
-    data = {}
-  } end
+  if #names == 0 then return { loadType = "empty", data = {} } end
 
   local tracks = {}
 
@@ -50,46 +38,40 @@ function BandCamp:search(query)
   end
 
   for _, name in pairs(names) do
-    table.insert(tracks, {
-      encoded = nil,
-      info = {
-        identifier = nil,
-        isSeekable = true,
-        author = nil,
-        length = -1,
-        isStream = false,
-        position = 0,
-        title = name,
-        uri = nil,
-        artworkUrl = nil,
-        isrc = nil,
-        sourceName = 'bandcamp'
-      },
-      pluginInfo = {}
-    })
+    table.insert(
+      tracks, {
+        encoded = nil,
+        info = {
+          identifier = nil,
+          isSeekable = true,
+          author = nil,
+          length = -1,
+          isStream = false,
+          position = 0,
+          title = name,
+          uri = nil,
+          artworkUrl = nil,
+          isrc = nil,
+          sourceName = 'bandcamp',
+        },
+        pluginInfo = {},
+      }
+    )
   end
 
   local authors = table.map(
     string.split(data, '<div class="subhead">%s+(?:from%s+)?[%s\\S]*?by (.-)%s+</div>'),
-    function (str)
-      return str:gsub("^%s+", ""):gsub("%s+$", "")
-    end
+      function(str) return str:gsub("^%s+", ""):gsub("%s+$", "") end
   )
 
-  for i, author in pairs(authors) do
-    tracks[i].info.author = author
-  end
+  for i, author in pairs(authors) do tracks[i].info.author = author end
 
   local artworkUrls = table.map(
     string.split(data, '<div class="art">%s*<img src="(.-)"'),
-    function (str)
-      return str:gsub("^%s+", ""):gsub("%s+$", "")
-    end
+      function(str) return str:gsub("^%s+", ""):gsub("%s+$", "") end
   )
 
-  for i, artworkUrl in pairs(artworkUrls) do
-    tracks[i].info.artworkUrl = artworkUrl
-  end
+  for i, artworkUrl in pairs(artworkUrls) do tracks[i].info.artworkUrl = artworkUrl end
 
   local urls = string.split(data, '<div class="itemurl">%s*<a href="(.-)"')
 
@@ -108,17 +90,12 @@ function BandCamp:search(query)
     tracks[i].pluginInfo = {}
   end
 
-	self._luna.logger:debug('BandCamp', 'Found results for %s: ' .. #tracks, query)
+  self._luna.logger:debug('BandCamp', 'Found results for %s: ' .. #tracks, query)
 
-  return {
-    loadType = 'search',
-    data = tracks
-  }
+  return { loadType = 'search', data = tracks }
 end
 
-function BandCamp:isLinkMatch(query)
-	return query:match("https?://(.-)%.bandcamp%.com")
-end
+function BandCamp:isLinkMatch(query) return query:match("https?://(.-)%.bandcamp%.com") end
 
 function BandCamp:loadForm(query)
   self._luna.logger:debug('BandCamp', 'Loading url: ' .. query)
@@ -126,26 +103,19 @@ function BandCamp:loadForm(query)
   local matches = data:match('<script type="application/ld%+json">(.-)</script>'):gsub("^%s+", ""):gsub("%s+$", "")
 
   if response.code ~= 200 then
-		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
-		return self:buildError(
-		"Server response error: " .. response.code,
-		"fault", "BandCamp Source"
-	)
-	end
+    self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, query)
+    return self:buildError("Server response error: " .. response.code, "fault", "BandCamp Source")
+  end
 
   if not matches then
     self._luna.logger:debug('BandCamp', 'No matches found.')
-    return {
-      loadType = 'empty',
-      data = {}
-    }
+    return { loadType = 'empty', data = {} }
   end
 
   local trackInfo = json.decode(matches)
 
-  self._luna.logger:debug('BandCamp', 'Loaded raw! Type: %s, Query: %s',
-    trackInfo['@type'] == 'MusicRecording' and 'track' or 'album',
-    query
+  self._luna.logger:debug(
+    'BandCamp', 'Loaded raw! Type: %s, Query: %s', trackInfo['@type'] == 'MusicRecording' and 'track' or 'album', query
   )
 
   if trackInfo['@type'] == 'MusicRecording' then
@@ -172,24 +142,14 @@ function BandCamp:loadForm(query)
       uri = trackInfo['@id'],
       artworkUrl = trackInfo.image,
       isrc = nil,
-      sourceName = 'bandcamp'
+      sourceName = 'bandcamp',
     }
 
-    self._luna.logger:debug(
-			'BandCamp',
-			'Loaded track %s by %s from %s',
-			track.title,
-			track.author,
-			query
-		)
+    self._luna.logger:debug('BandCamp', 'Loaded track %s by %s from %s', track.title, track.author, query)
 
     return {
       loadType = 'track',
-      data = {
-        encoded = encoder(track),
-        info = track,
-        pluginInfo = {}
-      }
+      data = { encoded = encoder(track), info = track, pluginInfo = {} },
     }
   end
 
@@ -221,32 +181,22 @@ function BandCamp:loadForm(query)
         uri = trackItem['@id'],
         artworkUrl = trackItem.image,
         isrc = nil,
-        sourceName = 'bandcamp'
+        sourceName = 'bandcamp',
       }
 
-      table.insert(tracks, {
-        encoded = encoder(track),
-        info = track,
-        pluginInfo = {}
-      })
+      table.insert(
+        tracks, { encoded = encoder(track), info = track, pluginInfo = {} }
+      )
     end
 
-    self._luna.logger:debug(
-			'BandCamp',
-			'Loaded playlist %s from %s',
-			trackInfo.name,
-			query
-		)
+    self._luna.logger:debug('BandCamp', 'Loaded playlist %s from %s', trackInfo.name, query)
 
     return {
       loadType = 'album',
       data = {
-        info = {
-          name = trackInfo.name,
-          selectedTrack = 0
-        },
-        tracks = tracks
-      }
+        info = { name = trackInfo.name, selectedTrack = 0 },
+        tracks = tracks,
+      },
     }
   end
 end
@@ -256,28 +206,18 @@ function BandCamp:loadStream(track)
   local streamURL = data:match('https?://t4%.bcbits%.com/stream/[a-zA-Z0-9]+/mp3%-128/%d+?p=%d+%&.-%&quot;')
 
   if response.code ~= 200 then
-		self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, track)
-		return self:buildError(
-		"Server response error: " .. response.code,
-		"fault", "BandCamp Source"
-	)
-	end
+    self._luna.logger:error('BandCamp', "Server response error: %s | On query: %s", response.code, track)
+    return self:buildError("Server response error: " .. response.code, "fault", "BandCamp Source")
+  end
 
   if not streamURL then
-		self._luna.logger:error('BandCamp', "Failed to get stream")
-		return self:buildError(
-			"Failed to get stream",
-			"fault", "BandCamp Source"
-		)
+    self._luna.logger:error('BandCamp', "Failed to get stream")
+    return self:buildError("Failed to get stream", "fault", "BandCamp Source")
   end
 
   self._luna.logger:debug('BandCamp', 'Loading stream url success')
 
-  return {
-    url = streamURL:sub(1, -7),
-    protocol = 'https',
-    format = 'mp3'
-  }
+  return { url = streamURL:sub(1, -7), protocol = 'https', format = 'mp3' }
 end
 
 return BandCamp

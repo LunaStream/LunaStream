@@ -122,8 +122,8 @@ function Sources:loadTracks(query, source)
       data = {
         message = source .. " not avaliable",
         severity = "common",
-        cause = "SourceManager"
-      }
+        cause = "SourceManager",
+      },
     }
   end
   return getSrc:search(query, source)
@@ -133,9 +133,7 @@ function Sources:loadForm(link)
   self._luna.logger:info("SourceManager", "Loading form for link: " .. link)
   for _, src in pairs(self._source_avaliables) do
     local isLinkMatch, additionalData = src:isLinkMatch(link)
-    if isLinkMatch then
-      return src:loadForm(link, additionalData)
-    end
+    if isLinkMatch then return src:loadForm(link, additionalData) end
   end
 
   self._luna.logger:error("SourceManager", "Link invalid or not avaliable!")
@@ -144,8 +142,8 @@ function Sources:loadForm(link)
     data = {
       message = "Link invalid or source not avaliable",
       severity = "common",
-      cause = "SourceManager"
-    }
+      cause = "SourceManager",
+    },
   }
 end
 
@@ -159,8 +157,8 @@ function Sources:loadStream(encodedTrack)
       data = {
         message = track.info.sourceName .. " source not avaliable",
         severity = "common",
-        cause = "SourceManager"
-      }
+        cause = "SourceManager",
+      },
     }
   end
   return getSrc:loadStream(track, self._luna)
@@ -169,13 +167,10 @@ end
 function Sources:getStream(track)
   local streamInfo = self:loadStream(track.encoded)
 
-  if not streamInfo or not streamInfo.url then
-    return nil
-  end
+  if not streamInfo or not streamInfo.url then return nil end
 
   if streamInfo.protocol == "file" then
-    local stream = FileStream:new(streamInfo.url)
-      :pipe(MusicUtils.opus.WebmDemuxer:new())
+    local stream = FileStream:new(streamInfo.url):pipe(MusicUtils.opus.WebmDemuxer:new())
     return stream
   end
 
@@ -183,9 +178,7 @@ function Sources:getStream(track)
   local request = streamClient:setup()
 
   if request.res.code ~= 200 then
-    return self._luna.logger:error("SourceManager", "Stream url response error: "
-      .. request.res.code
-    )
+    return self._luna.logger:error("SourceManager", "Stream url response error: " .. request.res.code)
   end
 
   return request:pipe(MusicUtils.opus.WebmDemuxer:new())

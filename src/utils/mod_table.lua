@@ -8,6 +8,4 @@ local function split(reqTable, start, endIndex)
   return result
 end
 
-return {
-  split = split
-}
+return { split = split }

@@ -15,12 +15,12 @@ function StringStream:_read(n)
     return
   end
   n = self.chunk_size
-	if n < #self._str then
-		local data = string.sub(tostring(self._str), 1, self.chunk_size)
+  if n < #self._str then
+    local data = string.sub(tostring(self._str), 1, self.chunk_size)
     self:push(data)
     self._str = string.sub(tostring(self._str), self.chunk_size + 1)
     collectgarbage('collect')
-		return
+    return
   else
     self:push(self._str)
     self._str = nil

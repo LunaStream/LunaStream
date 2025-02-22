@@ -1,65 +1,57 @@
 -- External Libraries
-local class   = require('class')
-local timer   = require('timer')
-local ffi     = require('ffi')
-local uv      = require('uv')
+local class = require('class')
+local timer = require('timer')
+local ffi = require('ffi')
+local uv = require('uv')
 
 -- Internal Libraries
-local Emitter       = require('./Emitter')
-local WebSocket     = require('./WebSocket')
-local Opus          = require('opus')
+local Emitter = require('./Emitter')
+local WebSocket = require('./WebSocket')
+local Opus = require('opus')
 local UDPController = require('./UDPController')
 
 -- Useful Functions
-local sf          = string.format
+local sf = string.format
 local setInterval = timer.setInterval
 local clearInterval = timer.clearInterval
 
 -- OP Codes
-local IDENTIFY        = 0
+local IDENTIFY = 0
 local SELECT_PROTOCOL = 1
-local READY           = 2
-local HEARTBEAT       = 3
-local DESCRIPTION     = 4
-local SPEAKING        = 5
-local HEARTBEAT_ACK   = 6
-local RESUME          = 7
-local HELLO           = 8
+local READY = 2
+local HEARTBEAT = 3
+local DESCRIPTION = 4
+local SPEAKING = 5
+local HEARTBEAT_ACK = 6
+local RESUME = 7
+local HELLO = 8
 -- local RESUMED      = 9
 
 -- Virtual Enums
-local VOICE_STATE = {
-  disconnected = 'disconnected',
-  connected = 'connected',
-}
-local PLAYER_STATE = {
-  idle = 'idle',
-  playing = 'playing',
-}
+local VOICE_STATE = { disconnected = 'disconnected', connected = 'connected' }
+local PLAYER_STATE = { idle = 'idle', playing = 'playing' }
 
 -- Constants
-local OPUS_SAMPLE_RATE    = 48000
-local OPUS_CHANNELS       = 2
+local OPUS_SAMPLE_RATE = 48000
+local OPUS_CHANNELS = 2
 local OPUS_FRAME_DURATION = 20
 -- Size of chunks read from the audio stream
-local OPUS_CHUNK_SIZE     = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
+local OPUS_CHUNK_SIZE = OPUS_SAMPLE_RATE * OPUS_FRAME_DURATION / 1000
 local OPUS_CHUNK_STRING_SIZE = OPUS_CHUNK_SIZE * 2 * 2
-local OPUS_SILENCE_FRAME  = '\248\255\254'
+local OPUS_SILENCE_FRAME = '\248\255\254'
 local MS_PER_NS = 1 / (1000 * 1000) -- Conversion from nanoseconds to milliseconds
 
 -- Maximum Values Constants for RTP
-local MAX_SEQUENCE  = 0xFFFF
+local MAX_SEQUENCE = 0xFFFF
 local MAX_TIMESTAMP = 0xFFFFFFFF
-local MAX_NONCE     = 0xFFFFFFFF
+local MAX_NONCE = 0xFFFFFFFF
 
 ---------------------------------------------------------------
 -- Function: FMT
 -- Parameters: n (number) - number of 2-byte integers to pack.
 -- Objective: Returns a format string for packing 'n' 2-byte integers.
 ---------------------------------------------------------------
-function FMT(n)
-  return '<' .. string.rep('i2', n)
-end
+function FMT(n) return '<' .. string.rep('i2', n) end
 
 ---------------------------------------------------------------
 -- Function: sleep
@@ -69,11 +61,13 @@ end
 local function sleep(delay)
   local thread = coroutine.running()
   local t = uv.new_timer()
-  t:start(delay, 0, function()
-    t:stop()
-    t:close()
-    return assert(coroutine.resume(thread))
-  end)
+  t:start(
+    delay, 0, function()
+      t:stop()
+      t:close()
+      return assert(coroutine.resume(thread))
+    end
+  )
   return coroutine.yield()
 end
 
@@ -84,11 +78,13 @@ end
 ---------------------------------------------------------------
 local function asyncResume(thread)
   local t = uv.new_timer()
-  t:start(0, 0, function()
-    t:stop()
-    t:close()
-    return assert(coroutine.resume(thread))
-  end)
+  t:start(
+    0, 0, function()
+      t:stop()
+      t:close()
+      return assert(coroutine.resume(thread))
+    end
+  )
 end
 
 ---------------------------------------------------------------
@@ -123,9 +119,7 @@ end
 ---------------------------------------------------------------
 local function splitByChunk(text, chunkSize)
   local s = {}
-  for i = 1, #text, chunkSize do
-    s[#s+1] = text:sub(i, i+chunkSize - 1)
-  end
+  for i = 1, #text, chunkSize do s[#s + 1] = text:sub(i, i + chunkSize - 1) end
   return s
 end
 
@@ -173,22 +167,18 @@ function VoiceManager:__init(guildId, userId, production_mode)
   self._opus = Opus(self:getBinaryPath('opus', production_mode))
   self._nonce = 0
 
-  self._packetStats = {
-    sent = 0,
-    lost = 0,
-    expected = 0,
-  }
+  self._packetStats = { sent = 0, lost = 0, expected = 0 }
 
   self._stream = nil
   self._voiceStream = nil
-  
+
   -- Audio Stream
   self._elapsed = 0
   self._start = 0
   self._filters = {}
-  self._chunk_cache = {}   -- Queue of chunks ready to send
-  self._buffer = ""        -- Buffer to accumulate data that does not yet form a complete chunk
-  self._bufferPos = 0      -- Position in the buffer to start reading from
+  self._chunk_cache = {} -- Queue of chunks ready to send
+  self._buffer = "" -- Buffer to accumulate data that does not yet form a complete chunk
+  self._bufferPos = 0 -- Position in the buffer to start reading from
   self._opusEncoder = nil
 
   -- Memory debug value
@@ -205,11 +195,7 @@ end
 function VoiceManager:getBinaryPath(name, production)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = {
-    win32 = '.dll',
-    linux = '.so',
-    darwin = '.dylib'
-  }
+  local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
   local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
   return production and './native/' .. name or bin_dir
 end
@@ -235,44 +221,50 @@ end
 -- Objective: Establishes a WebSocket connection for voice communication, handling reconnection if needed.
 ---------------------------------------------------------------
 function VoiceManager:connect(reconnect)
-  if self.ws then
-    self.ws:close(1000, 'Normal close')
-  end
+  if self.ws then self.ws:close(1000, 'Normal close') end
 
   local uri = sf('wss://%s/', self.endpoint)
 
-  self._ws = WebSocket({
-    url = uri,
-    path = '/?v=8',
-    headers = {
-      { 'User-Agent', 'DiscordBot (https://github.com/LunaticSea/LunaStream)' }
+  self._ws = WebSocket(
+    {
+      url = uri,
+      path = '/?v=8',
+      headers = { { 'User-Agent', 'DiscordBot (https://github.com/LunaticSea/LunaStream)' } },
     }
-  })
+  )
 
-  self.ws:on('open', function()
-    self.ws:send({
-      op = reconnect and RESUME or IDENTIFY,
-      d = {
-        server_id = self.guild_id,
-        session_id = self.session_id,
-        token = self.token,
-        seq_ack = reconnect and self._seq_ack or nil,
-        user_id = reconnect and nil or self._user_id,
-      }
-    })
-  end)
+  self.ws:on(
+    'open', function()
+      self.ws:send(
+        {
+          op = reconnect and RESUME or IDENTIFY,
+          d = {
+            server_id = self.guild_id,
+            session_id = self.session_id,
+            token = self.token,
+            seq_ack = reconnect and self._seq_ack or nil,
+            user_id = reconnect and nil or self._user_id,
+          },
+        }
+      )
+    end
+  )
 
-  self.ws:on('message', function(data)
-    print('[LunaStream / Voice | WS ]: ' .. data.payload)
-    self:messageEvent(data.json_payload)
-  end)
+  self.ws:on(
+    'message', function(data)
+      print('[LunaStream / Voice | WS ]: ' .. data.payload)
+      self:messageEvent(data.json_payload)
+    end
+  )
 
-  self.ws:on('close', function(code, reason)
-    --- @diagnostic disable-next-line: undefined-global
-    p(code, reason)
-    if not self.ws then return end
-    self:destroyConnection(code, reason)
-  end)
+  self.ws:on(
+    'close', function(code, reason)
+      --- @diagnostic disable-next-line: undefined-global
+      p(code, reason)
+      if not self.ws then return end
+      self:destroyConnection(code, reason)
+    end
+  )
 
   self.ws:connect()
 end
@@ -287,9 +279,7 @@ function VoiceManager:messageEvent(payload)
   local op = payload.op
   local data = payload.d
 
-  if payload.seq then
-    self._seq_ack = payload.seq
-  end
+  if payload.seq then self._seq_ack = payload.seq end
 
   if op == READY then
     self:readyOP(payload)
@@ -315,26 +305,19 @@ end
 -- Objective: Handles the READY operation by updating UDP credentials, performing IP discovery, and selecting the UDP protocol.
 ---------------------------------------------------------------
 function VoiceManager:readyOP(ws_payload)
-  self.udp:updateCredentials(
-    ws_payload.d.ip,
-    ws_payload.d.port,
-    ws_payload.d.ssrc,
-    nil
-  )
+  self.udp:updateCredentials(ws_payload.d.ip, ws_payload.d.port, ws_payload.d.ssrc, nil)
 
   local res = self.udp:ipDiscovery()
 
-  self._ws:send({
-    op = SELECT_PROTOCOL,
-    d = {
-      protocol = 'udp',
-      data = {
-        address = res.ip,
-        port = res.port,
-        mode = self._encryption,
-      }
+  self._ws:send(
+    {
+      op = SELECT_PROTOCOL,
+      d = {
+        protocol = 'udp',
+        data = { address = res.ip, port = res.port, mode = self._encryption },
+      },
     }
-  })
+  )
 
   self.udp:start()
 end
@@ -346,9 +329,7 @@ end
 -- Objective: Starts sending heartbeat messages at regular intervals to maintain the connection.
 ---------------------------------------------------------------
 function VoiceManager:startHeartbeat(heartbeat_timeout)
-  self._heartbeat = setInterval(heartbeat_timeout, function()
-    coroutine.wrap(VoiceManager.sendKeepAlive)(self)
-  end)
+  self._heartbeat = setInterval(heartbeat_timeout, function() coroutine.wrap(VoiceManager.sendKeepAlive)(self) end)
 end
 
 ---------------------------------------------------------------
@@ -359,13 +340,7 @@ end
 function VoiceManager:sendKeepAlive()
   if not self._ws then return end
   self._lastHeartbeatSent = uv.hrtime()
-  self._ws:send({
-    op = HEARTBEAT,
-    d = {
-      t = os.time(),
-      seq_ack = self.seq_ack
-    }
-  })
+  self._ws:send({ op = HEARTBEAT, d = { t = os.time(), seq_ack = self.seq_ack } })
 end
 
 ---------------------------------------------------------------
@@ -400,14 +375,12 @@ end
 --- @param speaking integer Speaking mode (0 = not speaking, 1 = microphone, etc)
 --- @return integer
 function VoiceManager:setSpeaking(speaking)
-  self._ws:send({
-    op = SPEAKING,
-    d = {
-      speaking = speaking,
-      delay = 0,
-      ssrc = self.udp.ssrc,
+  self._ws:send(
+    {
+      op = SPEAKING,
+      d = { speaking = speaking, delay = 0, ssrc = self.udp.ssrc },
     }
-  })
+  )
 
   return speaking
 end
@@ -432,17 +405,13 @@ function VoiceManager:play(stream, options)
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
     return
   end
-  if self._stream and self._stream._readableState.ended == false then
-    error("Already playing a stream")
-  end
+  if self._stream and self._stream._readableState.ended == false then error("Already playing a stream") end
 
   print('[LunaStream / Voice / ' .. self._guild_id .. ']: Playing audio stream...')
 
   self._stream = stream
   self:setSpeaking(1)
-  if needs_encoder then
-    self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS)
-  end
+  if needs_encoder then self._opusEncoder = self._opus.encoder(OPUS_SAMPLE_RATE, OPUS_CHANNELS) end
 
   self._player_state = PLAYER_STATE.playing
 
@@ -563,33 +532,33 @@ function VoiceManager:packetSender(chunk)
   end
 
   local audioPacket = coroutine.wrap(self._prepareAudioPacket)(
-    self, encodedData, encodedLen,
-    self.udp.ssrc, self.udp._sec_key
+    self, encodedData, encodedLen, self.udp.ssrc, self.udp._sec_key
   )
 
   if not audioPacket then
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
     self._packetStats.lost = self._packetStats.lost + 1
   else
-    self.udp:send(audioPacket, function (err)
-      local curr_lost = self._packetStats.lost
-      local curr_sent = self._packetStats.sent
-      if err then
-        print('[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
-        self._packetStats.lost = curr_lost + 1
-      else
-        self._packetStats.sent = curr_sent + 1
+    self.udp:send(
+      audioPacket, function(err)
+        local curr_lost = self._packetStats.lost
+        local curr_sent = self._packetStats.sent
+        if err then
+          print('[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
+          self._packetStats.lost = curr_lost + 1
+        else
+          self._packetStats.sent = curr_sent + 1
+        end
       end
-    end)
+    )
 
     self._bufferPos = self._bufferPos + #chunk
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' ..
-         string.format("%02d:%02d:%02d",
-         math.floor((self.position / 1000) / 3600),
-         math.floor(((self.position / 1000) % 3600) / 60),
-         math.floor((self.position / 1000) % 60)
-        )
+    print(
+      '[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' .. string.format(
+        "%02d:%02d:%02d", math.floor((self.position / 1000) / 3600), math.floor(((self.position / 1000) % 3600) / 60),
+          math.floor((self.position / 1000) % 60)
       )
+    )
   end
   encodedData, encodedLen, audioChuck, audioPacket = nil, nil, {}, nil
 end
@@ -600,9 +569,7 @@ end
 --    filterClass (table) - a filter class to apply.
 -- Objective: Adds an audio filter to the VoiceManager.
 ---------------------------------------------------------------
-function VoiceManager:addFilter(filterClass)
-  self._filters[filterClass.__name] = filterClass
-end
+function VoiceManager:addFilter(filterClass) self._filters[filterClass.__name] = filterClass end
 
 ---------------------------------------------------------------
 -- Function: removeFilter
@@ -610,9 +577,7 @@ end
 --    name (string) - the name of the filter to remove.
 -- Objective: Removes an audio filter from the VoiceManager.
 ---------------------------------------------------------------
-function VoiceManager:removeFilter(name)
-  self._filters[name] = nil
-end
+function VoiceManager:removeFilter(name) self._filters[name] = nil end
 
 ---------------------------------------------------------------
 -- Function: chunkMixer
@@ -623,9 +588,7 @@ end
 function VoiceManager:chunkMixer(chunk)
   if #self._filters == 0 then return chunk end
   local res = chunk
-  for _, filterClass in pairs(self._filters) do
-    res = filterClass:convert(chunk)
-  end
+  for _, filterClass in pairs(self._filters) do res = filterClass:convert(chunk) end
   return res
 end
 
@@ -683,20 +646,18 @@ function VoiceManager:stop(no_force_stop)
   self._paused = nil
   self._resumed = nil
 
-  self._packetStats = {
-    sent = 0,
-    lost = 0,
-    expected = 0,
-  }
+  self._packetStats = { sent = 0, lost = 0, expected = 0 }
   self._player_state = PLAYER_STATE.idle
 
-  self.udp:send(OPUS_SILENCE_FRAME, function(err)
-    if err then
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Failed to send opus silent frame!')
-    else
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Opus silent frame sent!')
+  self.udp:send(
+    OPUS_SILENCE_FRAME, function(err)
+      if err then
+        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Failed to send opus silent frame!')
+      else
+        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Opus silent frame sent!')
+      end
     end
-  end)
+  )
 
   self:setSpeaking(0)
   self:emit("ended")
@@ -728,14 +689,13 @@ function VoiceManager:_prepareAudioPacket(opus_data, opus_length, ssrc, key)
   local nonce = self._udp._crypto:nonce(self._nonce)
   local nonce_padding = ffi.string(nonce, 4)
 
-  local encryptedAudio, encryptedAudioLen = self._udp._crypto:encrypt(opus_data, opus_length, packetWithBasicInfo,
-    #packetWithBasicInfo, nonce, key)
+  local encryptedAudio, encryptedAudioLen = self._udp._crypto:encrypt(
+    opus_data, opus_length, packetWithBasicInfo, #packetWithBasicInfo, nonce, key
+  )
 
   self._packetStats.expected = self._packetStats.expected + 1
 
-  if not encryptedAudio then
-    return nil, encryptedAudioLen
-  end
+  if not encryptedAudio then return nil, encryptedAudioLen end
 
   return packetWithBasicInfo .. ffi.string(encryptedAudio, encryptedAudioLen) .. nonce_padding
 end
@@ -746,27 +706,19 @@ end
 
 -- Getter: guild_id
 -- Returns the guild ID.
-function get:guild_id()
-  return self._guild_id
-end
+function get:guild_id() return self._guild_id end
 
 -- Getter: user_id
 -- Returns the user ID.
-function get:user_id()
-  return self._user_id
-end
+function get:user_id() return self._user_id end
 
 -- Getter: voice_state
 -- Returns the current voice connection state.
-function get:voice_state()
-  return self._voice_state
-end
+function get:voice_state() return self._voice_state end
 
 -- Getter: player_state
 -- Returns the current audio player state.
-function get:player_state()
-  return self._player_state
-end
+function get:player_state() return self._player_state end
 
 -- Getter: Position
 -- Returns the current position in the audio stream.
@@ -777,56 +729,38 @@ end
 
 -- Getter: session_id
 -- Returns the session ID.
-function get:session_id()
-  return self._session_id
-end
+function get:session_id() return self._session_id end
 
 -- Getter: endpoint
 -- Returns the voice server endpoint.
-function get:endpoint()
-  return self._endpoint
-end
+function get:endpoint() return self._endpoint end
 
 -- Getter: token
 -- Returns the authentication token.
-function get:token()
-  return self._token
-end
+function get:token() return self._token end
 
 -- Getter: ws
 -- Returns the WebSocket instance.
-function get:ws()
-  return self._ws
-end
+function get:ws() return self._ws end
 
 -- Getter: ping
 -- Returns the current ping value.
-function get:ping()
-  return self._ping
-end
+function get:ping() return self._ping end
 
 -- Getter: seq_ack
 -- Returns the current sequence acknowledgment value.
-function get:seq_ack()
-  return self._seq_ack
-end
+function get:seq_ack() return self._seq_ack end
 
 -- Getter: udp
 -- Returns the UDP controller instance.
-function get:udp()
-  return self._udp
-end
+function get:udp() return self._udp end
 
 -- Getter: encryption
 -- Returns the current encryption mode.
-function get:encryption()
-  return self._encryption
-end
+function get:encryption() return self._encryption end
 
 -- Getter: heartbeat
 -- Returns the heartbeat timer.
-function get:heartbeat()
-  return self._heartbeat
-end
+function get:heartbeat() return self._heartbeat end
 
 return VoiceManager

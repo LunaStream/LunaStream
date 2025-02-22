@@ -10,10 +10,10 @@ local read_options = {
   chunkSize = 65536,
   fd = nil,
   reading = nil,
-  length = nil -- nil means read to EOF
+  length = nil, -- nil means read to EOF
 }
 
-local read_meta = {__index=read_options}
+local read_meta = { __index = read_options }
 
 function FileStream:initialize(path, options)
   Readable.initialize(self, { objectMode = true })
@@ -45,22 +45,14 @@ end
 function FileStream:_read(n)
   local to_read = self.chunkSize or n
 
-  if self.length then
-    if to_read + self.bytesRead > self.length then
-      to_read = self.length - self.bytesRead
-    end
-  end
+  if self.length then if to_read + self.bytesRead > self.length then to_read = self.length - self.bytesRead end end
 
   local bytes = fs.readSync(self.fd, to_read, self.offset)
-  if type(bytes) ~= "string" then
-    return self:destroy(bytes)
-  end
+  if type(bytes) ~= "string" then return self:destroy(bytes) end
 
   if #bytes > 0 then
     self.bytesRead = self.bytesRead + #bytes
-    if self.offset then
-      self.offset = self.offset + #bytes
-    end
+    if self.offset then self.offset = self.offset + #bytes end
     self:push(bytes)
   else
     self:close()
@@ -68,9 +60,7 @@ function FileStream:_read(n)
   end
 end
 
-function FileStream:close()
-  self:destroy()
-end
+function FileStream:close() self:destroy() end
 
 function FileStream:destroy(err)
   if err then self:emit('error', err) end

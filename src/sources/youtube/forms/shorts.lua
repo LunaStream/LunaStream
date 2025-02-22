@@ -11,25 +11,24 @@ return function(query, src_type, youtube)
       error = {
         message = "Invalid Shorts video ID",
         severity = "common",
-        domain = "YouTube Source"
-      }
+        domain = "YouTube Source",
+      },
     }
   end
 
   local response, data = http.request(
-    "POST",
-    string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
-    {
+    "POST", string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)), {
       { "User-Agent", youtube._clientManager.ytContext.client.userAgent },
       { "X-GOOG-API-FORMAT-VERSION", "2" },
-      { "Content-Type", "application/json" }
-    },
-    json.encode({
-      context = youtube._clientManager.ytContext,
-      videoId = videoId,
-      contentCheckOk = true,
-      racyCheckOk = true
-    })
+      { "Content-Type", "application/json" },
+    }, json.encode(
+      {
+        context = youtube._clientManager.ytContext,
+        videoId = videoId,
+        contentCheckOk = true,
+        racyCheckOk = true,
+      }
+    )
   )
 
   if response.code ~= 200 then
@@ -39,8 +38,8 @@ return function(query, src_type, youtube)
       error = {
         message = "Server response error: " .. response.code,
         severity = "fault",
-        domain = "YouTube Source"
-      }
+        domain = "YouTube Source",
+      },
     }
   end
 
@@ -53,8 +52,8 @@ return function(query, src_type, youtube)
       error = {
         message = data.error and data.error.message or data.playabilityStatus.reason or "Video is not available",
         severity = "common",
-        domain = "YouTube Source"
-      }
+        domain = "YouTube Source",
+      },
     }
   end
 
@@ -68,17 +67,14 @@ return function(query, src_type, youtube)
     position = 0,
     title = video.title or "Unknown title",
     uri = string.format("https://%s/watch?v=%s", youtube:baseHostRequest(src_type), video.videoId),
-    artworkUrl = video.thumbnail and video.thumbnail.thumbnails and video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url or nil,
+    artworkUrl = video.thumbnail and video.thumbnail.thumbnails and
+      video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url or nil,
     isrc = nil,
-    sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube'
+    sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube',
   }
 
   return {
     loadType = "short",
-    data = {
-      encoded = encoder(track),
-      info = track,
-      pluginInfo = {}
-    }
+    data = { encoded = encoder(track), info = track, pluginInfo = {} },
   }
 end

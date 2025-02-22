@@ -6,10 +6,7 @@
   authors = {
     "Tim Caswell"
   }
-]]
-
--- http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA_All.pdf
-
+]] -- http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA_All.pdf
 local bit = require('bit')
 local band = bit.band
 local bor = bit.bor
@@ -25,21 +22,15 @@ local concat = table.concat
 local floor = table.floor
 
 local hasFFi, ffi = pcall(require, "ffi")
-local newBlock = hasFFi and function ()
-  return ffi.new("uint32_t[80]")
-end or function ()
+local newBlock = hasFFi and function() return ffi.new("uint32_t[80]") end or function()
   local t = {}
-  for i = 0, 79 do
-    t[i] = 0
-  end
+  for i = 0, 79 do t[i] = 0 end
   return t
 end
 
 local shared = newBlock()
 
-local function unsigned(n)
-  return n < 0 and (n + 0x100000000) or n
-end
+local function unsigned(n) return n < 0 and (n + 0x100000000) or n end
 
 local function create(sync)
   local h0 = 0x67452301
@@ -59,9 +50,7 @@ local function create(sync)
   function update(chunk)
     local length = #chunk
     totalLength = totalLength + length * 8
-    for i = 1, length do
-      write(byte(chunk, i))
-    end
+    for i = 1, length do write(byte(chunk, i)) end
   end
 
   function write(data)
@@ -72,18 +61,14 @@ local function create(sync)
       offset = offset + 1
       shift = 24
     end
-    if offset == 16 then
-      return processBlock()
-    end
+    if offset == 16 then return processBlock() end
   end
 
   -- No more data will come, pad the block, process and return the result.
   function digest()
     -- Pad
     write(0x80)
-    if offset > 14 or (offset == 14 and shift < 24) then
-      processBlock()
-    end
+    if offset > 14 or (offset == 14 and shift < 24) then processBlock() end
     offset = 14
     shift = 24
 
@@ -92,28 +77,17 @@ local function create(sync)
     write(0x00) -- ..So just hard-code to zero.
     write(totalLength > 0xffffffffff and floor(totalLength / 0x10000000000) or 0x00)
     write(totalLength > 0xffffffff and floor(totalLength / 0x100000000) or 0x00)
-    for s = 24, 0, -8 do
-      write(rshift(totalLength, s))
-    end
+    for s = 24, 0, -8 do write(rshift(totalLength, s)) end
 
     -- At this point one last processBlock() should trigger and we can pull out the result.
-    return concat {
-      tohex(h0),
-      tohex(h1),
-      tohex(h2),
-      tohex(h3),
-      tohex(h4)
-    }
+    return concat { tohex(h0), tohex(h1), tohex(h2), tohex(h3), tohex(h4) }
   end
 
   -- We have a full block to process.  Let's do it!
   function processBlock()
 
     -- Extend the sixteen 32-bit words into eighty 32-bit words:
-    for i = 16, 79, 1 do
-      W[i] =
-        rol(bxor(W[i - 3], W[i - 8], W[i - 14], W[i - 16]), 1)
-    end
+    for i = 16, 79, 1 do W[i] = rol(bxor(W[i - 3], W[i - 8], W[i - 14], W[i - 16]), 1) end
 
     -- print("Block Contents:")
     -- for i = 0, 15 do
@@ -147,18 +121,7 @@ local function create(sync)
         f = bxor(b, c, d)
         k = 0xCA62C1D6
       end
-      e, d, c, b, a =
-        d,
-        c,
-        rol(b, 30),
-        a,
-        tobit(
-          unsigned(rol(a, 5)) +
-          unsigned(f) +
-          unsigned(e) +
-          unsigned(k) +
-          W[t]
-        )
+      e, d, c, b, a = d, c, rol(b, 30), a, tobit(unsigned(rol(a, 5)) + unsigned(f) + unsigned(e) + unsigned(k) + W[t])
       -- print(string.format(format, t, tohex(a), tohex(b), tohex(c), tohex(d), tohex(e)))
     end
 
@@ -171,23 +134,16 @@ local function create(sync)
 
     -- The block is now reusable.
     offset = 0
-    for i = 0, 15 do
-      W[i] = 0
-    end
+    for i = 0, 15 do W[i] = 0 end
   end
 
-  return {
-    update = update,
-    digest = digest
-  }
+  return { update = update, digest = digest }
 
 end
 
-return function (buffer)
+return function(buffer)
   -- Pass in false or nil to get a streaming interface.
-  if not buffer then
-    return create(false)
-  end
+  if not buffer then return create(false) end
   local shasum = create(true)
   shasum.update(buffer)
   return shasum.digest()

@@ -2,7 +2,7 @@ local ffi = require('ffi')
 
 local new, gc = ffi.new, ffi.gc
 
-return function (opus_main)
+return function(opus_main)
   local Decoder = {}
   Decoder.__index = Decoder
 

@@ -18,9 +18,7 @@ function HTTPDirectPlay:setup() return self end
 function HTTPDirectPlay:search(query) end
 
 -- This one is not optimized
-function HTTPDirectPlay:isLinkMatch(query)
-  return url.parse(query).path:match("%.%w+$") ~= nil
-end
+function HTTPDirectPlay:isLinkMatch(query) return url.parse(query).path:match("%.%w+$") ~= nil end
 
 function HTTPDirectPlay:loadForm(query)
   self._luna.logger:debug('HTTPDirectPlay', 'Loading url: %s', query)
@@ -28,12 +26,9 @@ function HTTPDirectPlay:loadForm(query)
 
   if response.code ~= 200 then
     p(response)
-		self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, query)
-		return self:buildError(
-      "Server response error: " .. response.code,
-      "fault", "SoundCloud Source"
-    )
-	end
+    self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, query)
+    return self:buildError("Server response error: " .. response.code, "fault", "SoundCloud Source")
+  end
 
   local content_type = self:getHttpHeaders(response, 'content-type')
 
@@ -53,27 +48,19 @@ function HTTPDirectPlay:loadForm(query)
     uri = query,
     artworkUrl = nil,
     isrc = nil,
-    sourceName = 'http'
+    sourceName = 'http',
   }
 
   self._luna.logger:debug('HTTPDirectPlay', 'Loaded url: %s', query)
 
   return {
     loadType = 'track',
-    data = {
-      encoded = encoder(track),
-      info = track,
-      pluginInfo = {}
-    }
+    data = { encoded = encoder(track), info = track, pluginInfo = {} },
   }
 end
 
 function HTTPDirectPlay:getHttpHeaders(res, req)
-  for _, header in pairs(res) do
-    if type(header) == "table" and header[1]:lower() == req then
-      return header
-    end
-  end
+  for _, header in pairs(res) do if type(header) == "table" and header[1]:lower() == req then return header end end
   return nil
 end
 
@@ -81,11 +68,8 @@ function HTTPDirectPlay:loadStream(track, additionalData)
   local response, _ = http.request("GET", track.info.uri)
 
   if response.code ~= 200 then
-		self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, track.info.uri)
-		return self:buildError(
-      "Server response error: " .. response.code,
-      "fault", "SoundCloud Source"
-    )
+    self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, track.info.uri)
+    return self:buildError("Server response error: " .. response.code, "fault", "SoundCloud Source")
   end
 
   local content_type = self:getHttpHeaders(response, 'content-type')
@@ -93,7 +77,7 @@ function HTTPDirectPlay:loadStream(track, additionalData)
   return {
     url = track.info.uri,
     protocol = 'https',
-    format = content_type[2]:match('audio/(.+)')
+    format = content_type[2]:match('audio/(.+)'),
   }
 end
 

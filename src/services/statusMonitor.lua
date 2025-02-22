@@ -2,9 +2,7 @@ local class = require('class')
 
 local StatusMonitor = class('StatusMonitor')
 
-function StatusMonitor:__init(luna)
-  self._luna = luna
-end
+function StatusMonitor:__init(luna) self._luna = luna end
 
 function StatusMonitor:get()
   return {

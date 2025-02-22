@@ -6,9 +6,7 @@
   license = "MIT"
   author = { name = "Tim Caswell" }
   homepage = "https://github.com/creationix/weblit/blob/master/libs/mime.lua"
-]]
-
-local mime = {}
+]] local mime = {}
 local table = {
   ["3gp"] = "video/3gpp",
   a = "application/octet-stream",
@@ -166,8 +164,8 @@ local table = {
   vcf = "text/x-vcard",
   vcs = "text/x-vcalendar",
   vrml = "model/vrml",
-  war  = "application/java-archive",
-  wav  = "audio/x-wav",
+  war = "application/java-archive",
+  wav = "audio/x-wav",
   webm = "video/webm",
   wma = "audio/x-ms-wma",
   wmv = "video/x-ms-wmv",
@@ -188,8 +186,6 @@ local table = {
 mime.table = table
 mime.default = "application/octet-stream"
 
-function mime.getType(path)
-  return mime.table[path:lower():match("[^.]*$")] or mime.default
-end
+function mime.getType(path) return mime.table[path:lower():match("[^.]*$")] or mime.default end
 
 return mime

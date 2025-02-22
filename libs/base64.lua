@@ -5,9 +5,7 @@
   version = "2.0.0"
   license = "MIT"
   author = { name = "Tim Caswell" }
-]]
-
-local bit = require 'bit'
+]] local bit = require 'bit'
 local rshift = bit.rshift
 local lshift = bit.lshift
 local bor = bit.bor
@@ -30,17 +28,9 @@ local function base64Encode(str)
     local a, b, c = byte(str, i, i + 2)
     parts[j] = char(
       -- Higher 6 bits of a
-      byte(codes, rshift(a, 2) + 1),
-      -- Lower 2 bits of a + high 4 bits of b
-      byte(codes, bor(
-        lshift(band(a, 3), 4),
-        b and rshift(b, 4) or 0
-      ) + 1),
-      -- Low 4 bits of b + High 2 bits of c
-      b and byte(codes, bor(
-        lshift(band(b, 15), 2),
-        c and rshift(c, 6) or 0
-      ) + 1) or 61, -- 61 is '='
+      byte(codes, rshift(a, 2) + 1), -- Lower 2 bits of a + high 4 bits of b
+      byte(codes, bor(lshift(band(a, 3), 4), b and rshift(b, 4) or 0) + 1), -- Low 4 bits of b + High 2 bits of c
+      b and byte(codes, bor(lshift(band(b, 15), 2), c and rshift(c, 6) or 0) + 1) or 61, -- 61 is '='
       -- Lower 6 bits of c
       c and byte(codes, band(c, 63) + 1) or 61 -- 61 is '='
     )
@@ -51,9 +41,7 @@ end
 
 -- Reverse map from character code to 6-bit integer
 local map = {}
-for i = 1, #codes do
-  map[byte(codes, i)] = i - 1
-end
+for i = 1, #codes do map[byte(codes, i)] = i - 1 end
 
 -- loop over input 4 characters at a time
 -- The characters are mapped to 4 x 6-bit integers a,b,c,d
@@ -108,7 +96,4 @@ assert(base64Decode("Zm9vYg==") == "foob")
 assert(base64Decode("Zm9vYmE=") == "fooba")
 assert(base64Decode("Zm9vYmFy") == "foobar")
 
-return {
-  encode = base64Encode,
-  decode = base64Decode,
-}
+return { encode = base64Encode, decode = base64Decode }

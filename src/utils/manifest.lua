@@ -2,7 +2,7 @@ local bundle = require("luvi").bundle
 local fs = require("fs")
 local json = require("json")
 
-return function (isDevMode)
+return function(isDevMode)
   if isDevMode then
     local data = fs.readFileSync('./manifest.json')
     return json.decode(data)

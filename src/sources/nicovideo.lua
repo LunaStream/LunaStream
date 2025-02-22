@@ -9,9 +9,7 @@ local class = require('class')
 
 local NicoVideo = class('NicoVideo', AbstractSource)
 
-function NicoVideo:__init(luna)
-  self._luna = luna
-end
+function NicoVideo:__init(luna) self._luna = luna end
 
 function NicoVideo:buildOutputData(fulldata)
   local response_json = fulldata.data.response
@@ -31,12 +29,8 @@ function NicoVideo:buildOutputData(fulldata)
   if not top_audio_id then return outputs end
 
   for _, video in pairs(response_json.media.domand.videos) do
-    if not table.includes(quality, video.label) then
-      goto continue
-    end
-    if video.isAvailable then
-      table.insert(outputs, { video.id, top_audio_id })
-    end
+    if not table.includes(quality, video.label) then goto continue end
+    if video.isAvailable then table.insert(outputs, { video.id, top_audio_id }) end
     ::continue::
   end
 
@@ -75,9 +69,7 @@ function NicoVideo:buildParam(params)
   return str
 end
 
-function NicoVideo:setup()
-  return self
-end
+function NicoVideo:setup() return self end
 
 function NicoVideo:search(query)
   self._luna.logger:debug('NicoVideo', 'Searching: ' .. query)
@@ -89,7 +81,7 @@ function NicoVideo:search(query)
     page = 1,
     allowFutureContents = true,
     searchByUser = false,
-    sensitiveContent = 'mask'
+    sensitiveContent = 'mask',
   }
 
   params = self:buildParam(params)
@@ -100,10 +92,7 @@ function NicoVideo:search(query)
 
   if search_res.code ~= 200 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", search_res.code, query)
-		return self:buildError(
-			"Server response error: " .. search_res.code,
-			"fault", "NicoVideo Source"
-		)
+    return self:buildError("Server response error: " .. search_res.code, "fault", "NicoVideo Source")
   end
 
   fulldata = json.decode(fulldata)
@@ -122,27 +111,20 @@ function NicoVideo:search(query)
       uri = 'https://www.nicovideo.jp/watch/' .. item.id,
       artworkUrl = item.thumbnail.url,
       isrc = nil,
-      sourceName = 'nicovideo'
+      sourceName = 'nicovideo',
     }
 
-    table.insert(tracks, {
-      encoded = encoder(track),
-      info = track,
-      pluginInfo = {}
-    })
+    table.insert(
+      tracks, { encoded = encoder(track), info = track, pluginInfo = {} }
+    )
   end
 
   self._luna.logger:debug('NicoVideo', 'Found results for %s: ' .. #tracks, query)
 
-	return {
-		loadType = #tracks == 0 and 'empty' or "search",
-		data = tracks
-	}
+  return { loadType = #tracks == 0 and 'empty' or "search", data = tracks }
 end
 
-function NicoVideo:isLinkMatch(query)
-	return query:match("https?://(.-)%.nicovideo%.jp")
-end
+function NicoVideo:isLinkMatch(query) return query:match("https?://(.-)%.nicovideo%.jp") end
 
 function NicoVideo:loadForm(query)
   self._luna.logger:debug('NicoVideo', 'Loading url: ' .. query)
@@ -151,20 +133,17 @@ function NicoVideo:loadForm(query)
 
   if track_res.code ~= 200 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", track_res.code, query)
-		return self:buildError(
-			"Server response error: " .. track_res.code,
-			"fault", "NicoVideo Source"
-		)
+    return self:buildError("Server response error: " .. track_res.code, "fault", "NicoVideo Source")
   end
 
   fulldata = json.decode(fulldata)
 
-  local track_info = table.filter(fulldata.data.metadata.jsonLds, function (data)
-    return data['@type'] == "VideoObject"
-  end)[1]
+  local track_info = table.filter(
+                       fulldata.data.metadata.jsonLds, function(data) return data['@type'] == "VideoObject" end
+                     )[1]
 
   local track = {
-    identifier =  fulldata.data.response.client.watchId,
+    identifier = fulldata.data.response.client.watchId,
     isSeekable = true,
     author = track_info.author.name,
     length = 320948,
@@ -174,24 +153,14 @@ function NicoVideo:loadForm(query)
     uri = track_info['@id'],
     artworkUrl = track_info.thumbnail[1].url,
     isrc = nil,
-    sourceName = 'nicovideo'
+    sourceName = 'nicovideo',
   }
 
-  self._luna.logger:debug(
-    'NicoVideo',
-    'Loaded track %s by %s from %s',
-    track.title,
-    track.author,
-    query
-  )
+  self._luna.logger:debug('NicoVideo', 'Loaded track %s by %s from %s', track.title, track.author, query)
 
   return {
     loadType = 'track',
-    data = {
-      encoded = encoder(track),
-      info = track,
-      pluginInfo = {}
-    }
+    data = { encoded = encoder(track), info = track, pluginInfo = {} },
   }
 end
 
@@ -200,10 +169,7 @@ function NicoVideo:loadStream(track)
 
   if track_res.code ~= 200 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", track_res.code, track.info.uri)
-		return self:buildError(
-			"Server response error: " .. track_res.code,
-			"fault", "NicoVideo Source"
-		)
+    return self:buildError("Server response error: " .. track_res.code, "fault", "NicoVideo Source")
   end
 
   fulldata = json.decode(fulldata)
@@ -211,30 +177,23 @@ function NicoVideo:loadStream(track)
   local response = fulldata.data.response
 
   local request_stream_link = string.format(
-    'https://nvapi.nicovideo.jp/v1/watch/%s/access-rights/hls?actionTrackId=%s&__retry=1',
-    track.info.identifier, urlp.encode(response.client.watchTrackId)
+    'https://nvapi.nicovideo.jp/v1/watch/%s/access-rights/hls?actionTrackId=%s&__retry=1', track.info.identifier,
+      urlp.encode(response.client.watchTrackId)
   )
 
   local stream_res, stream_data = http.request(
-    "POST",
-    request_stream_link,
-    self:buildHeaders(response.media.domand.accessRightKey),
-    json.encode({
-      outputs = self:buildOutputData(fulldata),
-    })
+    "POST", request_stream_link, self:buildHeaders(response.media.domand.accessRightKey),
+      json.encode({ outputs = self:buildOutputData(fulldata) })
   )
 
   if stream_res.code ~= 201 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", stream_res.code, track.info.uri)
-		return self:buildError(
-			"Server response error: " .. stream_res.code,
-			"fault", "NicoVideo Source"
-		)
+    return self:buildError("Server response error: " .. stream_res.code, "fault", "NicoVideo Source")
   end
 
-  local stream_res_cookie = table.find(stream_res, function (res)
-    if type(res) == "table" and  string.lower(res[1]) == 'set-cookie' then return true end
-  end)
+  local stream_res_cookie = table.find(
+    stream_res, function(res) if type(res) == "table" and string.lower(res[1]) == 'set-cookie' then return true end end
+  )
 
   stream_data = json.decode(stream_data)
 
@@ -244,11 +203,7 @@ function NicoVideo:loadStream(track)
     url = stream_data.data.contentUrl,
     protocol = 'hls_segment',
     format = 'mp4', -- IDK about this format,
-    auth = {
-      headers = {
-        { 'cookie', stream_res_cookie[2] }
-      }
-    }
+    auth = { headers = { { 'cookie', stream_res_cookie[2] } } },
   }
 end
 
