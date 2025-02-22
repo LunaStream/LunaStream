@@ -579,9 +579,16 @@ function VoiceManager:packetSender(chunk)
       else
         self._packetStats.sent = curr_sent + 1
       end
-      self._bufferPos = self._bufferPos + #chunk
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' .. self.position)
     end)
+    
+    self._bufferPos = self._bufferPos + #chunk
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' ..
+         string.format("%02d:%02d:%02d",
+         math.floor((self.position / 1000) / 3600),
+         math.floor(((self.position / 1000) % 3600) / 60),
+         math.floor((self.position / 1000) % 60)
+        )
+      )
   end
   encodedData, encodedLen, audioChuck, audioPacket = nil, nil, {}, nil
 end
