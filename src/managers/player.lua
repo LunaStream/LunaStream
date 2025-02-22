@@ -32,6 +32,7 @@ function Player:__init(luna, guildId, sessionId)
     self.state = {}
     self.voice = voice(self._guildId, self._userId)
     self.update_loop_interval = nil
+    self.close_connection_function = nil
 end
 
 function Player:new()
@@ -74,6 +75,12 @@ function Player:play(track)
         return
     end
 
+    self.close_connection_function = function ()
+        if stream.connection and stream.connection.socket.close then
+            return stream.connection.socket:close()
+        end
+    end
+
     self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
 
     if self.voice then
@@ -93,7 +100,7 @@ function Player:play(track)
 
         self:_startUpdateLoop()
 
-        self.voice:on("ended", function()
+        self.voice:once("ended", function()
             self._luna.logger:info('Player', 
                 string.format('Track %s ended for guild %s', self.track.info.title, self._guildId))
 
@@ -126,6 +133,7 @@ end
 function Player:stop()
     if self.voice then
         self.voice:stop()
+        self.close_connection_function()
         self.playing = false
         self._luna.logger:info('Player',
             string.format('Track %s stopped for guild %s', self.track.info.title, self._guildId))

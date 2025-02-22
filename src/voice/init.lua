@@ -472,8 +472,12 @@ function VoiceManager:continuousSend()
     if type(data) == 'table' then
       print('[LunaStream / Voice / ' .. self._guild_id .. ']: Stream ended, no more data to send.')
       self._chunk_cache = {}
+      self:stop(true)
       break
     end
+
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Sending chunk...')
+    self:packetSender(data)
 
     if self._paused then
       print('[LunaStream / Voice / ' .. self._guild_id .. ']: Stream paused, waiting to resume...')
@@ -486,9 +490,6 @@ function VoiceManager:continuousSend()
       self._resumed = nil
     end
 
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Sending chunk...')
-    self:packetSender(data)
-
     -- Update elapsed time and calculate delay for the next chunk
     self._elapsed = self._elapsed + OPUS_FRAME_DURATION
     local delay = self._elapsed - (uv.hrtime() - self._start) * MS_PER_NS
@@ -497,7 +498,7 @@ function VoiceManager:continuousSend()
     sleep(delay)
   end
 
-  self:stop()
+  -- self:stop()
 end
 
 ---------------------------------------------------------------
@@ -657,22 +658,28 @@ end
 -- Parameters: None
 -- Objective: Stops the audio stream, cleans up resources, sends a silent frame, and emits the "ended" event.
 ---------------------------------------------------------------
-function VoiceManager:stop()
+function VoiceManager:stop(no_force_stop)
   p('[LunaStream / Voice / ' .. self._guild_id .. ']: Total stream stats: ', self._packetStats)
-  
+
+  if not no_force_stop then
+    self:pause()
+    self._stop = true
+    self:resume()
+  end
+
   if self._stream then
     self._stream:removeAllListeners()
     setmetatable(self._stream, { __mode = "kv" })
   end
   self._stream = nil
-  
+
   self._chunk_cache = {}
   self._buffer = ""
   self._bufferPos = 0
-  
+
   self._filters = {}
   self._opusEncoder = nil
-  
+
   self._paused = nil
   self._resumed = nil
 
@@ -693,6 +700,8 @@ function VoiceManager:stop()
 
   self:setSpeaking(0)
   self:emit("ended")
+
+  self._stop = false
 
   collectgarbage('collect')
   p('[LunaStream / Voice]: Memory before', self._mem_before)

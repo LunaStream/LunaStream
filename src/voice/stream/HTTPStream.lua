@@ -102,11 +102,9 @@ function HTTPStream:setup(custom_uri, redirect_count)
     connection.reset()
   end
 
-  if res.keepAlive then
-    http.saveConnection(connection)
-  else
-    write()
-  end
+  -- Shouldn't save the connection because may cause some trouble with sable stream
+  -- If we need this in the future, this function may help: http.saveConnection(connection)
+  write()
 
   self.res = res
   self:emit('response', self)
@@ -150,13 +148,11 @@ function HTTPStream:_read(n)
     local chunk = self.connection.read()
     self.read_coro_running = false
     if type(chunk) == "string" and #chunk == 0 then
-      self.ended = true    
+      self.ended = true
+      self.connection.socket:close()
       return self:push({})
     elseif type(chunk) == "string" then
       return self:push(chunk)
-    else 
-      self.ended = true     
-      return self:push({})
     end
   end)()
 end

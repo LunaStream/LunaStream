@@ -27,6 +27,7 @@ function HTTPDirectPlay:loadForm(query)
   local response, _ = http.request("GET", query)
 
   if response.code ~= 200 then
+    p(response)
 		self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, query)
 		return self:buildError(
       "Server response error: " .. response.code,

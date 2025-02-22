@@ -46,13 +46,19 @@ function WebSocket:connect()
 	end
 end
 
+function WebSocket:read_status_code(str)
+	if #str < 2 then return nil, "Invalid data" end
+  local byte1, byte2 = str:byte(1, 2)
+  return bit.lshift(byte1, 8) + byte2
+end
+
 function WebSocket:_listen_msg()
 	for data in self._ws_read do
-		if data.payload == '\003\233' then
-			self:emit('close', 1006, 'Host disconnected')
-			return
-		elseif string.match(data.payload, '\015\166') then
-			self:emit('close', 4006, data.payload:sub(3))
+		if data.opcode == 8 then
+			local code = self:read_status_code(data.payload:sub(1, 2))
+			local message = #data.payload <= 2 and 'Unknown' or data.payload:sub(3, #data.payload)
+			self:emit('close', code, message)
+			self._close_event_sent = true
 			return
 		elseif not data.payload then
 			self:emit('error', data.error)
@@ -66,6 +72,7 @@ function WebSocket:_listen_msg()
 		self:emit('close', 1006, 'Host disconnected')
 		self._close_event_sent = false
 	end
+	self._close_event_sent = false
 end
 
 ---Close the websocket connection
