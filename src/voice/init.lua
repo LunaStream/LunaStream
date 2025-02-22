@@ -580,7 +580,7 @@ function VoiceManager:packetSender(chunk)
         self._packetStats.sent = curr_sent + 1
       end
     end)
-    
+
     self._bufferPos = self._bufferPos + #chunk
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' ..
          string.format("%02d:%02d:%02d",
@@ -659,19 +659,31 @@ end
 ---------------------------------------------------------------
 function VoiceManager:stop()
   p('[LunaStream / Voice / ' .. self._guild_id .. ']: Total stream stats: ', self._packetStats)
-  self._stream:removeAllListeners()
-  setmetatable(self._stream, { __mode = "kv" })
-
+  
+  if self._stream then
+    self._stream:removeAllListeners()
+    setmetatable(self._stream, { __mode = "kv" })
+  end
   self._stream = nil
+  
+  self._chunk_cache = {}
+  self._buffer = ""
+  self._bufferPos = 0
+  
+  self._filters = {}
+  self._opusEncoder = nil
+  
+  self._paused = nil
+  self._resumed = nil
+
   self._packetStats = {
     sent = 0,
     lost = 0,
     expected = 0,
   }
-
   self._player_state = PLAYER_STATE.idle
 
-  self.udp:send(OPUS_SILENCE_FRAME, function (err)
+  self.udp:send(OPUS_SILENCE_FRAME, function(err)
     if err then
       print('[LunaStream / Voice / ' .. self._guild_id .. ']: Failed to send opus silent frame!')
     else
@@ -681,7 +693,6 @@ function VoiceManager:stop()
 
   self:setSpeaking(0)
   self:emit("ended")
-  self._bufferPos = 0;
 
   collectgarbage('collect')
   p('[LunaStream / Voice]: Memory before', self._mem_before)
