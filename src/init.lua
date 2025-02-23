@@ -282,10 +282,16 @@ function LunaStream:setupWebsocket()
       -- When disconnected
       clearInterval(self._sessions[session_id].interval)
       self._logger:info('WebSocket', 'Connection closed with %s', client_name)
-
+      
       -- Check is ressuming enabled
       if not self._sessions[session_id].resuming then
+        -- Destroy all players in session
+        for _, player in pairs(self._sessions[session_id].players) do
+          player:destroy()
+        end
+        
         self._sessions[session_id] = nil
+        collectgarbage("collect")
         return
       end
 
