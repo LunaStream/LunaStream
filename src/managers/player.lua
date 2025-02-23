@@ -140,6 +140,52 @@ function Player:stop()
   end
 end
 
+function Player:pause()
+  if self.voice then
+    self.voice:pause()
+    self.paused = true
+    self._luna.logger:info(
+      'Player', string.format('Track %s paused for guild %s', self.track.info.title, self._guildId)
+    )
+  end
+end
+
+function Player:resume()
+  if self.voice then
+    self.voice:resume()
+    self.paused = false
+    self._luna.logger:info(
+      'Player', string.format('Track %s resumed for guild %s', self.track.info.title, self._guildId)
+    )
+  end
+end
+
+function Player:seek(position)
+  -- //TODO: Implement seeking
+end
+
+function Player:setVolume(volume)
+  -- //TODO: Implement volume control, wait VolumeTransformer implementation
+end
+
+function Player:setFilters(filters)
+  -- //TODO: Implement filters
+end
+
+function Player:destroy()
+  self:stop()
+  if self.voice then
+    self.voice:destroy()
+    self.voice = nil
+  end
+  if self.update_loop_interval then
+    timer.clearInterval(self.update_loop_interval)
+    self.update_loop_interval = nil
+  end
+  self._luna.logger:info('Player', string.format('Player for guild %s destroyed', self._guildId))
+  collectgarbage("collect")
+end
+
 function Player:sendWsMessage(data)
   local payload = json.encode(data)
   coroutine.wrap(
