@@ -191,7 +191,7 @@ function Facebook:loadStream(track)
     return self:buildError(err or "Video not found", "fault", "Facebook Source")
   end
 
-  return { url = videoData.videoUrl, format = "mp4", protocol = "http" }
+  return { url = videoData.videoUrl, format = "mp4", protocol = "http", keepAlive = true }
 end
 
 return Facebook

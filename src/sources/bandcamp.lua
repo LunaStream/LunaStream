@@ -232,7 +232,7 @@ function BandCamp:loadStream(track)
 
   self._luna.logger:debug('BandCamp', 'Loading stream url success')
 
-  return { url = streamURL:sub(1, -7), protocol = 'https', format = 'mp3' }
+  return { url = streamURL:sub(1, -7), protocol = 'https', format = 'mp3', keepAlive = true }
 end
 
 return BandCamp

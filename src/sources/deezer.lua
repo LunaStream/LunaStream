@@ -322,6 +322,7 @@ function Deezer:loadStream(track)
     format = (string.sub(body.data[1].media[1].format, 1, string.len("MP3")) == "MP3") and 'mp3' or 'flac',
     protocol = 'http',
     extra = data.results.data[1],
+    keepAlive = true
   }
 end
 

@@ -29,7 +29,7 @@ function HTTPStream:setup(custom_uri, redirect_count)
     options = self.customOptions or {}
   end
   options.followRedirects = options.followRedirects == nil and true or options.followRedirects
-  options.keepAlive = self.customOptions.removeKeepAlive and false or true
+  options.keepAlive = self.customOptions.keepAlive and true or false
 
   local uri = custom_uri and http.parseUrl(custom_uri) or self.uri
   local connection = http.getConnection(uri.hostname, uri.port, uri.tls, options.timeout)

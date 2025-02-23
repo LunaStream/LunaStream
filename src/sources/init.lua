@@ -181,7 +181,7 @@ function Sources:getStream(track)
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
 
   local streamClient = HTTPStream:new('GET', streamInfo.url, headers, nil, {
-    removeKeepAlive = streamInfo.removeKeepAlive
+    keepAlive = streamInfo.keepAlive
   })
 
   local request = streamClient:setup()

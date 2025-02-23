@@ -222,6 +222,7 @@ function NicoVideo:loadStream(track)
     protocol = 'hls_segment',
     format = 'mp4', -- IDK about this format,
     auth = { headers = { { 'cookie', stream_res_cookie[2] } } },
+    keepAlive = true
   }
 end
 

@@ -63,6 +63,7 @@ function LocalFile:loadStream(track, additionalData)
     url = track.info.uri,
     protocol = 'file',
     format = track.info.uri:match("%.([^.]+)$") or 'unknown',
+    keepAlive = false
   }
 end
 

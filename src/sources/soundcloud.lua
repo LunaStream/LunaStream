@@ -283,6 +283,7 @@ function SoundCloud:loadStream(track)
     url = stream_url,
     protocol = transcoding.format.protocol == 'hls' and 'hls_segment' or transcoding.format.protocol,
     format = oggOpus and 'ogg/opus' or 'arbitrary',
+    keepAlive = true
   }
 end
 
