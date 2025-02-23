@@ -10,6 +10,7 @@ return function(answer, guild_id, players)
   end
 
   if players[guild_id] then
+    players[guild_id]:destroy()
     players[guild_id] = nil
     return answer("", 204, { ["Content-Type"] = "application/json" })
   end
