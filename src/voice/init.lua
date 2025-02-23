@@ -706,6 +706,50 @@ function VoiceManager:stop(no_force_stop)
   p('[LunaStream / Voice]: Memory before', self._mem_before)
   p('[LunaStream / Voice]: Memory after', process.memoryUsage())
 end
+---------------------------------------------------------------
+-- Function: destroy
+-- Parameters: None
+-- Objective: Releases all resources associated with the VoiceManager instance,
+--            stops the transmission, closes connections, and clears buffers and listeners.
+---------------------------------------------------------------
+function VoiceManager:destroy()
+  self:stop(true)
+
+  if self._heartbeat then
+    clearInterval(self._heartbeat)
+    self._heartbeat = nil
+  end
+
+  if self._ws then
+    self._ws:close(1000, "Destroying VoiceManager")
+    self._ws:cleanEvents()
+    self._ws = nil
+  end
+
+  if self._udp then
+    self._udp:stop()
+    self._udp = nil
+  end
+
+  if self._stream then
+    self._stream:removeAllListeners()
+    self._stream = nil
+  end
+
+  self._chunk_cache = {}
+  self._buffer = ""
+  self._bufferPos = 0
+  self._filters = {}
+  self._opusEncoder = nil
+  self._paused = nil
+  self._resumed = nil
+  self._packetStats = { sent = 0, lost = 0, expected = 0 }
+  self._player_state = PLAYER_STATE.idle
+
+  collectgarbage("collect")
+
+  self:emit("destroy")
+end
 
 ---------------------------------------------------------------
 -- Function: _prepareAudioPacket
