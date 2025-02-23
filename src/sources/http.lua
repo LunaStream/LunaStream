@@ -87,7 +87,7 @@ function HTTPDirectPlay:loadStream(track, additionalData)
     url = track.info.uri,
     protocol = 'https',
     format = content_type[2]:match('audio/(.+)'),
-    removeKeepAlive = true
+    keepAlive = false
   }
 end
 

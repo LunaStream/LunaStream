@@ -196,7 +196,7 @@ function Vimeo:loadStream(track)
     return data
   end
 
-  return { url = playbackUrl, format = "hls", protocol = "http" }
+  return { url = playbackUrl, format = "hls", protocol = "http", keepAlive = true }
 end
 
 return Vimeo

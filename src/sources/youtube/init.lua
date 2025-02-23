@@ -302,7 +302,7 @@ function YouTube:loadStream(track)
     )
   )
 
-  return { url = url, format = "webm/opus", protocol = "http" }
+  return { url = url, format = "webm/opus", protocol = "http", keepAlive = true }
 end
 
 return YouTube

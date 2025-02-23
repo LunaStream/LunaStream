@@ -458,6 +458,7 @@ function Twitch:loadStream(track)
     format = "ts",
     protocol = "hls",
     isStream = true,
+    keepAlive = true
   }
 end
 

@@ -111,7 +111,7 @@ function Kwai:loadStream(track)
     return self:buildError("Video URL not found", "fault", "Kwai Source")
   end
 
-  return { url = url, format = "mp4", protocol = "http" }
+  return { url = url, format = "mp4", protocol = "http", keepAlive = true }
 end
 
 return Kwai
