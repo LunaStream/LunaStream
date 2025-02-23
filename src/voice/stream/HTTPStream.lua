@@ -29,6 +29,7 @@ function HTTPStream:setup(custom_uri, redirect_count)
     options = self.customOptions or {}
   end
   options.followRedirects = options.followRedirects == nil and true or options.followRedirects
+  options.keepAlive = self.customOptions.removeKeepAlive and false or true
 
   local uri = custom_uri and http.parseUrl(custom_uri) or self.uri
   local connection = http.getConnection(uri.hostname, uri.port, uri.tls, options.timeout)
@@ -104,11 +105,12 @@ function HTTPStream:setup(custom_uri, redirect_count)
 
   -- Shouldn't save the connection because may cause some trouble with sable stream
   -- If we need this in the future, this function may help: http.saveConnection(connection)
-  if res.keepAlive then
+  if res.keepAlive and options.keepAlive then
     http.saveConnection(connection)
   else
     write()
   end
+
   self.res = res
   self:emit('response', self)
   local content_length = self:getHeader('content-length')

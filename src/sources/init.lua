@@ -178,7 +178,12 @@ function Sources:getStream(track)
     return stream
   end
 
-  local streamClient = HTTPStream:new('GET', streamInfo.url)
+  local headers = streamInfo.auth and streamInfo.auth.headers or nil
+
+  local streamClient = HTTPStream:new('GET', streamInfo.url, headers, nil, {
+    removeKeepAlive = streamInfo.removeKeepAlive
+  })
+
   local request = streamClient:setup()
 
   if request.res.code ~= 200 then
