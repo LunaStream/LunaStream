@@ -297,7 +297,7 @@ function LunaStream:setupWebsocket()
 
       -- Start timing out resuming
       local timeout = self._sessions[session_id].timeout
-      self._logger:info('WebSocket', 'Session %s have resuming, waiting for %s secconds', session_id, timeout)
+      self._logger:info('WebSocket', 'Session %s have resuming, waiting for %s secconds', session_id, timeout / 1000)
 
       setTimeout(
         timeout, function()
