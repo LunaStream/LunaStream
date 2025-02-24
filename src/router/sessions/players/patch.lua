@@ -33,7 +33,9 @@ return function(req, answer, luna, guild_id, players, session_id)
   end
 
   if body.track then
-    player:play(body.track)
+    if noReplace ~= true or next(player.track) == nil then
+      player:play(body.track)
+    end
   end
 
   players[guild_id] = player
