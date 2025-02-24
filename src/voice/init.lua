@@ -477,10 +477,12 @@ function VoiceManager:continuousSend()
     end
 
     local data = self:cacheReader()
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk type: ', type(data))
 
     -- If the chunk is nil, running a challenge that chunk have to
     -- pass a valid chunk before timeout
     if type(data) == "nil" then
+      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk nil detected, setup timeout challenge')
       if self._challenge then goto continue end
       self._challenge = timer.setTimeout(self._challenge_timeout, coroutine.wrap(function ()
         print('[LunaStream / Voice / ' .. self._guild_id .. ']: Track stucked, pause the track')
@@ -504,15 +506,14 @@ function VoiceManager:continuousSend()
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Sending chunk...')
     self:packetSender(data)
 
+    ::continue::
+
     -- Update elapsed time and calculate delay for the next chunk
     self._elapsed = self._elapsed + OPUS_FRAME_DURATION
     local delay = self._elapsed - (uv.hrtime() - self._start) * MS_PER_NS
     delay = math.max(delay, 0)
     print('[LunaStream / Voice / ' .. self._guild_id .. ']: Next chunk will be sent in ' .. delay .. ' ms.')
     sleep(delay)
-
-    -- Execute when goto continue called
-    ::continue::
   end
 end
 
@@ -532,6 +533,7 @@ end
 ---------------------------------------------------------------
 function VoiceManager:clearChallenge()
   if self._challenge then
+    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk valid, challenge passed')
     timer.clearTimeout(self._challenge)
     self._challenge = nil
   end

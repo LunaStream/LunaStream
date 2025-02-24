@@ -28,9 +28,9 @@ local function playfunction()
 
   p('[HTTPStream / Response]: ', requestStream.res)
 
-  requestStream:on('ECONNREFUSED', function ()
-    p('[HTTPStream]: Connection terminated')
-  end)
+  -- requestStream:on('ECONNREFUSED', function ()
+  --   p('[HTTPStream]: Connection terminated')
+  -- end)
 
   local audioStream = requestStream
     :pipe(MusicUtils.opus.WebmDemuxer:new())
