@@ -2,6 +2,7 @@ local http = require("coro-http")
 local stream = require("stream")
 local PassThrough = stream.PassThrough
 local MusicUtils = require("musicutils")
+local mpg123_transform = require('mpg123')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 local FileStream = require("../voice/stream/FileStream")
@@ -176,11 +177,11 @@ function Sources:getStream(track)
 
   if streamInfo.protocol == "file" then
     local stream = FileStream:new(streamInfo.url):pipe(MusicUtils.opus.WebmDemuxer:new())
-    return stream
+    return stream, streamInfo.format
   end
 
   if streamInfo.format == "hls" then
-    return self:loadHLS(streamInfo.url, streamInfo.type)
+    return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
   end
 
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
@@ -194,8 +195,12 @@ function Sources:getStream(track)
   if request.res.code ~= 200 then
     return self._luna.logger:error("SourceManager", "Stream url response error: " .. request.res.code)
   end
-
-  return request:pipe(MusicUtils.opus.WebmDemuxer:new())
+  if streamInfo.format == "mp3" then
+    print("mp3")
+    return request:pipe(mpg123_transform:new('./bin/mpg123/win32/x64.dll')), streamInfo.format
+  else
+    return request:pipe(MusicUtils.opus.WebmDemuxer:new()), streamInfo.format
+  end
 end
 
 function Sources:loadHLS(url, type)

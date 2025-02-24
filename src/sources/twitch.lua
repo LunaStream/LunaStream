@@ -503,7 +503,7 @@ function Twitch:loadVodStream(track)
   }
   local query = self:buildParam(params)
   local vod_url = string.format("https://usher.ttvnw.net/vod/%s.m3u8?%s", vod_id, query)
-  return { url = vod_url, format = "ts", protocol = "hls", isStream = false }
+  return { url = vod_url, format = "mp4", protocol = "hls", isStream = false, type = "segment" }
 end
 
 function Twitch:parseM3U8(data)

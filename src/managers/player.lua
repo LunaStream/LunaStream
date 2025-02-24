@@ -61,7 +61,7 @@ function Player:play(track)
 
   self._luna.logger:info('Player', string.format('Playing track %s', self.track.info.title))
 
-  local stream = self._luna.sources:getStream(self.track)
+  local stream, format = self._luna.sources:getStream(self.track)
 
   if not stream then
     self._luna.logger:error('Player', 'Failed to load stream')
@@ -73,8 +73,12 @@ function Player:play(track)
       return stream.connection.socket:close()
     end
   end
-
-  self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
+  
+  if format == "mp3" then
+    self._stream = stream
+  else
+    self._stream = stream:pipe(MusicUtils.opus.Decoder:new(self.voice._opus))
+  end
 
   if self.voice then
     self.voice:play(self._stream, { encoder = true })
