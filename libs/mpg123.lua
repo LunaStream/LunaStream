@@ -56,7 +56,7 @@ function Mpg123Decoder:initialize(bin_path)
 end
 
 function Mpg123Decoder:_get_error()
-  return "Erro desconhecido no mpg123"
+  return "Error unknown"
 end
 
 function Mpg123Decoder:_transform(chunk, done)
@@ -86,11 +86,11 @@ function Mpg123Decoder:_transform(chunk, done)
     self._lib.mpg123_getformat(self._mh, rate, channels, encoding)
 
     self._config_decoder_yet = true
-  end
-
-  local feed_result = self._lib.mpg123_feed(self._mh, input_buffer, #chunk)
-  if feed_result ~= 0 then
-    error("Erro no feed: " .. self:_get_error())
+  else
+    local feed_result = self._lib.mpg123_feed(self._mh, input_buffer, #chunk)
+    if feed_result ~= 0 then
+      error("Erro no feed: " .. self:_get_error())
+    end
   end
 
   local out_buffer = ffi.new("unsigned char[?]", self._max_chunk)
@@ -106,7 +106,7 @@ function Mpg123Decoder:_transform(chunk, done)
       local encoding_ptr = ffi.new("int[1]")
       local fmt_res = self._lib.mpg123_getformat(self._mh, rate_ptr, channels_ptr, encoding_ptr)
       if fmt_res ~= 0 then
-        error("Erro ao obter novo formato: " .. self:_get_error())
+        error("Error getting format: " .. self:_get_error())
       end
       local native_rate = tonumber(rate_ptr[0])
       local desired_rate = nil
@@ -124,10 +124,10 @@ function Mpg123Decoder:_transform(chunk, done)
       self._lib.mpg123_format_none(self._mh)
       local fmtResult = self._lib.mpg123_format(self._mh, desired_rate, 2, 0x10)
       if fmtResult ~= 0 then
-        error(string.format("Erro ao configurar formato com %d Hz: %s", desired_rate, self:_get_error()))
+        error(string.format("Error setting format to %dHz, 16-bit, stereo: %s", desired_rate, self:_get_error()))
       end
       self._format_configured = true
-      -- Após reconfigurar, tenta ler novamente.
+      -- Last chunk was a format change, so we need to read again
       read_result = self._lib.mpg123_read(self._mh, out_buffer, self._max_chunk, done_char)
     end
 
