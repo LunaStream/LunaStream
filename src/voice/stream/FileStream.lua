@@ -45,6 +45,7 @@ function FileStream:open()
 end
 
 function FileStream:_read(n)
+  if not self.fd then return end
   local to_read = self.chunkSize or n
 
   if self.length then

@@ -23,7 +23,7 @@ function UDPController:getBinaryPath(name, production)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
-  local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
+  local bin_dir = string.format('./bin/%s/%s/%s%s', name, os_name, arch, lib_name_list[os_name])
   return production and './native/' .. name or bin_dir
 end
 

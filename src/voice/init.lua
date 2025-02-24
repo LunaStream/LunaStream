@@ -204,7 +204,7 @@ function VoiceManager:getBinaryPath(name, production)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
-  local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
+  local bin_dir = string.format('./bin/%s/%s/%s%s', name, os_name, arch, lib_name_list[os_name])
   return production and './native/' .. name or bin_dir
 end
 
@@ -477,21 +477,6 @@ function VoiceManager:continuousSend()
     end
 
     local data = self:cacheReader()
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk type: ', type(data))
-
-    -- If the chunk is nil, running a challenge that chunk have to
-    -- pass a valid chunk before timeout
-    if type(data) == "nil" then
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk nil detected, setup timeout challenge')
-      if self._challenge then goto continue end
-      self._challenge = timer.setTimeout(self._challenge_timeout, coroutine.wrap(function ()
-        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Track stucked, pause the track')
-        self:emit('stucked')
-        self._challenge = nil
-        self:pause()
-      end))
-      goto continue
-    end
 
     if type(data) == 'table' then
       print('[LunaStream / Voice / ' .. self._guild_id .. ']: Stream ended, no more data to send.')
@@ -499,6 +484,20 @@ function VoiceManager:continuousSend()
       self:clearChallenge()
       self:stop(true)
       break
+    end
+
+    -- If the chunk is nil, running a challenge that chunk have to
+    -- pass a valid chunk before timeout
+    if type(data) == "nil" then
+      if self._challenge then goto continue end
+      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk nil detected, setup timeout challenge')
+      self._challenge = timer.setTimeout(self._challenge_timeout, coroutine.wrap(function ()
+        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Track stucked, pause the track')
+        self:emit('stucked')
+        self._challenge = nil
+        self:pause()
+      end))
+      goto continue
     end
 
     self:clearChallenge()

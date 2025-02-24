@@ -214,7 +214,7 @@ end
 
 function Player:_startUpdateLoop()
   self.update_loop_interval = timer.setInterval(
-    1000, function()
+    5000, function()
       coroutine.wrap(self._sendPlayerUpdate)(self)
     end
   )
