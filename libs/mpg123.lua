@@ -1,6 +1,16 @@
 local Transform = require('stream').Transform
 local ffi = require("ffi")
+local uv = require('uv')
 local Mpg123Decoder = Transform:extend()
+
+function setImmediate(fn)
+  local timer = uv.new_timer()
+  timer:start(0, 0, function()
+    timer:stop()
+    timer:close()
+    fn()
+  end)
+end
 
 function Mpg123Decoder:initialize(bin_path)
   Transform.initialize(self, { objectMode = true })
@@ -93,13 +103,14 @@ function Mpg123Decoder:_transform(chunk, done)
     end
   end
 
-  local out_buffer = ffi.new("unsigned char[?]", self._max_chunk)
-  local done_char = ffi.new("size_t[1]")
   local MPG123_NEW_FORMAT = -11
 
-  while true do
+  -- Function to read from mpg123 and push to the next stream
+  local function readAndPush()
+    local out_buffer = ffi.new("unsigned char[?]", self._max_chunk)
+    local done_char = ffi.new("size_t[1]")
     local read_result = self._lib.mpg123_read(self._mh, out_buffer, self._max_chunk, done_char)
-    
+
     if (not self._format_configured) and read_result == MPG123_NEW_FORMAT then
       local rate_ptr = ffi.new("long[1]")
       local channels_ptr = ffi.new("int[1]")
@@ -127,17 +138,21 @@ function Mpg123Decoder:_transform(chunk, done)
         error(string.format("Error setting format to %dHz, 16-bit, stereo: %s", desired_rate, self:_get_error()))
       end
       self._format_configured = true
-      -- Last chunk was a format change, so we need to read again
+      -- last read was a format change, so we need to read again
       read_result = self._lib.mpg123_read(self._mh, out_buffer, self._max_chunk, done_char)
     end
 
-    if read_result ~= 0 then break end
-
-    local res = ffi.string(out_buffer, done_char[0])
-    self:push(res)
+    if read_result == 0 then
+      local res = ffi.string(out_buffer, done_char[0])
+      self:push(res)
+      -- schedule next read
+      setImmediate(readAndPush)
+    else
+      return done(nil)
+    end
   end
 
-  return done(nil)
+  readAndPush()
 end
 
 function Mpg123Decoder:close()
@@ -145,5 +160,6 @@ function Mpg123Decoder:close()
   self._lib.mpg123_delete(self._mh)
   self._lib.mpg123_exit()
 end
+
 
 return Mpg123Decoder
