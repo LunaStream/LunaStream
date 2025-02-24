@@ -1,5 +1,6 @@
 local http = require("coro-http")
-local https = require("https")
+local stream = require("stream")
+local PassThrough = stream.PassThrough
 local MusicUtils = require("musicutils")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
@@ -178,6 +179,10 @@ function Sources:getStream(track)
     return stream
   end
 
+  if streamInfo.format == "hls" then
+    return self:loadHLS(streamInfo.url, streamInfo.type)
+  end
+
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
 
   local streamClient = HTTPStream:new('GET', streamInfo.url, headers, nil, {
@@ -191,6 +196,72 @@ function Sources:getStream(track)
   end
 
   return request:pipe(MusicUtils.opus.WebmDemuxer:new())
+end
+
+function Sources:loadHLS(url, type)
+  local stream = PassThrough:new()
+
+  if type == "segment" then
+    coroutine.wrap(function()
+      local res, body = http.request("GET", url)
+      if res.code ~= 200 then
+        self._luna.logger:error("loadHLS", "HTTP error in segment: " .. res.code)
+        stream:close()
+        return
+      end
+      local chunkSize = 16 * 1024
+      local bodyLength = #body
+      for i = 1, bodyLength, chunkSize do
+        local chunk = body:sub(i, math.min(i + chunkSize - 1, bodyLength))
+        stream:write(chunk)
+        coroutine.yield()
+      end
+      stream:close()
+    end)()
+    return stream
+
+  elseif type == "playlist" then
+    coroutine.wrap(function()
+      local res, playlistBody = http.request("GET", url)
+      if res.code ~= 200 then
+        self._luna.logger:error("loadHLS", "HTTP error in playlist: " .. res.code)
+        stream:close()
+        return
+      end
+
+      local segments = {}
+      for line in playlistBody:gmatch("[^\r\n]+") do
+        if not line:match("^#") and line:match("%S") then
+          table.insert(segments, line)
+        end
+      end
+
+      for _, segUrl in ipairs(segments) do
+        if not segUrl:match("^https?://") then
+          local baseUrl = url:match("(.*/)")
+          segUrl = baseUrl .. segUrl
+        end
+
+        local segRes, segBody = http.request("GET", segUrl)
+        if segRes.code == 200 then
+          local chunkSize = 16 * 1024
+          local segLength = #segBody
+          for i = 1, segLength, chunkSize do
+            local chunk = segBody:sub(i, math.min(i + chunkSize - 1, segLength))
+            stream:write(chunk)
+            coroutine.yield()
+          end
+        else
+          self._luna.logger:error("loadHLS", "HTTP error in segment: " .. segRes.code)
+        end
+      end
+
+      stream:close()
+    end)()
+    return stream
+  end
+
+  return stream
 end
 
 return Sources
