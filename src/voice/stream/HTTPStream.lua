@@ -112,6 +112,7 @@ function HTTPStream:setup(custom_uri, redirect_count)
   end
 
   self.res = res
+  self.pushed_count = 0
   self:emit('response', self)
   local content_length = self:getHeader('content-length')
   if content_length then
@@ -162,6 +163,14 @@ function HTTPStream:_read(n)
         end
         return self:push({})
       elseif type(chunk) == "string" then
+        self.pushed_count = self.pushed_count + #chunk
+        if self.content_length and self.content_length == self.pushed_count then
+          self.ended = true
+          if not self.connection.socket:is_closing() then
+            self.connection.socket:close()
+          end
+          return self:push({})
+        end
         return self:push(chunk)
       end
     end
