@@ -18,14 +18,16 @@ return {
   author = { name = "RainyXeon", email = "minh15052008@gmail.com" },
   homepage = "https://github.com/LunaticSea/LunaStream",
   dependencies = {
+    -- Third party package
+    "creationix/mime@2.0.0",
     "creationix/coro-http@v3.2.3",
+    -- Local package (install for luvi bundling)
     "luvit/luvit@2.18.1",
-    "luvit/process@2.1.3",
-    "luvit/dns@2.0.4",
     "luvit/secure-socket@1.2.3",
     "luvit/coro-websocket@3.1.1",
-    "luvit/websocket-codec@v3.0.2",
     "luvit/json@2.5.2",
+    "luvit/querystring@2.0.1",
+    "luvit/sha1@1.0.4",
   },
   files = {
     "**.lua",

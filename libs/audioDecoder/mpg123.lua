@@ -3,7 +3,7 @@ local ffi = require("ffi")
 local uv = require('uv')
 local Mpg123Decoder = Transform:extend()
 
-function setImmediate(fn)
+local function setImmediate(fn)
   local timer = uv.new_timer()
   timer:start(0, 0, function()
     timer:stop()

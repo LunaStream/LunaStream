@@ -262,7 +262,7 @@ function VoiceManager:connect(reconnect)
 
   self.ws:on(
     'message', function(data)
-      print('[LunaStream / Voice | WS ]: ' .. data.payload)
+      self:emit('debug', '[LunaStream / Voice | WS ]: ' .. data.payload)
       self:messageEvent(data.json_payload)
     end
   )
@@ -270,7 +270,6 @@ function VoiceManager:connect(reconnect)
   self.ws:on(
     'close', function(code, reason)
       --- @diagnostic disable-next-line: undefined-global
-      p(code, reason)
       if not self.ws then
         return
       end
@@ -308,7 +307,7 @@ function VoiceManager:messageEvent(payload)
   elseif op == HEARTBEAT_ACK then
     local elapsed_ns = uv.hrtime() - self._lastHeartbeatSent
     self._ping = math.floor(elapsed_ns / 1000000)
-    print('[LunaStream / Voice]: Heartbeat ACK received, ping: ' .. self.ping .. 'ms')
+    self:emit('debug', '[LunaStream / Voice]: Heartbeat ACK received, ping: ' .. self.ping .. 'ms')
   end
 end
 
@@ -422,14 +421,14 @@ function VoiceManager:play(stream, options)
   self._filters = options.filters or {}
 
   if not self._ws then
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
+    self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Voice connection is not ready')
     return
   end
   if self._stream and self._stream._readableState.ended == false then
     error("Already playing a stream")
   end
 
-  print('[LunaStream / Voice / ' .. self._guild_id .. ']: Playing audio stream...')
+  self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Playing audio stream...')
 
   self._stream = stream
   self:setSpeaking(1)
@@ -461,12 +460,12 @@ end
 function VoiceManager:continuousSend()
   while true do
     if self._stop then
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Stopping continuous chunk flow.')
+      self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Stopping continuous chunk flow.')
       break
     end
 
     if self._paused then
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Stream paused, waiting to resume...')
+      self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Stream paused, waiting to resume...')
       asyncResume(self._paused)
       self._paused = coroutine.running()
       local pause = uv.hrtime()
@@ -479,7 +478,7 @@ function VoiceManager:continuousSend()
     local data = self:cacheReader()
 
     if type(data) == 'table' then
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Stream ended, no more data to send.')
+      self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Stream ended, no more data to send.')
       self._chunk_cache = {}
       self:clearChallenge()
       self:stop(true)
@@ -490,9 +489,9 @@ function VoiceManager:continuousSend()
     -- pass a valid chunk before timeout
     if type(data) == "nil" then
       if self._challenge then goto continue end
-      print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk nil detected, setup timeout challenge')
+      self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk nil detected, setup timeout challenge')
       self._challenge = timer.setTimeout(self._challenge_timeout, coroutine.wrap(function ()
-        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Track stucked, pause the track')
+        self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Track stucked, pause the track')
         self:emit('stucked')
         self._challenge = nil
         self:pause()
@@ -502,7 +501,7 @@ function VoiceManager:continuousSend()
 
     self:clearChallenge()
 
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Sending chunk...')
+    self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Sending chunk...')
     self:packetSender(data)
 
     ::continue::
@@ -511,7 +510,7 @@ function VoiceManager:continuousSend()
     self._elapsed = self._elapsed + OPUS_FRAME_DURATION
     local delay = self._elapsed - (uv.hrtime() - self._start) * MS_PER_NS
     delay = math.max(delay, 0)
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Next chunk will be sent in ' .. delay .. ' ms.')
+    self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Next chunk will be sent in ' .. delay .. ' ms.')
     sleep(delay)
   end
 end
@@ -532,7 +531,7 @@ end
 ---------------------------------------------------------------
 function VoiceManager:clearChallenge()
   if self._challenge then
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk valid, challenge passed')
+    self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk valid, challenge passed')
     timer.clearTimeout(self._challenge)
     self._challenge = nil
   end
@@ -584,7 +583,7 @@ function VoiceManager:packetSender(chunk)
   local pcmLen = OPUS_CHUNK_SIZE * OPUS_CHANNELS
 
   if not chunk or #chunk < pcmLen then
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk too short')
+    self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Chunk too short')
     return
   end
 
@@ -606,7 +605,7 @@ function VoiceManager:packetSender(chunk)
   )
 
   if not audioPacket then
-    print('[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
+    self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
     self._packetStats.lost = self._packetStats.lost + 1
   else
     self.udp:send(
@@ -614,7 +613,7 @@ function VoiceManager:packetSender(chunk)
         local curr_lost = self._packetStats.lost
         local curr_sent = self._packetStats.sent
         if err then
-          print('[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
+          self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: audio packet is nil/lost')
           self._packetStats.lost = curr_lost + 1
         else
           self._packetStats.sent = curr_sent + 1
@@ -623,7 +622,7 @@ function VoiceManager:packetSender(chunk)
     )
 
     self._bufferPos = self._bufferPos + #chunk
-    print(
+    self:emit('debug', 
       '[LunaStream / Voice / ' .. self._guild_id .. ']: Position in buffer: ' .. string.format(
         "%02d:%02d:%02d", math.floor((self.position / 1000) / 3600), math.floor(((self.position / 1000) % 3600) / 60),
           math.floor((self.position / 1000) % 60)
@@ -704,7 +703,7 @@ end
 -- Objective: Stops the audio stream, cleans up resources, sends a silent frame, and emits the "ended" event.
 ---------------------------------------------------------------
 function VoiceManager:stop(no_force_stop)
-  p('[LunaStream / Voice / ' .. self._guild_id .. ']: Total stream stats: ', self._packetStats)
+  self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Total stream stats: ', self._packetStats)
 
   if not no_force_stop then
     self:pause()
@@ -734,9 +733,9 @@ function VoiceManager:stop(no_force_stop)
   self.udp:send(
     OPUS_SILENCE_FRAME, function(err)
       if err then
-        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Failed to send opus silent frame!')
+        self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Failed to send opus silent frame!')
       else
-        print('[LunaStream / Voice / ' .. self._guild_id .. ']: Opus silent frame sent!')
+        self:emit('debug', '[LunaStream / Voice / ' .. self._guild_id .. ']: Opus silent frame sent!')
       end
     end
   )
@@ -747,8 +746,8 @@ function VoiceManager:stop(no_force_stop)
   self._stop = false
 
   collectgarbage('collect')
-  p('[LunaStream / Voice]: Memory before', self._mem_before)
-  p('[LunaStream / Voice]: Memory after', process.memoryUsage())
+  self:emit('debug', '[LunaStream / Voice]: Memory before', self._mem_before)
+  self:emit('debug', '[LunaStream / Voice]: Memory after', process.memoryUsage())
 end
 ---------------------------------------------------------------
 -- Function: destroy

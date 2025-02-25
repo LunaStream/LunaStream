@@ -2,7 +2,7 @@ local http = require("coro-http")
 local stream = require("stream")
 local PassThrough = stream.PassThrough
 local MusicUtils = require("musicutils")
-local mpg123_transform = require('mpg123')
+local audioDecoder = require('audioDecoder')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 local FileStream = require("../voice/stream/FileStream")
@@ -197,7 +197,7 @@ function Sources:getStream(track)
   end
   if streamInfo.format == "mp3" then
     print("mp3")
-    return request:pipe(mpg123_transform:new('./bin/mpg123/win32/x64.dll')), streamInfo.format
+    return request:pipe(audioDecoder.mpg123:new('./bin/mpg123/win32/x64.dll')), streamInfo.format
   else
     return request:pipe(MusicUtils.opus.WebmDemuxer:new()), streamInfo.format
   end
