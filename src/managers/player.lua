@@ -43,6 +43,10 @@ function Player:updateVoiceState(voiceState)
     self.voice = voice(self._guildId, self._userId)
   end
 
+  self.voice:on('debug', function (log)
+    self._luna.logger:debug('VoiceDebug', log)
+  end)
+
   self.voice:voiceCredential(voiceState.sessionId, voiceState.endpoint, voiceState.token)
   self.voice:connect()
   self._state.connected = true

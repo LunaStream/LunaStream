@@ -155,7 +155,7 @@ function HTTPStream:_read(n)
       self.read_coro_running = true
       local chunk = self.connection.read()
       self.read_coro_running = false
-      p('HTTPStream: ', type(chunk) == "string" and #chunk or chunk)
+      -- p('HTTPStream: ', type(chunk) == "string" and #chunk or chunk)
       if type(chunk) == "string" and #chunk == 0 then
         self.ended = true
         if not self.connection.socket:is_closing() then

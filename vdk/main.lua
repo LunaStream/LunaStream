@@ -117,9 +117,9 @@ end
 
 function VoiceDevelopmentKit:log(inspect, data, ...)
   if not inspect then
-    return print('[LunaStream | VDK]: ' .. string.format(data, ...))
+    return print(string.format(data, ...))
   end
-  return p('[LunaStream | VDK]: ', data)
+  return p(data)
 end
 
 VoiceDevelopmentKit()
