@@ -185,53 +185,26 @@ function Sources:getStream(track)
     return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
   end
 
-  if track.info.sourceName == "deezer" then
-    local stream = stream.Readable:new()
-    local source = self._source_avaliables["deezer"]
-    local decryptionKey = "g4el58wc0zvf9na1"
-    local trackKey = source:calculateKey(track.info.identifier, decryptionKey)
-    local outputStream = Readable:new()
-    local blockIndex = 0
   
-    local res, body = http.request("GET", streamInfo.url)
-    if res.code ~= 200 then
-      self._luna.logger:error("deezer", "HTTP error in deezer: " .. res.code)
-      return nil
-    end
-    local newBody = "";
-    coroutine.wrap(function()
-      local offset = 1
-      while offset <= #body do
-        local block = body:sub(offset, offset + #body - 1)
-        blockIndex = blockIndex + 1
-        local decryptedBlock
-        if blockIndex % 3 == 0 then
-          decryptedBlock = source:decryptAudioBlock(block, trackKey, blockIndex)
-        else
-          decryptedBlock = block
-        end
-        p("block", blockIndex, #decryptedBlock)
-        outputStream.push(decryptedBlock)
-        offset = offset + #body
-        coroutine.yield() 
-      end
-      outputStream:close()
-    end)()
-
-    return outputStream:pipe(audioDecoder.mpg123:new('./bin/mpg123/win32/x64.dll')), streamInfo.format
-  end
-
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
-
+  
   local streamClient = HTTPStream:new('GET', streamInfo.url, headers, nil, {
     keepAlive = streamInfo.keepAlive
   })
-
+  
   local request = streamClient:setup()
-
+  
   if request.res.code ~= 200 then
     return self._luna.logger:error("SourceManager", "Stream url response error: " .. request.res.code)
   end
+
+  if track.info.sourceName == "deezer" then
+    local source = self._source_avaliables["deezer"]
+
+    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(audioDecoder.mpg123:new('./bin/mpg123/win32/x64.dll'))
+    return request, streamInfo.format
+  end
+
   if streamInfo.format == "mp3" then
     print("mp3")
     return request:pipe(audioDecoder.mpg123:new('./bin/mpg123/win32/x64.dll')), streamInfo.format

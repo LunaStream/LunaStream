@@ -2,12 +2,82 @@ local http = require("coro-http")
 local urlp = require("url-param")
 local json = require("json")
 local openssl = require("openssl")
+local Transform = require("stream").Transform
 local cipher = openssl.cipher
 local digest = openssl.digest
 
 local AbstractSource = require('./abstract.lua')
 local encoder = require("../track/encoder.lua")
 local class = require('class')
+
+local Decrypt = Transform:extend()
+
+local function toHex(str)
+  return (str:gsub('.', function(c)
+    return string.format("%02x", string.byte(c))
+  end))
+end
+
+local function bxor(a, b)
+  local res = 0
+  for i = 0, 7 do
+    local bitA = a % 2
+    local bitB = b % 2
+    local xorBit = (bitA + bitB) % 2
+    res = res + xorBit * (2 ^ i)
+    a = math.floor(a / 2)
+    b = math.floor(b / 2)
+  end
+  return res
+end
+
+local function calculateKey(songId, decryptionKey)
+  local md5 = digest.new("md5")
+  md5:update(songId)
+  local binaryHash = md5:final()
+  local songIdHash = toHex(binaryHash)
+  local keyBytes = {}
+  for i = 1, 16 do
+    local a = string.byte(songIdHash, i)
+    local b = string.byte(songIdHash, i + 16)
+    local c = string.byte(decryptionKey, i)
+    local xorVal = bxor(bxor(a, b), c)
+    keyBytes[i] = string.char(xorVal)
+  end
+  return table.concat(keyBytes)
+end
+
+local IV = string.char(0, 1, 2, 3, 4, 5, 6, 7)
+
+local function decryptAudioBlock(block, trackKey, blockIndex)
+  if blockIndex % 3 == 0 then
+    local deciph = cipher.new("bf-cbc", trackKey, IV)
+    deciph:setPadding(false)
+    local decrypted = deciph:update(block) or ""
+    local final = deciph:final() or ""
+    return decrypted .. final
+  else
+    return block
+  end
+end
+
+function Decrypt:initialize(id)
+  Transform.initialize(self, { objectMode = true })
+  self.trackKey = calculateKey(id, "g4el58wc0zvf9na1")
+  self.blockIndex = 0
+end
+
+function Decrypt:_transform(chunk, done)
+  self.blockIndex = self.blockIndex + 1
+
+  if self.blockIndex % 3 == 0 then
+  self:push(decryptAudioBlock(chunk, self.trackKey, self.blockIndex))
+  else
+  self:push(chunk)
+  end
+
+  done()
+end
 
 local Deezer = class('Deezer', AbstractSource)
 
@@ -329,53 +399,8 @@ function Deezer:loadStream(track)
   }
 end
 
-local function toHex(str)
-  return (str:gsub('.', function(c)
-    return string.format("%02x", string.byte(c))
-  end))
-end
-
-local function bxor(a, b)
-  local res = 0
-  for i = 0, 7 do
-    local bitA = a % 2
-    local bitB = b % 2
-    local xorBit = (bitA + bitB) % 2
-    res = res + xorBit * (2 ^ i)
-    a = math.floor(a / 2)
-    b = math.floor(b / 2)
-  end
-  return res
-end
-
-function Deezer:calculateKey(songId, decryptionKey)
-  local md5 = digest.new("md5")
-  md5:update(songId)
-  local binaryHash = md5:final()
-  local songIdHash = toHex(binaryHash)
-  local keyBytes = {}
-  for i = 1, 16 do
-    local a = string.byte(songIdHash, i)
-    local b = string.byte(songIdHash, i + 16)
-    local c = string.byte(decryptionKey, i)
-    local xorVal = bxor(bxor(a, b), c)
-    keyBytes[i] = string.char(xorVal)
-  end
-  return table.concat(keyBytes)
-end
-
-local IV = string.char(0, 1, 2, 3, 4, 5, 6, 7)
-
-function Deezer:decryptAudioBlock(block, trackKey, blockIndex)
-  if blockIndex % 3 == 0 then
-    local deciph = cipher.new("bf-cbc", trackKey, IV)
-    deciph:setPadding(false)
-    local decrypted = deciph:update(block) or ""
-    local final = deciph:final() or ""
-    return decrypted .. final
-  else
-    return block
-  end
+function Deezer:decryptAudio()
+  return Decrypt
 end
 
 return Deezer
