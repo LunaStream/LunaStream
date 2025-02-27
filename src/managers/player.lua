@@ -23,7 +23,7 @@ function Player:__init(luna, guildId, sessionId)
   self.filters = {}
   self.voiceState = {}
   self.state = {}
-  self.voice = voice(self._guildId, self._userId)
+  self.voice = voice(self._guildId, self._userId, self._luna._opus)
   self.update_loop_interval = nil
   self.close_connection_function = nil
 end
@@ -40,7 +40,7 @@ function Player:updateVoiceState(voiceState)
   self.voiceState = voiceState
 
   if not self.voice then
-    self.voice = voice(self._guildId, self._userId)
+    self.voice = voice(self._guildId, self._userId, self._luna._opus)
   end
 
   self.voice:on('debug', function (log)

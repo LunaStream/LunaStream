@@ -34,7 +34,7 @@ return function(req, answer, luna, guild_id, players, session_id)
 
   if body.track then
     if noReplace ~= true or next(player.track) == nil then
-      player:play(body.track)
+      coroutine.wrap(player.play)(player, body.track)
     end
   end
 

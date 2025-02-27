@@ -140,10 +140,11 @@ local VoiceManager, get = class('VoiceManager', Emitter)
 -- Parameters:
 --    guildId (string) - Guild identifier.
 --    userId (string) - User identifier.
+--    opus_class (table) - Add opus class if exists
 --    production_mode (boolean) - Flag to indicate production mode.
 -- Objective: Initializes a new VoiceManager instance with basic data, state, and required components.
 ---------------------------------------------------------------
-function VoiceManager:__init(guildId, userId, production_mode)
+function VoiceManager:__init(guildId, userId, opus_class, production_mode)
   Emitter.__init(self)
   -- Basic Data
   self._guild_id = guildId
@@ -169,7 +170,15 @@ function VoiceManager:__init(guildId, userId, production_mode)
   -- UDP
   self._udp = UDPController(production_mode)
   self._encryption = self._udp._crypto._mode
-  self._opus = Opus(self:getBinaryPath('opus', production_mode))
+
+  if opus_class then
+    p('Use exist')
+    self._opus = opus_class
+  else
+    p('Use new')
+    self._opus = Opus(self:getBinaryPath('opus', production_mode))
+  end
+
   self._nonce = 0
 
   self._packetStats = { sent = 0, lost = 0, expected = 0 }

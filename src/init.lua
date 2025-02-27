@@ -4,6 +4,7 @@ local weblit = require('weblit')
 local json = require('json')
 local class = require('class')
 local timer = require('timer')
+local Opus = require('opus')
 
 local config = require('./utils/config')
 local source = require("./sources")
@@ -43,7 +44,24 @@ function LunaStream:__init(devmode)
   )
   self._sources = source(self)
   self._services = { statusMonitor = require('./services/statusMonitor')(self) }
+  self._opus = Opus(self:getBinaryPath('opus', not self._devmode))
 end
+
+---------------------------------------------------------------
+-- Function: getBinaryPath
+-- Parameters:
+--    name (string) - name of the binary/library.
+--    production (boolean) - production mode flag.
+-- Objective: Returns the binary path for the given library based on the OS and production mode.
+---------------------------------------------------------------
+function LunaStream:getBinaryPath(name, production)
+  local os_name = require('los').type()
+  local arch = os_name == 'darwin' and 'universal' or jit.arch
+  local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
+  local bin_dir = string.format('./bin/%s/%s/%s%s', name, os_name, arch, lib_name_list[os_name])
+  return production and './native/' .. name or bin_dir
+end
+
 
 function get:sources()
   return self._sources
