@@ -5,7 +5,7 @@ local encoder = require("../../../track/encoder.lua")
 return function(query, src_type, youtube)
   local videoId = query:match("v=([%w%-]+)") or query:match("https?://youtu%.be/(.+)%?si=.+")
 
-  local response, data = http.request(
+  local success, response, data = pcall(http.request
     "POST", string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
       { { "User-Agent", youtube._clientManager.ytContext.client.userAgent }, { "X-GOOG-API-FORMAT-VERSION", "2" } },
       json.encode(
@@ -17,6 +17,11 @@ return function(query, src_type, youtube)
         }
       )
   )
+
+  if not success then
+    youtube._luna.logger:error('YouTube', "Internal error: %s | On query: %s", response, query)
+    return youtube:buildError("Internal error: " .. response, "fault", "YouTube Source")
+  end
 
   if response.code ~= 200 then
     youtube._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, query)

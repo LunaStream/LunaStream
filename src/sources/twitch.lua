@@ -23,7 +23,12 @@ function Twitch:setup()
     { "Accept-Language", "en-US,en;q=0.5" },
     { "Connection", "keep-alive" },
   }
-  local response, data = http.request("GET", "https://www.twitch.tv", headers)
+  local success, response, data = pcall(http.request, "GET", "https://www.twitch.tv", headers)
+  if not success then
+    self._luna.logger:error('Twitch', 'Internal error: ' .. response)
+    return nil
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('Twitch', 'Failed to fetch Twitch page')
     return nil
@@ -133,7 +138,12 @@ function Twitch:fetchAccessToken(channel)
     { "X-Device-ID", self._device_id },
     { "Content-Type", "application/json" },
   }
-  local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
+  local success, response, data = pcall(http.request, "POST", "https://gql.twitch.tv/gql", headers, payload)
+  if not success then
+    self._luna.logger:error('Twitch', 'internal error: ' .. response)
+    return nil
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('Twitch', 'Failed to fetch access token')
     return nil
@@ -183,7 +193,10 @@ function Twitch:fetchClipMetadata(slug)
     { "X-Device-ID", self._device_id },
     { "Content-Type", "application/json" },
   }
-  local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
+  local success, response, data = pcall(http.request, "POST", "https://gql.twitch.tv/gql", headers, payload)
+  if not success then
+    return nil, "Internal error: " .. response
+  end
   if response.code ~= 200 then
     return nil, "Failed to fetch clip metadata"
   end
@@ -208,7 +221,10 @@ function Twitch:fetchVodMetadata(vod_id)
     { "X-Device-ID", self._device_id },
     { "Content-Type", "application/json" },
   }
-  local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
+  local success, response, data = pcall(http.request, "POST", "https://gql.twitch.tv/gql", headers, payload)
+  if not success then
+    return nil, "Internal error: " .. response
+  end
   if response.code ~= 200 then
     return nil, "Failed to fetch VOD metadata"
   end
@@ -245,7 +261,10 @@ function Twitch:fetchVodAccessToken(vod_id)
     { "X-Device-ID", self._device_id },
     { "Content-Type", "application/json" },
   }
-  local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
+  local success, response, data = pcall(http.request, "POST", "https://gql.twitch.tv/gql", headers, payload)
+  if not success then
+    return nil
+  end
   if response.code ~= 200 then
     return nil
   end
@@ -285,7 +304,10 @@ function Twitch:fetchClipAccessToken(slug)
     { "X-Device-ID", self._device_id },
     { "Content-Type", "application/json" },
   }
-  local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
+  local success, response, data = pcall(http.request, "POST", "https://gql.twitch.tv/gql", headers, payload)
+  if not success then
+    return nil, "Internal error: " .. response
+  end
   if response.code ~= 200 then
     return nil, "Failed to fetch clip access token"
   end
@@ -329,7 +351,10 @@ function Twitch:loadFrom(query)
     { "X-Device-ID", self._device_id },
     { "Content-Type", "application/json" },
   }
-  local response, data = http.request("POST", "https://gql.twitch.tv/gql", headers, payload)
+  local success, response, data = pcall(http.request, "POST", "https://gql.twitch.tv/gql", headers, payload)
+  if not success then
+    return self:buildError("Internal error: " .. response, "fault", "Twitch Source")
+  end
   if response.code ~= 200 then
     return self:buildError("Failed to fetch channel info", "fault", "Twitch Source")
   end
@@ -445,7 +470,12 @@ function Twitch:loadStream(track)
   }
   local query = self:buildParam(params)
   local hls_url = string.format("https://usher.ttvnw.net/api/channel/hls/%s.m3u8?%s", channel, query)
-  local response, data = http.request("GET", hls_url)
+  local success, response, data = pcall(http.request, "GET", hls_url)
+
+  if not success then
+    return self:buildError("Internal error: " .. success, "fault", "Twitch Source")
+  end
+
   if response.code ~= 200 then
     return self:buildError("Failed to fetch HLS playlist", "fault", "Twitch Source")
   end

@@ -106,7 +106,11 @@ function Instagram:fetchFromGraphQL(postId, timeout)
   }
 
   local encodedData = self:encodePostRequestData(postId)
-  local response, body = http.request("POST", API_URL, headers, encodedData)
+  local success, response, body = pcall(http.request, "POST", API_URL, headers, encodedData)
+
+  if not success then
+    return nil, "Internal error: " .. response
+  end
 
   if response.code ~= 200 then
     return nil, "Request failed with code " .. response.code

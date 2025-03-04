@@ -11,18 +11,20 @@ local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
-local soundcloud = require("../sources/soundcloud.lua")
-local bandcamp = require("../sources/bandcamp.lua")
-local deezer = require("../sources/deezer.lua")
-local vimeo = require("../sources/vimeo.lua")
-local httpdirectplay = require("../sources/http.lua")
-local LocalFile = require("../sources/local.lua")
-local nicovideo = require("../sources/nicovideo.lua")
-local twitch = require("../sources/twitch.lua")
-local spotify = require("../sources/spotify.lua")
-local instagram = require("../sources/instagram.lua")
-local facebook = require("../sources/facebook.lua")
-local kwai = require("../sources/kwai.lua")
+local avaliable_sources = {
+  bandcamp = require("../sources/bandcamp.lua"),
+  deezer = require("../sources/deezer.lua"),
+  http = require("../sources/http.lua"),
+  local_file = require("../sources/local_file.lua"),
+  nicovideo = require("../sources/nicovideo.lua"),
+  instagram = require("../sources/instagram.lua"),
+  facebook = require("../sources/facebook.lua"),
+  twitch = require("../sources/twitch.lua"),
+  kwai = require("../sources/kwai.lua"),
+  spotify = require("../sources/spotify.lua"),
+  vimeo = require("../sources/vimeo.lua"),
+  soundcloud = require("../sources/soundcloud.lua"),
+}
 
 local class = require("class")
 
@@ -34,83 +36,47 @@ function Sources:__init(luna)
   self._search_avaliables = {}
   self._source_avaliables = {}
 
-  if config.luna.bandcamp then
-    self._source_avaliables["bandcamp"] = bandcamp(luna):setup()
-    self._search_avaliables["bcsearch"] = "bandcamp"
-    self._luna.logger:info("SourceManager", "Registered [BandCamp] audio source manager")
+  local is_yt = false
+  local is_ytm = false
+
+  -- Load all sources from config.luna.sources
+  for _, source_name in pairs(config.luna.sources) do
+    if source_name == "youtube" then
+      is_yt = true
+      goto continue
+    end
+
+    if source_name == "youtube_music" then
+      is_ytm = true
+      goto continue
+    end
+
+    if not avaliable_sources[source_name] then
+      self._luna.logger:debug("SourceManager", "Audio source named %s not found!", source_name)
+      goto continue
+    end
+
+    local source_class = avaliable_sources[source_name](luna):setup()
+    self._source_avaliables[source_name] = source_class
+
+    if source_class._search_id then
+      self._search_avaliables[source_class._search_id] = source_name
+    end
+
+    self._luna.logger:info("SourceManager", "Registered [%s] audio source manager", source_class.__name)
+    ::continue::
   end
 
-  if config.luna.vimeo then
-    self._source_avaliables["vimeo"] = vimeo(luna):setup()
-    self._search_avaliables["vmsearch"] = "vimeo"
-    self._luna.logger:info("SourceManager", "Registered [Vimeo] audio source manager")
-  end
-
-  if config.luna.nicovideo then
-    self._source_avaliables["nicovideo"] = nicovideo(luna):setup()
-    self._search_avaliables["ncsearch"] = "nicovideo"
-    self._luna.logger:info("SourceManager", "Registered [NicoVideo] audio source manager")
-  end
-
-  if config.luna.youtube then
+  if is_yt then
     self._source_avaliables["youtube"] = youtube(luna):setup()
     self._search_avaliables["ytsearch"] = "youtube"
     self._luna.logger:info("SourceManager", "Registered [YouTube] audio source manager")
   end
 
-  if config.luna.youtube_music then
+  if is_ytm then
     self._source_avaliables["youtube_music"] = self._source_avaliables["youtube"] or youtube(luna):setup()
     self._search_avaliables["ytmsearch"] = "youtube_music"
     self._luna.logger:info("SourceManager", "Registered [YouTube Music] audio source manager")
-  end
-
-  if config.luna.twitch then
-    self._source_avaliables["twitch"] = twitch(luna):setup()
-    self._luna.logger:info("SourceManager", "Registered [Twitch] audio source manager")
-  end
-
-  if config.luna.spotify then
-    self._source_avaliables["spotify"] = spotify(luna):setup()
-    self._search_avaliables["spsearch"] = "spotify"
-    self._luna.logger:info("SourceManager", "Registered [Spotify] audio source manager")
-  end
-
-  if config.luna.soundcloud then
-    self._source_avaliables["soundcloud"] = soundcloud(luna):setup()
-    self._search_avaliables["scsearch"] = "soundcloud"
-    self._luna.logger:info("SourceManager", "Registered [SoundCloud] audio source manager")
-  end
-
-  if config.luna.deezer then
-    self._source_avaliables["deezer"] = deezer(luna):setup()
-    self._search_avaliables["dzsearch"] = "deezer"
-    self._luna.logger:info("SourceManager", "Registered [Deezer] audio source manager")
-  end
-
-  if config.luna.instagram then
-    self._source_avaliables["instagram"] = instagram(luna):setup()
-    self._luna.logger:info("SourceManager", "Registered [Instagram] audio source manager")
-  end
-
-  if config.luna.facebook then
-    self._source_avaliables["facebook"] = facebook(luna):setup()
-    self._luna.logger:info("SourceManager", "Registered [Facebook] audio source manager")
-  end
-
-  if config.luna.kwai then
-    self._source_avaliables["kwai"] = kwai(luna):setup()
-    self._luna.logger:info("SourceManager", "Registered [Kwai] audio source manager")
-  end
-
-  if config.luna.http then
-    self._source_avaliables["http"] = httpdirectplay(luna):setup()
-    self._luna.logger:info("SourceManager", "Registered [HTTPDirectPlay] audio source manager")
-  end
-
-  if config.luna.localFile then
-    self._source_avaliables["local"] = LocalFile(luna):setup()
-    self._search_avaliables["local"] = "local"
-    self._luna.logger:info("SourceManager", "Registered [LocalFile] audio source manager")
   end
 end
 
@@ -219,7 +185,12 @@ function Sources:loadHLS(url, type)
 
   if type == "segment" then
     coroutine.wrap(function()
-      local res, body = http.request("GET", url)
+      local success, res, body = pcall(http.request, "GET", url)
+      if not success then
+        self._luna.logger:error("loadHLS", "Internal error: " .. res)
+        stream:close()
+        return
+      end
       if res.code ~= 200 then
         self._luna.logger:error("loadHLS", "HTTP error in segment: " .. res.code)
         stream:close()
@@ -238,7 +209,13 @@ function Sources:loadHLS(url, type)
 
   elseif type == "playlist" then
     coroutine.wrap(function()
-      local res, playlistBody = http.request("GET", url)
+      local success, res, playlistBody = pcall(http.request, "GET", url)
+      if not success then
+        self._luna.logger:error("loadHLS", "Internal error: " .. res)
+        stream:close()
+        return
+      end
+
       if res.code ~= 200 then
         self._luna.logger:error("loadHLS", "HTTP error in playlist: " .. res.code)
         stream:close()
@@ -258,8 +235,8 @@ function Sources:loadHLS(url, type)
           segUrl = baseUrl .. segUrl
         end
 
-        local segRes, segBody = http.request("GET", segUrl)
-        if segRes.code == 200 then
+        local success, segRes, segBody = pcall(http.request, "GET", segUrl)
+        if success and segRes.code == 200 then
           local chunkSize = 16 * 1024
           local segLength = #segBody
           for i = 1, segLength, chunkSize do
@@ -268,6 +245,9 @@ function Sources:loadHLS(url, type)
             coroutine.yield()
           end
         else
+          if type(segRes) == "string" then return
+            self._luna.logger:error("loadHLS", "Internal error: " .. segRes)
+          end
           self._luna.logger:error("loadHLS", "HTTP error in segment: " .. segRes.code)
         end
       end

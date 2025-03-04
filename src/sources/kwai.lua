@@ -51,7 +51,11 @@ function Kwai:getVideoInfo(videoId)
     },
     { "Accept", "*/*" },
   }
-  local response, body = http.request("GET", url, headers)
+  local success, response, body = pcall(http.request, "GET", url, headers)
+
+  if not success then
+    return nil, "Internal error: " .. response
+  end
 
   if response.code ~= 200 then
     return nil, "Request failed with code " .. response.code

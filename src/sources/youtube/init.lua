@@ -36,13 +36,18 @@ function YouTube:search(query, src_type)
   end
   self._luna.logger:debug('YouTube', 'Searching: ' .. query)
 
-  local response, data = http.request(
+  local success, response, data = pcall(http.request,
     "POST", string.format("https://%s/youtubei/v1/search", self:baseHostRequest(src_type)), {
       { "User-Agent", self._clientManager.ytContext.userAgent },
       { "X-GOOG-API-FORMAT-VERSION", "2" },
       { "Content-Type", "application/json" },
     }, json.encode({ context = self._clientManager.ytContext, query = query })
   )
+
+  if not success then
+    self._luna.logger:error('YouTube', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "YouTube Source")
+  end
 
   if response.code ~= 200 then
     self._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, query)
@@ -216,7 +221,7 @@ function YouTube:loadStream(track)
 
   self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
 
-  local response, data = http.request(
+  local success, response, data = pcall(http.request,
     "POST", string.format(
       "https://%s/youtubei/v1/player",
         self:baseHostRequest(track.info.sourceName == "youtube_music" and "ytmsearch" or "ytsearch")
@@ -230,6 +235,12 @@ function YouTube:loadStream(track)
         }
       )
   )
+
+  if not success then
+    self._luna.logger:error('YouTube', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "YouTube Source")
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, track.uri)
     return self:buildError("Server response error: " .. response.code, "fault", "YouTube Source")

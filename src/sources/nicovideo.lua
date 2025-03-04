@@ -11,6 +11,7 @@ local NicoVideo = class('NicoVideo', AbstractSource)
 
 function NicoVideo:__init(luna)
   self._luna = luna
+  self._search_id = 'ncsearch'
 end
 
 function NicoVideo:buildOutputData(fulldata)
@@ -96,9 +97,14 @@ function NicoVideo:search(query)
 
   params = self:buildParam(params)
 
-  local search_res, fulldata = http.request(
+  local success, search_res, fulldata = pcall(http.request,
     "GET", 'https://nvapi.nicovideo.jp/v2/search/video?' .. params, self:buildHeaders()
   )
+
+  if not success then
+    self._luna.logger:error('NicoVideo', "Internal error: %s", search_res)
+    return self:buildError("Internal error: " .. search_res, "fault", "NicoVideo Source")
+  end
 
   if search_res.code ~= 200 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", search_res.code, query)
@@ -141,7 +147,12 @@ end
 function NicoVideo:loadForm(query)
   self._luna.logger:debug('NicoVideo', 'Loading url: ' .. query)
 
-  local track_res, fulldata = http.request("GET", query .. '?responseType=json', self:buildHeaders())
+  local success, track_res, fulldata = pcall(http.request, "GET", query .. '?responseType=json', self:buildHeaders())
+
+  if not success then
+    self._luna.logger:error('NicoVideo', "Internal error: %s", track_res)
+    return self:buildError("Internal error: " .. track_res, "fault", "NicoVideo Source")
+  end
 
   if track_res.code ~= 200 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", track_res.code, query)
@@ -179,7 +190,12 @@ function NicoVideo:loadForm(query)
 end
 
 function NicoVideo:loadStream(track)
-  local track_res, fulldata = http.request("GET", track.info.uri .. '?responseType=json', self:buildHeaders())
+  local success, track_res, fulldata = pcall(http.request, "GET", track.info.uri .. '?responseType=json', self:buildHeaders())
+
+  if not success then
+    self._luna.logger:error('NicoVideo', "Internal error: %s", track_res)
+    return self:buildError("Internal error: " .. track_res, "fault", "NicoVideo Source")
+  end
 
   if track_res.code ~= 200 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", track_res.code, track.info.uri)
@@ -195,10 +211,15 @@ function NicoVideo:loadStream(track)
       urlp.encode(response.client.watchTrackId)
   )
 
-  local stream_res, stream_data = http.request(
+  local success, stream_res, stream_data = pcall(http.request,
     "POST", request_stream_link, self:buildHeaders(response.media.domand.accessRightKey),
       json.encode({ outputs = self:buildOutputData(fulldata) })
   )
+
+  if not success then
+    self._luna.logger:error('NicoVideo', "Internal error: %s", stream_res)
+    return self:buildError("Internal error: " .. stream_res, "fault", "NicoVideo Source")
+  end
 
   if stream_res.code ~= 201 then
     self._luna.logger:error('NicoVideo', "Server response error: %s | On query: %s", stream_res.code, track.info.uri)

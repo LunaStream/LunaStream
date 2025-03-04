@@ -12,6 +12,7 @@ function Spotify:__init(luna)
   self._luna = luna
   self._token = nil
   self._tokenExpiration = 0
+  self._search_id = 'spsearch'
 end
 
 function Spotify:setup()
@@ -24,7 +25,12 @@ end
 
 function Spotify:_requestToken()
   local headers = { { "User-Agent", "Mozilla/5.0" }, { "Accept", "application/json" } }
-  local response, data = http.request("GET", "https://open.spotify.com/get_access_token", headers)
+  local success, response, data = pcall(http.request, "GET", "https://open.spotify.com/get_access_token", headers)
+
+  if not success then
+    self._luna.logger:error("Spotify", "Internal error on get token from open.spotify.com: " .. response)
+    return false
+  end
 
   if response.code ~= 200 then
     self._luna.logger:error("Spotify", "Failed to get token from open.spotify.com: " .. response.code)
@@ -50,7 +56,11 @@ function Spotify:request(endpoint)
   self:_renewToken()
   local url = "https://api.spotify.com/v1" .. (endpoint:sub(1, 1) == "/" and endpoint or "/" .. endpoint)
   local headers = { { "Authorization", self._token } }
-  local response, data = http.request("GET", url, headers)
+  local success, response, data = pcall(http.request, "GET", url, headers)
+  if not success then
+    return nil, "Internal error: " .. response
+  end
+
   if response.code ~= 200 then
     return nil, "Request failed with code " .. response.code
   end
@@ -316,7 +326,10 @@ function Spotify:search(query)
   local encodedQuery = urlp.encode(query)
   local url = "https://api.spotify.com/v1/search?q=" .. encodedQuery .. "&type=track"
   local headers = { { "Authorization", self._token } }
-  local response, data = http.request("GET", url, headers)
+  local success, response, data = pcall(http.request, "GET", url, headers)
+  if not success then
+    return { loadType = "error", data = {}, message = response }
+  end
   if response.code ~= 200 then
     return { loadType = "error", data = {}, message = "Search request failed" }
   end

@@ -16,7 +16,7 @@ return function(query, src_type, youtube)
     }
   end
 
-  local response, data = http.request(
+  local success, response, data = pcall(http.request,
     "POST", string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)), {
       { "User-Agent", youtube._clientManager.ytContext.client.userAgent },
       { "X-GOOG-API-FORMAT-VERSION", "2" },
@@ -30,6 +30,18 @@ return function(query, src_type, youtube)
       }
     )
   )
+
+  if not success then
+    return {
+      loadType = "error",
+      data = {},
+      error = {
+        message = "Internal error: " .. response,
+        severity = "fault",
+        domain = "YouTube Source",
+      },
+    }
+  end
 
   if response.code ~= 200 then
     return {

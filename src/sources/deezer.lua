@@ -87,6 +87,7 @@ function Deezer:__init(luna)
   self._license_token = nil
   self._form_validation = nil
   self._cookie = nil
+  self._search_id = 'dzsearch'
 end
 
 function Deezer:setup()
@@ -100,7 +101,17 @@ function Deezer:setup()
     "https://www.deezer.com/ajax/gw-light.php?method=deezer.getUserData&input=3&api_version=1.0&api_token=%s", api_token
   )
 
-  local response, data = http.request("GET", url)
+  local success, response, data = pcall(http.request, "GET", url)
+
+  if not success then
+    self._luna.logger:error('Deezer', 'Internal error: ' .. response)
+    return nil
+  end
+
+  if response.code ~= 200 then
+    self._luna.logger:error('Deezer', 'Failed initializing Deezer source: ' .. response)
+    return nil
+  end
 
   if response.code ~= 200 then
     self._luna.logger:error('Deezer', 'Failed initializing Deezer source')
@@ -138,7 +149,13 @@ end
 function Deezer:search(query)
   self._luna.logger:debug('Deezer', 'Searching: ' .. query)
   local query_link = string.format("https://api.deezer.com/2.0/search?q=%s", urlp.encode(query))
-  local response, data = http.request("GET", query_link)
+  local success, response, data = pcall(http.request, "GET", query_link)
+
+  if not success then
+    local error_message = string.format("Internal error: %s", response)
+    self._luna.logger:error('Deezer', error_message)
+    return self:buildError(error_message, "fault", "Deezer Source")
+  end
 
   if response.code ~= 200 then
     local error_message = string.format("Server response error: %s | On query: %s", response.code, query)
@@ -216,7 +233,20 @@ function Deezer:loadForm(query)
   end
 
   local url = string.format("https://api.deezer.com/%s/%s", type, id)
-  local response, data = http.request("GET", url)
+  local success, response, data = pcall(http.request, "GET", url)
+
+  if not success then
+    self._luna.logger:error('Deezer', 'Failed loading form: ' .. response)
+    return {
+      loadType = "error",
+      data = {},
+      error = {
+        message = 'Failed loading form: ' .. response,
+        type = "fault",
+        source = "Deezer Source",
+      },
+    }
+  end
 
   if response.code ~= 200 then
     self._luna.logger:error('Deezer', 'Failed loading form')
@@ -350,7 +380,12 @@ function Deezer:loadStream(track)
     "https://www.deezer.com/ajax/gw-light.php?method=song.getListData&input=3&api_version=1.0&api_token=%s",
       self._check_form
   )
-  local response, data = http.request("POST", url, { { "Cookie", self._cookie } }, json.encode(song))
+  local success, response, data = pcall(http.request, "POST", url, { { "Cookie", self._cookie } }, json.encode(song))
+
+  if not success then
+    self._luna.logger:error('Deezer', 'Failed loading stream: ' .. response)
+    return self:buildError('Failed loading stream: ' .. response, "fault", "Deezer Source")
+  end
 
   if response.code ~= 200 then
     self._luna.logger:error('Deezer', 'Failed loading stream')
@@ -371,7 +406,7 @@ function Deezer:loadStream(track)
     end
   end
 
-  local _, body = http.request(
+  local success, _, body = pcall(http.request,
     "POST", "https://media.deezer.com/v1/get_url", {}, json.encode(
       {
         license_token = self._license_token,
@@ -380,6 +415,15 @@ function Deezer:loadStream(track)
       }
     )
   )
+
+  if not success then
+    return {
+      license_token = self._license_token,
+      media = mediaData,
+      track_tokens = { data.results.data[1].TRACK_TOKEN },
+    }
+  end
+
   body = json.decode(body)
 
   if not body then

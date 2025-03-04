@@ -15,7 +15,7 @@ function SoundCloud:__init(luna)
   self._luna = luna
   self._clientId = nil
   self._baseUrl = "https://api-v2.soundcloud.com"
-  self._sourceName = "soundcloud"
+  self._search_id = 'scsearch'
 end
 
 function get:clientId()
@@ -28,7 +28,11 @@ end
 
 function SoundCloud:setup()
   self._luna.logger:debug('SoundCloud', 'Setting up clientId for fetch tracks...')
-  local _, mainsite_body = http.request("GET", "https://soundcloud.com/")
+  local success, _, mainsite_body = pcall(http.request, "GET", "https://soundcloud.com/")
+  if not success then
+    return self:fetchFailed()
+  end
+
   if mainsite_body == nil then
     return self:fetchFailed()
   end
@@ -44,7 +48,11 @@ function SoundCloud:setup()
     call_time = call_time + 1
   end
 
-  local _, data_body = http.request("GET", assetId())
+  local success, _, data_body = pcall(http.request, "GET", assetId())
+  if not success then
+    return self:fetchFailed()
+  end
+
   if data_body == nil then
     return self:fetchFailed()
   end
@@ -70,7 +78,13 @@ function SoundCloud:search(query)
                        "&user_id=992000-167630-994991-450103" .. "&client_id=" .. self._clientId .. "&limit=" .. "20" ..
                        "&offset=0" .. "&linked_partitioning=1" .. "&app_version=1679652891" .. "&app_locale=en"
 
-  local response, res_body = http.request("GET", query_link)
+  local success, response, res_body = pcall(http.request, "GET", query_link)
+
+  if not success then
+    self._luna.logger:error('SoundCloud', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "SoundCloud Source")
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('SoundCloud', "Server response error: %s | On query: %s", response.code, query)
     return self:buildError("Server response error: " .. response.code, "fault", "SoundCloud Source")
@@ -103,7 +117,13 @@ function SoundCloud:loadForm(query)
   local query_link = self._baseUrl .. "/resolve" .. "?url=" .. urlp.encode(query) .. "&client_id=" ..
                        urlp.encode(self._clientId)
 
-  local response, res_body = http.request("GET", query_link)
+  local success, response, res_body = pcall(http.request, "GET", query_link)
+
+  if not success then
+    self._luna.logger:error('SoundCloud', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "SoundCloud Source")
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('SoundCloud', "Server response error: %s | On query: %s", response.code, query)
     return self:buildError("Server response error: " .. response.code, "fault", "SoundCloud Source")
@@ -153,8 +173,8 @@ function SoundCloud:loadForm(query)
       local unloaded_query_link =
         self._baseUrl .. "/tracks" .. "?ids=" .. self:merge(notLoadedLimited) .. "&client_id=" ..
           urlp.encode(self._clientId)
-      local unloaded_response, unloaded_res_body = http.request("GET", unloaded_query_link)
-      if unloaded_response.code == 200 then
+      local success, unloaded_response, unloaded_res_body = pcall(http.request, "GET", unloaded_query_link)
+      if success and unloaded_response.code == 200 then
         local unloaded_body = json.decode(unloaded_res_body)
         for key, raw in pairs(unloaded_body) do
           loaded[#loaded + 1] = self:buildTrack(raw)
@@ -234,9 +254,15 @@ end
 function SoundCloud:loadStream(track)
   self._luna.logger:debug('SoundCloud', 'Loading stream url for ' .. track.info.uri)
   local template_link = 'https://api-v2.soundcloud.com/resolve?url=https://api.soundcloud.com/tracks/%s&client_id=%s'
-  local response, res_body = http.request(
+  local success, response, res_body = pcall(http.request,
     "GET", string.format(template_link, urlp.encode(track.info.identifier), urlp.encode(self._clientId))
   )
+
+  if not success then
+    self._luna.logger:error('SoundCloud', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "SoundCloud Source")
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('SoundCloud', "Server response error: %s | On query: %s", response.code, track.info.uri)
     return self:buildError("Server response error: " .. response.code, "fault", "SoundCloud Source")
@@ -272,9 +298,11 @@ function SoundCloud:loadStream(track)
   end
 
   if transcoding.format.protocol == 'hls' then
-    local _, stream_res_body = http.request("GET", stream_url)
-    local stream_body = json.decode(stream_res_body)
-    stream_url = stream_body.url
+    local success, _, stream_res_body = pcall(http.request, "GET", stream_url)
+    if success then
+      local stream_body = json.decode(stream_res_body)
+      stream_url = stream_body.url
+    end
   end
 
   self._luna.logger:debug('SoundCloud', 'Loading stream url success')

@@ -12,6 +12,7 @@ function Vimeo:__init(luna)
   AbstractSource.__init(self)
   self._luna = luna
   self._jwt = nil
+  self._search_id = 'vmsearch'
 end
 
 function Vimeo:setup()
@@ -22,7 +23,13 @@ end
 
 function Vimeo:_getJwt()
   local url = "https://vimeo.com/_next/viewer"
-  local res, body = http.request("GET", url)
+  local success, res, body = pcall(http.request, "GET", url)
+
+  if not success then
+    self._luna.logger:error('Vimeo', 'Failed to fetch license token: ' .. res)
+    return nil
+  end
+
   if res.code ~= 200 then
     self._luna.logger:error('Vimeo', 'Failed to fetch license token')
     return nil
@@ -41,7 +48,12 @@ end
 function Vimeo:search(query)
   local url = string.format("https://api.vimeo.com/search?query=%s&per_page=5&filter_type=clip", urlp.encode(query))
   local headers = { { "Authorization", "jwt " .. self._jwt }, { "Accept", "application/json" } }
-  local response, data = http.request("GET", url, headers)
+  local success, response, data = pcall(http.request, "GET", url, headers)
+
+  if not success then
+    self._luna.logger:error('Vimeo', 'Failed to fetch search results: ' .. response)
+    return nil, "Failed to fetch search results: " .. response
+  end
 
   if response.code == 401 then
     self._luna.logger:debug('Vimeo', 'JWT token expired, fetching new authorization')
@@ -104,7 +116,20 @@ function Vimeo:loadForm(query)
   local trackUrlPattern = "^https?://vimeo%.com/([0-9]+)%??.*$"
   local videoId = string.match(query, trackUrlPattern)
   local url = string.format("https://vimeo.com/api/v2/video/%s.json", videoId)
-  local response, data = http.request("GET", url)
+  local success, response, data = pcall(http.request, "GET", url)
+
+  if not success then
+    self._luna.logger:error('Vimeo', 'Failed to fetch video data: %s', response)
+    return {
+      loadType = "error",
+      data = {
+        message = "Failed to fetch video data: " .. response,
+        severity = "common",
+        cause = "Vimeo Source",
+      },
+    }
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error('Vimeo', 'Failed to fetch video data')
     return {
@@ -149,7 +174,11 @@ function Vimeo:loadStream(track)
 
   local apiUrl = string.format("https://api.vimeo.com/videos/%s", track.info.identifier)
   local headers = { { "Authorization", "jwt " .. self._jwt }, { "Accept", "application/json" } }
-  local responseGetConfig, dataConfig = http.request("GET", apiUrl, headers)
+  local success, responseGetConfig, dataConfig = pcall(http.request, "GET", apiUrl, headers)
+
+  if not success then
+    return nil, "Failed to fetch video data: " .. responseGetConfig
+  end
 
   if responseGetConfig.code == 401 then
     self._luna.logger:debug('Vimeo', 'JWT token expired, fetching new authorization')
@@ -168,7 +197,12 @@ function Vimeo:loadStream(track)
   end
 
   local apiUrl = dataConfig.config_url
-  local response, data = http.request("GET", apiUrl, headers)
+  local success, response, data = pcall(http.request, "GET", apiUrl, headers)
+
+  if not success then
+    self._luna.logger:error('Vimeo', 'Failed to fetch video data: %s', response)
+    return nil, "Failed to fetch video data: " .. response
+  end
 
   if response.code == 401 then
     self._luna.logger:debug('Vimeo', 'JWT token expired, fetching new authorization')

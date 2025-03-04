@@ -27,10 +27,14 @@ end
 
 function HTTPDirectPlay:loadForm(query)
   self._luna.logger:debug('HTTPDirectPlay', 'Loading url: %s', query)
-  local response, _ = http.request("GET", query)
+  local success, response, _ = pcall(http.request, "GET", query)
+
+  if not success then
+    self._luna.logger:error('HTTPDirectPlay', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "SoundCloud Source")
+  end
 
   if response.code ~= 200 then
-    p(response)
     self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, query)
     return self:buildError("Server response error: " .. response.code, "fault", "SoundCloud Source")
   end
@@ -74,7 +78,12 @@ function HTTPDirectPlay:getHttpHeaders(res, req)
 end
 
 function HTTPDirectPlay:loadStream(track, additionalData)
-  local response, _ = http.request("GET", track.info.uri)
+  local success, response, _ = pcall(http.request, "GET", track.info.uri)
+
+  if not success then
+    self._luna.logger:error('HTTPDirectPlay', "Internal error: %s", response)
+    return self:buildError("Internal error: " .. response, "fault", "SoundCloud Source")
+  end
 
   if response.code ~= 200 then
     self._luna.logger:error('HTTPDirectPlay', "Server response error: %s | On query: %s", response.code, track.info.uri)

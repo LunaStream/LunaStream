@@ -172,10 +172,8 @@ function VoiceManager:__init(guildId, userId, opus_class, production_mode)
   self._encryption = self._udp._crypto._mode
 
   if opus_class then
-    p('Use exist')
     self._opus = opus_class
   else
-    p('Use new')
     self._opus = Opus(self:getBinaryPath('opus', production_mode))
   end
 

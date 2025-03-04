@@ -114,7 +114,11 @@ function Facebook:fetchVideoData(videoId, timeout)
   }
 
   local body = self:encodeGraphQLRequest(videoId)
-  local response, resBody = http.request("POST", API_URL, headers, body)
+  local success, response, resBody = pcall(http.request, "POST", API_URL, headers, body)
+
+  if not success then
+    return nil, "Request failed: " .. response
+  end
 
   if response.code ~= 200 then
     return nil, "Request failed with code " .. response.code
