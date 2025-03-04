@@ -57,6 +57,12 @@ function Sources:__init(luna)
     end
 
     local source_class = avaliable_sources[source_name](luna):setup()
+
+    if not source_class then
+      self._luna.logger:error("SourceManager", "Failed on register [%s] audio source manager", source_name)
+      goto continue
+    end
+
     self._source_avaliables[source_name] = source_class
 
     if source_class._search_id then
