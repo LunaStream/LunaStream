@@ -45,7 +45,7 @@ end
 function VoiceDevelopmentKit:commandManual()
   print('Usage: luvit vdk (--save-log) [mode] [format/type] [encoding]')
   print('├── mode: stream, file')
-  print('├── format/type: mpeg, ogg, webm')
+  print('├── format/type: mpeg, ogg, webm, aac')
   print('└── encoding: vorbis, mp3, opus')
   print('Note: --save-log is optional for save log file, log file is vdk.log')
 end

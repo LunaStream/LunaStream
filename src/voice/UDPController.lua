@@ -6,7 +6,7 @@ local sodium = require('sodium')
 
 local UDPController, get = class('UDPController', Emitter)
 
-function UDPController:__init(production_mode)
+function UDPController:__init()
   Emitter.__init(self)
   self._udp = dgram.createSocket('udp4')
 
@@ -14,17 +14,16 @@ function UDPController:__init(production_mode)
   self._port = nil
   self._ssrc = nil
   self._sec_key = nil
-  self._crypto = sodium(self:getBinaryPath('sodium', production_mode))
+  self._crypto = sodium(self:getBinaryPath('sodium'))
 
   self:setupEvents()
 end
 
-function UDPController:getBinaryPath(name, production)
+function UDPController:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
-  local bin_dir = string.format('./bin/%s/%s/%s%s', name, os_name, arch, lib_name_list[os_name])
-  return production and './native/' .. name or bin_dir
+  return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
 function UDPController:updateCredentials(address, port, ssrc, sec_key)

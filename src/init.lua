@@ -44,7 +44,7 @@ function LunaStream:__init(devmode)
   )
   self._sources = source(self)
   self._services = { statusMonitor = require('./services/statusMonitor')(self) }
-  self._opus = Opus(self:getBinaryPath('opus', not self._devmode))
+  self._opus = Opus(self:getBinaryPath('opus'))
 end
 
 ---------------------------------------------------------------
@@ -54,12 +54,11 @@ end
 --    production (boolean) - production mode flag.
 -- Objective: Returns the binary path for the given library based on the OS and production mode.
 ---------------------------------------------------------------
-function LunaStream:getBinaryPath(name, production)
+function LunaStream:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
-  local bin_dir = string.format('./bin/%s/%s/%s%s', name, os_name, arch, lib_name_list[os_name])
-  return production and './native/' .. name or bin_dir
+  return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
 

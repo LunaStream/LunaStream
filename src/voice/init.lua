@@ -144,7 +144,7 @@ local VoiceManager, get = class('VoiceManager', Emitter)
 --    production_mode (boolean) - Flag to indicate production mode.
 -- Objective: Initializes a new VoiceManager instance with basic data, state, and required components.
 ---------------------------------------------------------------
-function VoiceManager:__init(guildId, userId, opus_class, production_mode)
+function VoiceManager:__init(guildId, userId, opus_class)
   Emitter.__init(self)
   -- Basic Data
   self._guild_id = guildId
@@ -168,13 +168,13 @@ function VoiceManager:__init(guildId, userId, opus_class, production_mode)
   self._ping = -1
 
   -- UDP
-  self._udp = UDPController(production_mode)
+  self._udp = UDPController()
   self._encryption = self._udp._crypto._mode
 
   if opus_class then
     self._opus = opus_class
   else
-    self._opus = Opus(self:getBinaryPath('opus', production_mode))
+    self._opus = Opus(self:getBinaryPath('opus'))
   end
 
   self._nonce = 0
@@ -208,12 +208,11 @@ end
 --    production (boolean) - production mode flag.
 -- Objective: Returns the binary path for the given library based on the OS and production mode.
 ---------------------------------------------------------------
-function VoiceManager:getBinaryPath(name, production)
+function VoiceManager:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
   local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
-  local bin_dir = string.format('./bin/%s/%s/%s%s', name, os_name, arch, lib_name_list[os_name])
-  return production and './native/' .. name or bin_dir
+  return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
 ---------------------------------------------------------------

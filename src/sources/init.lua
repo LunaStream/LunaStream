@@ -173,17 +173,31 @@ function Sources:getStream(track)
   if track.info.sourceName == "deezer" then
     local source = self._source_avaliables["deezer"]
 
-    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(audioDecoder.mpg123:new('./bin/mpg123/win32/x64.dll'))
+    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(self:getBinaryPath('mpg123'))
     return request, streamInfo.format
   end
 
   if streamInfo.format == "mp3" then
-    print("mp3")
-    return request:pipe(audioDecoder.mpg123:new('./bin/mpg123/win32/x64.dll')), streamInfo.format
+    self._luna.logger:debug('Current stream is mp3')
+    return request:pipe(audioDecoder.mpg123:new(self:getBinaryPath('mpg123'))), streamInfo.format
   else
-    p("opus")
+    self._luna.logger:debug('Current stream is opus')
     return request:pipe(MusicUtils.opus.WebmDemuxer:new()), streamInfo.format
   end
+end
+
+---------------------------------------------------------------
+-- Function: getBinaryPath
+-- Parameters:
+--    name (string) - name of the binary/library.
+--    production (boolean) - production mode flag.
+-- Objective: Returns the binary path for the given library based on the OS and production mode.
+---------------------------------------------------------------
+function Sources:getBinaryPath(name)
+  local os_name = require('los').type()
+  local arch = os_name == 'darwin' and 'universal' or jit.arch
+  local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
+  return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
 function Sources:loadHLS(url, type)
