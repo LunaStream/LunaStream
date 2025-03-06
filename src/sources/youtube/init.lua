@@ -139,6 +139,7 @@ function YouTube:checkURLType(inp_url, src_type)
       selectedVideo = "https?://music%.youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+",
     },
     default = {
+      shortenedVideo = "https?://youtu%.be/(.+)%?si=.+",
       video = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+",
       playlist = "https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-]+",
       selectedVideo = "https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-]+&list=[%w%-]+",
@@ -151,7 +152,7 @@ function YouTube:checkURLType(inp_url, src_type)
     return 'playlist'
   elseif src_type ~= 'ytmsearch' and string.match(inp_url, selectedPatterns.shorts) then
     return 'shorts'
-  elseif string.match(inp_url, selectedPatterns.video) then
+  elseif string.match(inp_url, selectedPatterns.video) or string.match(inp_url, selectedPatterns.shortenedVideo) then
     return 'video'
   else
     return 'invalid'
@@ -166,6 +167,7 @@ function YouTube:isLinkMatch(query)
     ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-_]+"] = 'ytsearch',
     ["https?://w?w?w?%.?youtube%.com/playlist%?list=[%w%-_]+"] = 'ytsearch',
     ["https?://w?w?w?%.?youtube%.com/watch%?v=[%w%-_]+&list=[%w%-_]+"] = 'ytsearch',
+    ["https?://w?w?w?%.?youtu%.be/(.+)%?si=.+"] = 'ytsearch',
     ["https?://w?w?w?%.?youtube%.com/shorts/[%w%-_]+"] = 'ytsearch',
   }
 
@@ -192,6 +194,8 @@ function YouTube:loadForm(query, src_type)
   local formFile =
     urlType == "video" and "video.lua" or urlType == "playlist" and "playlist.lua" or urlType == "shorts" and
       "shorts.lua"
+
+  p('Form file: ', urlType, formFile)
 
   if formFile then
     local form = require("./forms/" .. formFile)
