@@ -1,13 +1,10 @@
 local http = require("coro-http")
 local stream = require("stream")
 local PassThrough = stream.PassThrough
-local Readable = stream.Readable
 local MusicUtils = require("musicutils")
 local audioDecoder = require('audioDecoder')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
-local FileStream = require("../voice/stream/FileStream")
-local HTTPStream = require("../voice/stream/HTTPStream")
 
 -- Sources
 local youtube = require("../sources/youtube")
@@ -149,23 +146,22 @@ function Sources:getStream(track)
   end
 
   if streamInfo.protocol == "file" then
-    local stream = FileStream:new(streamInfo.url):pipe(MusicUtils.opus.WebmDemuxer:new())
-    return stream, streamInfo.format
+    local fstream = MusicUtils.stream.file:new(streamInfo.url):pipe(MusicUtils.opus.WebmDemuxer:new())
+    return fstream, streamInfo.format
   end
 
   if streamInfo.format == "hls" then
     return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
   end
 
-  
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
-  
-  local streamClient = HTTPStream:new('GET', streamInfo.url, headers, nil, {
+
+  local streamClient = MusicUtils.stream.http:new('GET', streamInfo.url, headers, nil, {
     keepAlive = streamInfo.keepAlive
   })
-  
+
   local request = streamClient:setup()
-  
+
   if request.res.code ~= 200 then
     return self._luna.logger:error("SourceManager", "Stream url response error: " .. request.res.code)
   end
