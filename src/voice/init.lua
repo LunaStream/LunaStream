@@ -727,6 +727,7 @@ function VoiceManager:stop(no_force_stop)
   end
 
   if self._stream then
+    self._stream:emit('close')
     self._stream:removeAllListeners()
     setmetatable(self._stream, { __mode = "kv" })
   end
