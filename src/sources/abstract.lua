@@ -2,7 +2,8 @@ local class = require('class')
 
 local AbstractSource = class('AbstractSource')
 
-function AbstractSource.__init() end
+function AbstractSource.__init()
+end
 
 function AbstractSource:setup()
   error('Missing :setup() function')
@@ -23,16 +24,12 @@ end
 function AbstractSource:buildError(message, severity, cause)
   return {
     loadType = "error",
-    data = {
-      message = message,
-      severity = severity,
-      cause = cause
-    }
+    data = { message = message, severity = severity, cause = cause },
   }, nil
 end
 
 function AbstractSource:loadStream(track, additionalData)
-	error("Missing :loadStream() function")
+  error("Missing :loadStream() function")
 end
 
 return AbstractSource

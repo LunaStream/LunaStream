@@ -6,7 +6,7 @@ local sodium = require('sodium')
 
 local UDPController, get = class('UDPController', Emitter)
 
-function UDPController:__init(production_mode)
+function UDPController:__init()
   Emitter.__init(self)
   self._udp = dgram.createSocket('udp4')
 
@@ -14,21 +14,16 @@ function UDPController:__init(production_mode)
   self._port = nil
   self._ssrc = nil
   self._sec_key = nil
-  self._crypto = sodium(self:getBinaryPath('sodium', production_mode))
+  self._crypto = sodium(self:getBinaryPath('sodium'))
 
   self:setupEvents()
 end
 
-function UDPController:getBinaryPath(name, production)
+function UDPController:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = {
-    win32 = '.dll',
-    linux = '.so',
-    darwin = '.dylib'
-  }
-  local bin_dir = string.format('./bin/%s_%s_%s%s', name, os_name, arch, lib_name_list[os_name])
-  return production and './native/' .. name or bin_dir
+  local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
+  return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
 function UDPController:updateCredentials(address, port, ssrc, sec_key)
@@ -39,11 +34,7 @@ function UDPController:updateCredentials(address, port, ssrc, sec_key)
 end
 
 function UDPController:ipDiscovery()
-  local packet = string.pack('>I2I2I4c64H', 0x1, 70,
-    self.ssrc,
-    self.address,
-    self.port
-  )
+  local packet = string.pack('>I2I2I4c64H', 0x1, 70, self.ssrc, self.address, self.port)
 
   self.udp:recvStart()
 
@@ -57,7 +48,7 @@ function UDPController:ipDiscovery()
 
   return {
     ip = string.unpack('xxxxxxxxz', data),
-    port = string.unpack('>I2', data, #data - 1)
+    port = string.unpack('>I2', data, #data - 1),
   }
 end
 
@@ -76,16 +67,18 @@ function UDPController:stop()
 end
 
 function UDPController:setupEvents()
-  self.udp:on('message', function (packet)
-    self:emit('message', packet)
-    print('[LunaStream / Voice | UDP]: Received data from UDP server with Discord.')
-  end)
+  self.udp:on(
+    'message', function(packet)
+      self:emit('message', packet)
+    end
+  )
 
-  self.udp:on('error', function (err)
-    print('[LunaStream / Voice | UDP]: Received error from UDP server with Discord.')
-    ---@diagnostic disable-next-line: undefined-global
-    p(err)
-  end)
+  self.udp:on(
+    'error', function(err)
+      ---@diagnostic disable-next-line: undefined-global
+      p(err)
+    end
+  )
 end
 
 function get:udp()

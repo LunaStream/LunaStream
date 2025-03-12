@@ -3,38 +3,35 @@ local http = require("coro-http")
 local encoder = require("../../../track/encoder.lua")
 
 return function(query, src_type, youtube)
-  local videoId = query:match("v=([%w%-_]+)")
-  local response, data = http.request(
-    "POST",
-    string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
-    {
-      { "User-Agent",                youtube._clientManager.ytContext.client.userAgent },
-      { "X-GOOG-API-FORMAT-VERSION", "2" }
-    },
-    json.encode({
-      context = youtube._clientManager.ytContext,
-      videoId = videoId,
-      contentCheckOk = true,
-      racyCheckOk = true
-    })
+  local videoId = query:match("v=([%w%-]+)") or query:match("https?://youtu%.be/(.+)%?si=.+")
+
+  local success, response, data = pcall(http.request,
+    "POST", string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
+      { { "User-Agent", youtube._clientManager.ytContext.client.userAgent }, { "X-GOOG-API-FORMAT-VERSION", "2" } },
+      json.encode(
+        {
+          context = youtube._clientManager.ytContext,
+          videoId = videoId,
+          contentCheckOk = true,
+          racyCheckOk = true,
+        }
+      )
   )
 
+  if not success then
+    youtube._luna.logger:error('YouTube', "Internal error: %s | On query: %s", response, query)
+    return youtube:buildError("Internal error: " .. response, "fault", "YouTube Source")
+  end
 
   if response.code ~= 200 then
     youtube._luna.logger:error('YouTube', "Server response error: %s | On query: %s", response.code, query)
-    return youtube:buildError(
-      "Server response error: " .. response.code,
-      "fault", "YouTube Source"
-    )
+    return youtube:buildError("Server response error: " .. response.code, "fault", "YouTube Source")
   end
 
   data = json.decode(data)
 
   if data.playabilityStatus.status ~= "OK" then
-    youtube:buildError(
-      "Video is not available",
-      "fault", "YouTube Source"
-    )
+    youtube:buildError("Video is not available", "fault", "YouTube Source")
 
     return {
       loadType = "error",
@@ -43,8 +40,8 @@ return function(query, src_type, youtube)
         message = "Video is not available",
         severity = "fault",
         domain = "YouTube Source",
-        more = data
-      }
+        more = data,
+      },
     }
   end
 
@@ -61,15 +58,11 @@ return function(query, src_type, youtube)
     uri = string.format("https://%s/watch?v=%s", youtube:baseHostRequest(src_type), video.videoId),
     artworkUrl = video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url,
     isrc = nil,
-    sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube'
+    sourceName = src_type == "ytmsearch" and 'youtube_music' or 'youtube',
   }
 
   return {
     loadType = 'track',
-    data = {
-      encoded = encoder(track),
-      info = track,
-      pluginInfo = {}
-    }
+    data = { encoded = encoder(track), info = track, pluginInfo = {} },
   }
 end

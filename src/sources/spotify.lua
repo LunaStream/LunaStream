@@ -12,6 +12,7 @@ function Spotify:__init(luna)
   self._luna = luna
   self._token = nil
   self._tokenExpiration = 0
+  self._search_id = 'spsearch'
 end
 
 function Spotify:setup()
@@ -23,12 +24,14 @@ function Spotify:setup()
 end
 
 function Spotify:_requestToken()
-  local headers = {
-    { "User-Agent", "Mozilla/5.0" },
-    { "Accept", "application/json" }
-}
-  local response, data = http.request("GET", "https://open.spotify.com/get_access_token", headers)
-  
+  local headers = { { "User-Agent", "Mozilla/5.0" }, { "Accept", "application/json" } }
+  local success, response, data = pcall(http.request, "GET", "https://open.spotify.com/get_access_token", headers)
+
+  if not success then
+    self._luna.logger:error("Spotify", "Internal error on get token from open.spotify.com: " .. response)
+    return false
+  end
+
   if response.code ~= 200 then
     self._luna.logger:error("Spotify", "Failed to get token from open.spotify.com: " .. response.code)
     return false
@@ -51,9 +54,13 @@ end
 
 function Spotify:request(endpoint)
   self:_renewToken()
-  local url = "https://api.spotify.com/v1" .. (endpoint:sub(1,1) == "/" and endpoint or "/" .. endpoint)
-  local headers = { {"Authorization", self._token} }
-  local response, data = http.request("GET", url, headers)
+  local url = "https://api.spotify.com/v1" .. (endpoint:sub(1, 1) == "/" and endpoint or "/" .. endpoint)
+  local headers = { { "Authorization", self._token } }
+  local success, response, data = pcall(http.request, "GET", url, headers)
+  if not success then
+    return nil, "Internal error: " .. response
+  end
+
   if response.code ~= 200 then
     return nil, "Request failed with code " .. response.code
   end
@@ -65,45 +72,42 @@ function Spotify:isLinkMatch(query)
 end
 
 function Spotify:getLinkType(query)
-    if self:getTrackID(query) then
-      return "track", self:getTrackID(query)
-    elseif self:getAlbumID(query) then
-      return "album", self:getAlbumID(query)
-    elseif self:getPlaylistID(query) then
-      return "playlist", self:getPlaylistID(query)
-    elseif self:getArtistID(query) then
-      return "artist", self:getArtistID(query)
-    end
-    return nil, nil
+  if self:getTrackID(query) then
+    return "track", self:getTrackID(query)
+  elseif self:getAlbumID(query) then
+    return "album", self:getAlbumID(query)
+  elseif self:getPlaylistID(query) then
+    return "playlist", self:getPlaylistID(query)
+  elseif self:getArtistID(query) then
+    return "artist", self:getArtistID(query)
   end
+  return nil, nil
+end
 
-  function Spotify:getTrackID(url)
-    local id = url:match("open%.spotify%.com/.*/track/([%w-]+)") or
-               url:match("open%.spotify%.com/track/([%w-]+)") or
+function Spotify:getTrackID(url)
+  local id = url:match("open%.spotify%.com/.*/track/([%w-]+)") or url:match("open%.spotify%.com/track/([%w-]+)") or
                url:match("spotify:track:([%w-]+)")
-    return id
-  end
-  
-  function Spotify:getAlbumID(url)
-    local id = url:match("open%.spotify%.com/.*/album/([%w-]+)") or
-               url:match("open%.spotify%.com/album/([%w-]+)") or
+  return id
+end
+
+function Spotify:getAlbumID(url)
+  local id = url:match("open%.spotify%.com/.*/album/([%w-]+)") or url:match("open%.spotify%.com/album/([%w-]+)") or
                url:match("spotify:album:([%w-]+)")
-    return id
-  end
-  
-  function Spotify:getPlaylistID(url)
-    local id = url:match("open%.spotify%.com/.*/playlist/([%w-]+)") or
-               url:match("open%.spotify%.com/playlist/([%w-]+)") or
-               url:match("spotify:playlist:([%w-]+)")
-    return id
-  end
-  
-  function Spotify:getArtistID(url)
-    local id = url:match("open%.spotify%.com/.*/artist/([%w-]+)") or
-               url:match("open%.spotify%.com/artist/([%w-]+)") or
+  return id
+end
+
+function Spotify:getPlaylistID(url)
+  local id =
+    url:match("open%.spotify%.com/.*/playlist/([%w-]+)") or url:match("open%.spotify%.com/playlist/([%w-]+)") or
+      url:match("spotify:playlist:([%w-]+)")
+  return id
+end
+
+function Spotify:getArtistID(url)
+  local id = url:match("open%.spotify%.com/.*/artist/([%w-]+)") or url:match("open%.spotify%.com/artist/([%w-]+)") or
                url:match("spotify:artist:([%w-]+)")
-    return id
-  end
+  return id
+end
 
 function Spotify:fetchTrackMetadata(track_id)
   local result, err = self:request("/tracks/" .. track_id)
@@ -142,7 +146,10 @@ function Spotify:fetchArtist(id)
   for _, track in ipairs(topTracks.tracks or {}) do
     table.insert(tracks, self:buildUnresolved(track))
   end
-    return { loadType = "playlist", data = { info = { name = artist.name, selectedTrack = 0 }, tracks = tracks } }
+  return {
+    loadType = "playlist",
+    data = { info = { name = artist.name, selectedTrack = 0 }, tracks = tracks },
+  }
 end
 
 function Spotify:buildUnresolved(track)
@@ -168,13 +175,9 @@ function Spotify:buildUnresolved(track)
     isSeekable = true,
     isStream = false,
     artworkUrl = artworkUrl,
-    sourceName = "spotify"
+    sourceName = "spotify",
   }
-  return {
-    encoded = encoder(trackInfo),
-    info = trackInfo,
-    pluginInfo = {}
-  }
+  return { encoded = encoder(trackInfo), info = trackInfo, pluginInfo = {} }
 end
 
 function Spotify:loadForm(query)
@@ -217,12 +220,12 @@ function Spotify:loadTrack(track_id, original_url)
     isSeekable = true,
     isStream = false,
     artworkUrl = artworkUrl,
-    sourceName = "spotify"
+    sourceName = "spotify",
   }
   local track = {
     encoded = encoder(trackInfo),
     info = trackInfo,
-    pluginInfo = {}
+    pluginInfo = {},
   }
   return { loadType = "track", data = track }
 end
@@ -251,22 +254,22 @@ function Spotify:loadAlbum(album_id, original_url)
       isSeekable = true,
       isStream = false,
       artworkUrl = artworkUrl,
-      sourceName = "spotify"
+      sourceName = "spotify",
     }
     local track = {
       encoded = encoder(trackInfo),
       info = trackInfo,
-      pluginInfo = {}
+      pluginInfo = {},
     }
     table.insert(tracks, track)
   end
-  return { 
-    loadType = "playlist", 
-    data = { 
+  return {
+    loadType = "playlist",
+    data = {
       info = { name = album_data.name, selectedTrack = 0 },
-      tracks = tracks 
-    }
- }
+      tracks = tracks,
+    },
+  }
 end
 
 function Spotify:loadPlaylist(playlist_id, original_url)
@@ -295,22 +298,22 @@ function Spotify:loadPlaylist(playlist_id, original_url)
         isSeekable = true,
         isStream = false,
         artworkUrl = artworkUrl,
-        sourceName = "spotify"
+        sourceName = "spotify",
       }
       local encodedTrack = {
         encoded = encoder(trackInfo),
         info = trackInfo,
-        pluginInfo = {}
+        pluginInfo = {},
       }
       table.insert(tracks, encodedTrack)
     end
   end
-  return { 
-    loadType = "playlist", 
-    data = { 
+  return {
+    loadType = "playlist",
+    data = {
       info = { name = playlist_data.name, selectedTrack = 0 },
-      tracks = tracks 
-    }
+      tracks = tracks,
+    },
   }
 end
 
@@ -322,8 +325,11 @@ function Spotify:search(query)
   self:_renewToken()
   local encodedQuery = urlp.encode(query)
   local url = "https://api.spotify.com/v1/search?q=" .. encodedQuery .. "&type=track"
-  local headers = { {"Authorization", self._token} }
-  local response, data = http.request("GET", url, headers)
+  local headers = { { "Authorization", self._token } }
+  local success, response, data = pcall(http.request, "GET", url, headers)
+  if not success then
+    return { loadType = "error", data = {}, message = response }
+  end
   if response.code ~= 200 then
     return { loadType = "error", data = {}, message = "Search request failed" }
   end
@@ -347,12 +353,12 @@ function Spotify:search(query)
       isSeekable = true,
       isStream = false,
       artworkUrl = artworkUrl,
-      sourceName = "spotify"
+      sourceName = "spotify",
     }
     local track = {
       encoded = encoder(trackInfo),
       info = trackInfo,
-      pluginInfo = {}
+      pluginInfo = {},
     }
     table.insert(tracks, track)
   end
