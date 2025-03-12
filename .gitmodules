@@ -1,6 +1,6 @@
-[submodule "libs/musicutils"]
-	path = libs/musicutils
-	url = https://github.com/LunaStream/MusicUtils.git
 [submodule "libs/weblit"]
 	path = libs/weblit
 	url = https://github.com/LunaStream/Weblit
+[submodule "libs/quickmedia"]
+	path = libs/quickmedia
+	url = https://github.com/LunaStream/QuickMedia

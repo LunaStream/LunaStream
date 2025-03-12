@@ -8,7 +8,7 @@ local prettyPrint = require('pretty-print')
 -- Internal Libraries
 local Emitter = require('./Emitter')
 local WebSocket = require('./WebSocket')
-local Opus = require('opus')
+local Opus = require('quickmedia').opus.Library
 local UDPController = require('./UDPController')
 
 -- Useful Functions
