@@ -2,7 +2,6 @@ local http = require("coro-http")
 local stream = require("stream")
 local PassThrough = stream.PassThrough
 local MusicUtils = require("musicutils")
-local audioDecoder = require('audioDecoder')
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 
@@ -175,7 +174,7 @@ function Sources:getStream(track)
 
   if streamInfo.format == "mp3" then
     self._luna.logger:debug('Current stream is mp3')
-    return request:pipe(audioDecoder.mpg123:new(self:getBinaryPath('mpg123'))), streamInfo.format
+    return request:pipe(MusicUtils.mpeg.Mp3Decoder:new(self:getBinaryPath('mpg123'))), streamInfo.format
   else
     self._luna.logger:debug('Current stream is opus')
     return request:pipe(MusicUtils.opus.WebmDemuxer:new()), streamInfo.format
