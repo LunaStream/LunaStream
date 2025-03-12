@@ -8,7 +8,7 @@ git commit
 git push -u origin HEAD:main
 cd ..
 
-cd musicutils
+cd quickmedia
 git add .
 git commit
 git push -u origin HEAD:main

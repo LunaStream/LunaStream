@@ -23,9 +23,8 @@ function Sodium:__init(path)
     return nil, 'libsodium initialization failed'
   end
 
-  self._mode = (lib.crypto_aead_aes256gcm_is_available() ~= 0)
-    and 'aead_aes256_gcm_rtpsize'
-    or  'aead_xchacha20_poly1305_rtpsize'
+  self._mode = (lib.crypto_aead_aes256gcm_is_available() ~= 0) and 'aead_aes256_gcm_rtpsize' or
+                 'aead_xchacha20_poly1305_rtpsize'
 
   self._encryption = require('./encryption/' .. self._mode:sub(1, -9))(self)
 end

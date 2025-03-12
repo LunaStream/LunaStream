@@ -35,19 +35,21 @@ function Instagram:getPostId(url)
 end
 
 function Instagram:encodePostRequestData(shortcode)
-  local variables = json.encode({
-    shortcode = shortcode,
-    fetch_comment_count = "null",
-    fetch_related_profile_media_count = "null",
-    parent_comment_count = "null",
-    child_comment_count = "null",
-    fetch_like_count = "null",
-    fetch_tagged_user_count = "null",
-    fetch_preview_comment_count = "null",
-    has_threaded_comments = "false",
-    hoisted_comment_id = "null",
-    hoisted_reply_id = "null"
-  })
+  local variables = json.encode(
+    {
+      shortcode = shortcode,
+      fetch_comment_count = "null",
+      fetch_related_profile_media_count = "null",
+      parent_comment_count = "null",
+      child_comment_count = "null",
+      fetch_like_count = "null",
+      fetch_tagged_user_count = "null",
+      fetch_preview_comment_count = "null",
+      has_threaded_comments = "false",
+      hoisted_comment_id = "null",
+      hoisted_reply_id = "null",
+    }
+  )
 
   local requestData = {
     av = "0",
@@ -73,7 +75,7 @@ function Instagram:encodePostRequestData(shortcode)
     fb_api_req_friendly_name = "PolarisPostActionLoadPostQueryQuery",
     variables = variables,
     server_timestamps = "true",
-    doc_id = "10015901848480474"
+    doc_id = "10015901848480474",
   }
 
   local parts = {}
@@ -88,7 +90,9 @@ function Instagram:isLinkMatch(link)
 end
 
 function Instagram:fetchFromGraphQL(postId, timeout)
-  if not postId then return nil, "Post ID not provided" end
+  if not postId then
+    return nil, "Post ID not provided"
+  end
 
   local API_URL = "https://www.instagram.com/api/graphql"
   local headers = {
@@ -98,11 +102,15 @@ function Instagram:fetchFromGraphQL(postId, timeout)
     { "X-FB-Friendly-Name", "PolarisPostActionLoadPostQueryQuery" },
     { "X-CSRFToken", "RVDUooU5MYsBbS1CNN3CzVAuEP8oHB52" },
     { "X-IG-App-ID", "1217981644879628" },
-    { "X-FB-LSD", "AVqbxe3J_YA" }
+    { "X-FB-LSD", "AVqbxe3J_YA" },
   }
 
   local encodedData = self:encodePostRequestData(postId)
-  local response, body = http.request("POST", API_URL, headers, encodedData)
+  local success, response, body = pcall(http.request, "POST", API_URL, headers, encodedData)
+
+  if not success then
+    return nil, "Internal error: " .. response
+  end
 
   if response.code ~= 200 then
     return nil, "Request failed with code " .. response.code
@@ -142,7 +150,7 @@ function Instagram:loadForm(query)
   if not videoData then
     return self:buildError(err or "Video not available", "fault", "Instagram Source")
   end
-  
+
   local trackInfo = {
     identifier = postId,
     title = videoData.title,
@@ -153,19 +161,16 @@ function Instagram:loadForm(query)
     uri = query,
     isStream = false,
     isSeekable = true,
-    isrc = nil
+    isrc = nil,
   }
-  
+
   local track = {
     encoded = encoder(trackInfo),
     info = trackInfo,
-    pluginInfo = {}
+    pluginInfo = {},
   }
 
-  return { 
-    loadType = "track",
-    data = track
-  }
+  return { loadType = "track", data = track }
 end
 
 function Instagram:loadStream(track)
@@ -175,11 +180,7 @@ function Instagram:loadStream(track)
     return self:buildError("Not found", "fault", "Instagram Source")
   end
 
-  return {
-    url = videoUrl,
-    format = "mp4",
-    protocol = "http"
-  }
+  return { url = videoUrl, format = "mp4", protocol = "http" }
 end
 
 return Instagram

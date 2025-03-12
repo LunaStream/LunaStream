@@ -5,19 +5,21 @@ server:
   password: "youshallnotpass"
 
 luna:
-  youtube: true
-  youtube_music: true
-  soundcloud: true
-  bandcamp: true
-  deezer: true
-  vimeo: true
-  http: true
-  nicovideo: true
-  twitch: true
-  spotify: true
-  instagram: true
-  facebook: true
-  kwai: true
+  sources:
+    - 'bandcamp'
+    - 'http'
+    - 'local_file'
+    - 'nicovideo'
+    - 'instagram'
+    - 'facebook'
+    - 'twitch'
+    - 'kwai'
+    - 'deezer'
+    - 'soundcloud'
+    - 'spotify'
+    - 'vimeo'
+    - 'youtube'
+    - 'youtube_music'
   
 sources:
   fallbackSearchSource: 'bcsearch'

@@ -1,11 +1,4 @@
-local required = {
-  "title",
-  "author",
-  "length",
-  "identifier",
-  "isStream",
-  "uri"
-}
+local required = { "title", "author", "length", "identifier", "isStream", "uri" }
 
 local bufferArray = {}
 
@@ -18,29 +11,27 @@ local function writeUshort(value)
 end
 
 local function writeInt(value)
-  table.insert(bufferArray, string.char(math.floor(value / (256^3)) % 256) ..
-  string.char(math.floor(value / (256^2)) % 256) ..
-  string.char(math.floor(value / 256) % 256) ..
-  string.char(value % 256))
+  table.insert(
+    bufferArray, string.char(math.floor(value / (256 ^ 3)) % 256) .. string.char(math.floor(value / (256 ^ 2)) % 256) ..
+      string.char(math.floor(value / 256) % 256) .. string.char(value % 256)
+  )
 end
 
 local function writeLong(value)
-  table.insert(bufferArray, string.char(math.floor(value / (256^7)) % 256) ..
-  string.char(math.floor(value / (256^6)) % 256) ..
-  string.char(math.floor(value / (256^5)) % 256) ..
-  string.char(math.floor(value / (256^4)) % 256) ..
-  string.char(math.floor(value / (256^3)) % 256) ..
-  string.char(math.floor(value / (256^2)) % 256) ..
-  string.char(math.floor(value / 256) % 256) ..
-  string.char(value % 256))
+  table.insert(
+    bufferArray, string.char(math.floor(value / (256 ^ 7)) % 256) .. string.char(math.floor(value / (256 ^ 6)) % 256) ..
+      string.char(math.floor(value / (256 ^ 5)) % 256) .. string.char(math.floor(value / (256 ^ 4)) % 256) ..
+      string.char(math.floor(value / (256 ^ 3)) % 256) .. string.char(math.floor(value / (256 ^ 2)) % 256) ..
+      string.char(math.floor(value / 256) % 256) .. string.char(value % 256)
+  )
 end
 
 local function writeUTF(value)
   if type(value) ~= "string" then
     if value == nil then
-      value = 0 
+      value = 0
     else
-      value = tostring(value) 
+      value = tostring(value)
     end
   end
   local utf8bytes = {}
@@ -77,8 +68,10 @@ local function toBase64(input)
   return table.concat(output)
 end
 
-return function (track)
-  if #bufferArray > 0 then bufferArray = {} end
+return function(track)
+  if #bufferArray > 0 then
+    bufferArray = {}
+  end
 
   for _, value in pairs(required) do
     if track[value] == nil then
@@ -88,7 +81,7 @@ return function (track)
 
   local version = (track.artworkUrl or track.isrc) and 3 or (track.uri and 2 or 1)
   local isVersioned = version > 1 and 1 or 0
-  local firstInt = isVersioned * 2^30
+  local firstInt = isVersioned * 2 ^ 30
   writeInt(firstInt)
 
   if isVersioned == 1 then
@@ -118,7 +111,7 @@ return function (track)
       writeUTF(track.isrc)
     end
   end
-  
+
   writeUTF(track.sourceName)
   writeLong(track.position or 0)
   return toBase64(table.concat(bufferArray))
