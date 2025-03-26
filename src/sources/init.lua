@@ -10,7 +10,7 @@ local decoder = require("../track/decoder")
 local youtube = require("../sources/youtube")
 local avaliable_sources = {
   bandcamp = require("../sources/bandcamp.lua"),
-  deezer = require("../sources/deezer.lua"),
+ -- deezer = require("../sources/deezer.lua"),
   http = require("../sources/http.lua"),
   local_file = require("../sources/local_file.lua"),
   nicovideo = require("../sources/nicovideo.lua"),
@@ -174,10 +174,8 @@ function Sources:getStream(track)
   end
 
   if streamInfo.format == "mp3" then
-    self._luna.logger:debug('Current stream is mp3')
     return request:pipe(audioDecoder.mpg123:new(self:getBinaryPath('mpg123'))), streamInfo.format
   else
-    self._luna.logger:debug('Current stream is opus')
     return request:pipe(MusicUtils.opus.WebmDemuxer:new()), streamInfo.format
   end
 end
