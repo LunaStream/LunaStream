@@ -3,8 +3,8 @@ local http = require("coro-http")
 local encoder = require("../../../track/encoder.lua")
 
 return function(query, src_type, youtube)
-  local videoId = query:match("v=([%w%-]+)") or query:match("https?://youtu%.be/(.+)%?si=.+")
-
+  local videoId = query:match("v=([^&]+)") or query:match("https?://youtu%.be/(.+)%?si=.+")
+  p(videoId)
   local success, response, data = pcall(http.request,
     "POST", string.format("https://%s/youtubei/v1/player", youtube:baseHostRequest(src_type)),
       { { "User-Agent", youtube._clientManager.ytContext.client.userAgent }, { "X-GOOG-API-FORMAT-VERSION", "2" } },
@@ -17,7 +17,6 @@ return function(query, src_type, youtube)
         }
       )
   )
-
   if not success then
     youtube._luna.logger:error('YouTube', "Internal error: %s | On query: %s", response, query)
     return youtube:buildError("Internal error: " .. response, "fault", "YouTube Source")
