@@ -1,8 +1,7 @@
 local http = require("coro-http")
 local stream = require("stream")
 local PassThrough = stream.PassThrough
-local MusicUtils = require("musicutils")
-local audioDecoder = require('audioDecoder')
+local quickmedia = require("quickmedia")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
 
@@ -146,7 +145,7 @@ function Sources:getStream(track)
   end
 
   if streamInfo.protocol == "file" then
-    local fstream = MusicUtils.stream.file:new(streamInfo.url):pipe(MusicUtils.opus.WebmDemuxer:new())
+    local fstream = quickmedia.stream.file:new(streamInfo.url):pipe(quickmedia.opus.WebmDemuxer:new())
     return fstream, streamInfo.format
   end
 
@@ -156,7 +155,7 @@ function Sources:getStream(track)
 
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
 
-  local streamClient = MusicUtils.stream.http:new('GET', streamInfo.url, headers, nil, {
+  local streamClient = quickmedia.stream.http:new('GET', streamInfo.url, headers, nil, {
     keepAlive = streamInfo.keepAlive
   })
 
@@ -174,9 +173,11 @@ function Sources:getStream(track)
   end
 
   if streamInfo.format == "mp3" then
-    return request:pipe(audioDecoder.mpg123:new(self:getBinaryPath('mpg123'))), streamInfo.format
+    self._luna.logger:debug('Current stream is mp3')
+    return request:pipe(quickmedia.mpeg.Mp3Decoder:new(self:getBinaryPath('mpg123'))), streamInfo.format
   else
-    return request:pipe(MusicUtils.opus.WebmDemuxer:new()), streamInfo.format
+    self._luna.logger:debug('Current stream is opus')
+    return request:pipe(quickmedia.opus.WebmDemuxer:new()), streamInfo.format
   end
 end
 

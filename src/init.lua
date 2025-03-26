@@ -4,7 +4,7 @@ local weblit = require('weblit')
 local json = require('json')
 local class = require('class')
 local timer = require('timer')
-local Opus = require('opus')
+local Opus = require('quickmedia').opus.Library
 
 local config = require('./utils/config')
 local source = require("./sources")

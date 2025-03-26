@@ -1,5 +1,4 @@
-local MusicUtils = require('musicutils')
-local audioDecoder = require('audioDecoder')
+local quickmedia = require('quickmedia')
 
 local HTTPStream = require('../../src/voice/stream/HTTPStream')
 
@@ -24,8 +23,8 @@ return function (vdk)
   -- end)
 
   local audioStream = requestStream
-    :pipe(MusicUtils.opus.WebmDemuxer:new())
-    :pipe(audioDecoder.opus:new(vdk._voice._opus))
+    :pipe(quickmedia.opus.WebmDemuxer:new())
+    :pipe(quickmedia.opus.Decoder:new(vdk._voice._opus))
 
   return audioStream
 end
