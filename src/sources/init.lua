@@ -173,10 +173,8 @@ function Sources:getStream(track)
   end
 
   if streamInfo.format == "mp3" then
-    self._luna.logger:debug('Current stream is mp3')
     return request:pipe(quickmedia.mpeg.Mp3Decoder:new(self:getBinaryPath('mpg123'))), streamInfo.format
   else
-    self._luna.logger:debug('Current stream is opus')
     return request:pipe(quickmedia.opus.WebmDemuxer:new()), streamInfo.format
   end
 end
@@ -249,7 +247,7 @@ function Sources:loadHLS(url, type)
           local baseUrl = url:match("(.*/)")
           segUrl = baseUrl .. segUrl
         end
-
+      p(segUrl)
         local success, segRes, segBody = pcall(http.request, "GET", segUrl)
         if success and segRes.code == 200 then
           local chunkSize = 16 * 1024
