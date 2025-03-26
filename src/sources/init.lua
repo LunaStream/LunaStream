@@ -148,8 +148,9 @@ function Sources:getStream(track)
     local fstream = quickmedia.stream.file:new(streamInfo.url):pipe(quickmedia.opus.WebmDemuxer:new())
     return fstream, streamInfo.format
   end
+  p(streamInfo.url, streamInfo.type, streamInfo.format)
 
-  if streamInfo.format == "hls" then
+  if streamInfo.protocol == "hls" then
     return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
   end
 
@@ -221,8 +222,10 @@ function Sources:loadHLS(url, type)
     return stream
 
   elseif type == "playlist" then
+    p(url, type)
     coroutine.wrap(function()
       local success, res, playlistBody = pcall(http.request, "GET", url)
+      p(success, res, playlistBody)
       if not success then
         self._luna.logger:error("loadHLS", "Internal error: " .. res)
         stream:close()
