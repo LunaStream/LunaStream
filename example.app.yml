@@ -31,7 +31,7 @@ sources:
         # Available in YouTube website in Authorization header. Requires intercepting the website's requests.
         authorization: 'DISABLED'
         # Available in YouTube website in Cookie header. Requires intercepting the website's requests.
-        cookie: 'DISABLED',
+        cookie: 'DISABLED'
         # Available in YouTube website in X-Goog-Visitor-Id header. Requires intercepting the website's requests.
         visitorId: 'DISABLED'
   soundcloud:
