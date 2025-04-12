@@ -1,5 +1,4 @@
 local class = require('class')
-local Buffer = require('buffer').Buffer
 local openssl = require('openssl')
 
 local Decoder = class('Decoder')
@@ -7,7 +6,7 @@ local Decoder = class('Decoder')
 function Decoder:__init(track)
   self._position = 1
   self._track = track
-  self._buffer = Buffer:new(openssl.base64(self._track, false))
+  self._buffer = openssl.base64(self._track, false)
 end
 
 function Decoder:changeBytes(bytes)
@@ -17,17 +16,32 @@ end
 
 function Decoder:readByte()
   local byte = self:changeBytes(1)
-  return self._buffer[byte]
+  return string.byte(self._buffer, byte)
 end
 
 function Decoder:readUnsignedShort()
   local byte = self:changeBytes(2)
-  return self._buffer:readUInt16BE(byte)
+  -- local highOrderByte = self._buffer:readByte(byte)
+  -- local lowOrderByte = self._buffer:readByte(byte + 1)
+  -- First byte (b1) is multiplied by 256 (2^8) since it represents the high-order byte
+  -- Second byte (b2) is added as-is since it represents the low-order byte,
+  -- implementing big-endian byte ordering (most significant byte first)
+  local b1, b2 = string.byte(self._buffer, byte, byte + 1)
+  return b1 * 256 + b2
 end
 
 function Decoder:readInt()
   local byte = self:changeBytes(4)
-  return self._buffer:readInt32BE(byte)
+  -- The first byte (b1) is most significant bit (MSB)
+  local b1, b2, b3, b4 = string.byte(self._buffer, byte, byte + 3)
+  local num = b1 * 256^3 + b2 * 256^2 + b3 * 256 + b4
+
+  -- using this as total bytes are calculated already
+  -- instead of MSB sign detection (b1 > 127).
+  if num > 2147483647 then
+    num = num - 4294967296
+  end
+  return num
 end
 
 function Decoder:readLong()
@@ -40,13 +54,13 @@ end
 function Decoder:readUTF()
   local len = self:readUnsignedShort()
   local start = self:changeBytes(len)
-  local result = self._buffer:toString(start, start + len - 1)
-  return result
+  return string.sub(self._buffer, start, start + len - 1)
 end
 
 function Decoder:getTrack()
   local success, result = pcall(Decoder.getTrackUnsafe, self)
   if not success then
+    print("Error:", result)
     return nil
   end
   return result
@@ -90,6 +104,8 @@ function Decoder:trackVersionOne()
   )
 
   if not success then
+    -- TODO: Use luna's logger
+    p('Error while decoding track version 1', result)
     return nil
   end
   return result
@@ -119,6 +135,8 @@ function Decoder:trackVersionTwo()
   )
 
   if not success then
+    -- TODO: Use luna's logger
+    p('Error while decoding track version 2', result)
     return nil
   end
   return result
@@ -148,6 +166,8 @@ function Decoder:trackVersionThree()
   )
 
   if not success then
+    -- TODO: Use luna's logger
+    p('Error while decoding track version 3', result)
     return nil
   end
   return result
