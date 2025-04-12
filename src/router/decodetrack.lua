@@ -20,5 +20,5 @@ return function(req, res, answer)
     )
   end
 
-  answer(json.encode(result), 200, { ["Content-Type"] = "text/plain" })
+  answer(json.encode(result), 200, { ["Content-Type"] = "application/json" })
 end
