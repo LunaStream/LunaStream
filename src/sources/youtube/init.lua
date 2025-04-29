@@ -320,11 +320,13 @@ function YouTube:loadStream(track)
   )
 
   local result = {
-    url = data.streamingData.hlsManifestUrl and data.streamingData.hlsManifestUrl or url,
-    protocol = data.streamingData.hlsManifestUrl and "hls" or "http",
-    format = audio.mimeType == 'audio/webm; codecs="opus"' and "webm/opus" or "arbitrary",
+    url = url or data.streamingData.hlsManifestUrl,
+    protocol = url and "http" or "hls_playlist",
+    format = url
+      and (audio.mimeType == 'audio/webm; codecs="opus"' and "webm/opus" or "arbitrary")
+      or "arbitrary",
     keepAlive = true
-  }
+  }  
   
   if data.streamingData.hlsManifestUrl then
     result.type = "playlist"
