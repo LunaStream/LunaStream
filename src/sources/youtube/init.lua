@@ -327,9 +327,12 @@ function YouTube:loadStream(track)
       or "arbitrary",
     keepAlive = true
   }  
-  
-  if data.streamingData.hlsManifestUrl then
+  if track.info.isStream then
+    result.protocol = "hls"
     result.type = "playlist"
+    result.keepAlive = false
+    result.url = data.streamingData.hlsManifestUrl
+    result.format = "arbitrary"
   end
   
   return result  
