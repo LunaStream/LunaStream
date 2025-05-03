@@ -200,7 +200,7 @@ end
 function Sources:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = { win32 = '.exe', linux = '', darwin = '' }
+  local lib_name_list = { win32 = '.exe', linux = '.bin', darwin = '.macos' }
   return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
