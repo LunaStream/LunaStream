@@ -571,13 +571,21 @@ function VoiceManager:cacheReader()
       return data
     end
 
+    data = self._buffer .. data
+    self._buffer = ''
+
     if #data == OPUS_CHUNK_STRING_SIZE then
       return data
-    else
-      local caculation = round_then_truncate(#data / OPUS_CHUNK_STRING_SIZE)
-      for _, mini_chunk in pairs(splitByChunk(data, round_then_truncate(#data / caculation))) do
-        table.insert(self._chunk_cache, mini_chunk)
+    elseif #data > OPUS_CHUNK_STRING_SIZE then
+      for i = 1, #data, OPUS_CHUNK_STRING_SIZE do
+        table.insert(self._chunk_cache, string.sub(data, i, i + OPUS_CHUNK_STRING_SIZE - 1))
       end
+      if #self._chunk_cache[#self._chunk_cache] < OPUS_CHUNK_STRING_SIZE then
+        self._buffer = table.remove(self._chunk_cache)
+      end
+    else
+      self._buffer = data
+      return ''
     end
 
     res = table.remove(self._chunk_cache, 1)

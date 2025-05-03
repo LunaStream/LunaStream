@@ -31,6 +31,20 @@ function Sources:__init(luna)
   self._luna.logger:info("SourceManager", "Setting up all avaliable source...")
   self._search_avaliables = {}
   self._source_avaliables = {}
+  self._ffmpeg_config = {
+    path =  self:getBinaryPath('ffmpeg'),
+    args = {
+      '-loglevel', 'error',
+      '-analyzeduration', '0',
+      '-hwaccel', 'auto',
+      '-i', 'pipe:0',
+      '-f', 's16le',
+      '-ar', '48000',
+      '-ac', '2',
+      '-strict', '-2',
+      'pipe:1'
+    }
+  }
 
   local is_yt = false
   local is_ytm = false
@@ -145,7 +159,7 @@ function Sources:getStream(track)
   end
 
   if streamInfo.protocol == "file" then
-    local fstream = quickmedia.stream.file:new(streamInfo.url):pipe(quickmedia.opus.WebmDemuxer:new())
+    local fstream = quickmedia.stream.file:new(streamInfo.url):pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
     return fstream, streamInfo.format
   end
   p(streamInfo.url, streamInfo.type, streamInfo.format)
@@ -169,15 +183,11 @@ function Sources:getStream(track)
   if track.info.sourceName == "deezer" then
     local source = self._source_avaliables["deezer"]
 
-    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(self:getBinaryPath('mpg123'))
+    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
     return request, streamInfo.format
   end
 
-  if streamInfo.format == "mp3" then
-    return request:pipe(quickmedia.mpeg.Mp3Decoder:new(self:getBinaryPath('mpg123'))), streamInfo.format
-  else
-    return request:pipe(quickmedia.opus.WebmDemuxer:new()), streamInfo.format
-  end
+  return request:pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
 end
 
 ---------------------------------------------------------------
@@ -190,7 +200,7 @@ end
 function Sources:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
+  local lib_name_list = { win32 = '.exe', linux = '', darwin = '' }
   return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
