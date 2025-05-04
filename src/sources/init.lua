@@ -35,7 +35,6 @@ function Sources:__init(luna)
     args = {
       '-loglevel', 'error',
       '-analyzeduration', '0',
-      '-hwaccel', 'auto',
       '-i', 'pipe:0',
       '-f', 's16le',
       '-ar', '48000',
