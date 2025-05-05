@@ -3,7 +3,6 @@ local class = require('class')
 local voice = require('../voice')
 local Player = class('Player')
 local decoder = require('../track/decoder')
-local quickmedia = require("quickmedia")
 local json = require('json')
 
 function Player:__init(luna, guildId, sessionId)
@@ -78,11 +77,7 @@ function Player:play(track)
     end
   end
 
-  if format == "mp3" then
-    self._stream = stream
-  else
-    self._stream = stream:pipe(quickmedia.opus.Decoder:new(self.voice._opus))
-  end
+  self._stream = stream
 
   if self.voice then
     self.voice:play(self._stream, { encoder = true })

@@ -17,3 +17,7 @@ tests/
 vcred.json
 vdk.log
 workspace/
+
+.vscode/
+.idea/
+vdk/

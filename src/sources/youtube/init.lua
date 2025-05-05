@@ -36,6 +36,10 @@ function YouTube:search(query, src_type)
   end
   self._luna.logger:debug('YouTube', 'Searching: ' .. query)
 
+  if self._clientManager.ytContext.visitorData then
+    self._clientManager.ytContext.visitorData = nil  -- 
+  end
+
   local success, response, data = pcall(http.request,
     "POST", string.format("https://%s/youtubei/v1/search", self:baseHostRequest(src_type)), {
       { "User-Agent", self._clientManager.ytContext.userAgent },
@@ -60,10 +64,11 @@ function YouTube:search(query, src_type)
   local baseUrl
   if type == "ytmsearch" then
     videos = data.contents.tabbedSearchResultsRenderer.tabs[1].tabRenderer.content.musicSplitViewRenderer.mainContent
-               .sectionListRenderer.contents[0].musicShelfRenderer.contents
+               .sectionListRenderer.contents[1].musicShelfRenderer.contents
   else
-    videos = data.contents.sectionListRenderer.contents[#data.contents.sectionListRenderer.contents].itemSectionRenderer
-               .contents
+    videos = data.contents.sectionListRenderer.contents[#data.contents.sectionListRenderer.contents].itemSectionRenderer and data.contents.sectionListRenderer.contents[#data.contents.sectionListRenderer.contents].itemSectionRenderer
+               .contents or data.contents.sectionListRenderer.contents[#data.contents.sectionListRenderer.contents].shelfRenderer.content.verticalListRenderer.items
+      
   end
 
   if #videos > config.sources.maxSearchResults then
@@ -129,9 +134,7 @@ function YouTube:search(query, src_type)
 
   return { loadType = "search", data = tracks }
 end
-
 function YouTube:checkURLType(inp_url, src_type)
-
   local patterns = {
     ytmsearch = {
       video = "https?://music%.youtube%.com/watch%?v=[%w%-]+",
@@ -147,9 +150,10 @@ function YouTube:checkURLType(inp_url, src_type)
     },
   }
   local selectedPatterns = patterns[src_type] or patterns.default
-
-  if string.match(inp_url, selectedPatterns.selectedVideo) or string.match(inp_url, selectedPatterns.playlist) then
+  if string.match(inp_url, selectedPatterns.playlist) then
     return 'playlist'
+  elseif string.match(inp_url, selectedPatterns.selectedVideo) then
+    return 'video'
   elseif src_type ~= 'ytmsearch' and string.match(inp_url, selectedPatterns.shorts) then
     return 'shorts'
   elseif string.match(inp_url, selectedPatterns.video) or string.match(inp_url, selectedPatterns.shortenedVideo) then
@@ -178,23 +182,21 @@ function YouTube:isLinkMatch(query)
     end
   end
 
-  return false, nil
+  return false, nil 
 end
 
+-- index.lua (loadForm function remains unchanged)
 function YouTube:loadForm(query, src_type)
   if src_type == "ytmsearch" then
     self._clientManager:switchClient('ANDROID_MUSIC')
   end
+
   if self._clientManager._currentClient ~= "ANDROID" then
     self._clientManager:switchClient('ANDROID')
   end
 
   local urlType = self:checkURLType(query, src_type)
-
-  local formFile =
-    urlType == "video" and "video.lua" or urlType == "playlist" and "playlist.lua" or urlType == "shorts" and
-      "shorts.lua"
-
+  local formFile = urlType == "video" and "video.lua" or urlType == "playlist" and "playlist.lua" or urlType == "shorts" and "shorts.lua"
   p('Form file: ', urlType, formFile)
 
   if formFile then
@@ -220,7 +222,7 @@ function YouTube:loadStream(track)
     self._clientManager:switchClient('ANDROID_MUSIC')
   end
   if self._clientManager._currentClient ~= "ANDROID" then
-    self._clientManager:switchClient('ANDROID')
+    self._clientManager:switchClient('IOS')
   end
 
   self._luna.logger:debug('YouTube', 'Loading stream url for ' .. track.info.title)
@@ -317,7 +319,23 @@ function YouTube:loadStream(track)
     )
   )
 
-  return { url = url, format = "webm/opus", protocol = "http", keepAlive = true }
+  local result = {
+    url = url or data.streamingData.hlsManifestUrl,
+    protocol = url and "http" or "hls_playlist",
+    format = url
+      and (audio.mimeType == 'audio/webm; codecs="opus"' and "webm/opus" or "arbitrary")
+      or "arbitrary",
+    keepAlive = true
+  }  
+  if track.info.isStream then
+    result.protocol = "hls"
+    result.type = "playlist"
+    result.keepAlive = false
+    result.url = data.streamingData.hlsManifestUrl
+    result.format = "arbitrary"
+  end
+  
+  return result  
 end
 
 return YouTube

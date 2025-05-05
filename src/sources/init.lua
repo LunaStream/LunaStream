@@ -1,6 +1,5 @@
 local http = require("coro-http")
-local stream = require("stream")
-local PassThrough = stream.PassThrough
+local Readable = require("stream").Readable
 local quickmedia = require("quickmedia")
 local config = require("../utils/config")
 local decoder = require("../track/decoder")
@@ -9,7 +8,7 @@ local decoder = require("../track/decoder")
 local youtube = require("../sources/youtube")
 local avaliable_sources = {
   bandcamp = require("../sources/bandcamp.lua"),
-  deezer = require("../sources/deezer.lua"),
+ -- deezer = require("../sources/deezer.lua"),
   http = require("../sources/http.lua"),
   local_file = require("../sources/local_file.lua"),
   nicovideo = require("../sources/nicovideo.lua"),
@@ -31,6 +30,19 @@ function Sources:__init(luna)
   self._luna.logger:info("SourceManager", "Setting up all avaliable source...")
   self._search_avaliables = {}
   self._source_avaliables = {}
+  self._ffmpeg_config = {
+    path =  self:getBinaryPath('ffmpeg'),
+    args = {
+      '-loglevel', 'error',
+      '-analyzeduration', '0',
+      '-i', 'pipe:0',
+      '-f', 's16le',
+      '-ar', '48000',
+      '-ac', '2',
+      '-strict', '-2',
+      'pipe:1'
+    }
+  }
 
   local is_yt = false
   local is_ytm = false
@@ -145,11 +157,12 @@ function Sources:getStream(track)
   end
 
   if streamInfo.protocol == "file" then
-    local fstream = quickmedia.stream.file:new(streamInfo.url):pipe(quickmedia.opus.WebmDemuxer:new())
+    local fstream = quickmedia.stream.file:new(streamInfo.url):pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
     return fstream, streamInfo.format
   end
+  p(streamInfo.url, streamInfo.type, streamInfo.format)
 
-  if streamInfo.format == "hls" then
+  if streamInfo.protocol == "hls" then
     return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
   end
 
@@ -168,17 +181,11 @@ function Sources:getStream(track)
   if track.info.sourceName == "deezer" then
     local source = self._source_avaliables["deezer"]
 
-    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(self:getBinaryPath('mpg123'))
+    request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
     return request, streamInfo.format
   end
 
-  if streamInfo.format == "mp3" then
-    self._luna.logger:debug('Current stream is mp3')
-    return request:pipe(quickmedia.mpeg.Mp3Decoder:new(self:getBinaryPath('mpg123'))), streamInfo.format
-  else
-    self._luna.logger:debug('Current stream is opus')
-    return request:pipe(quickmedia.opus.WebmDemuxer:new()), streamInfo.format
-  end
+  return request:pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
 end
 
 ---------------------------------------------------------------
@@ -191,88 +198,85 @@ end
 function Sources:getBinaryPath(name)
   local os_name = require('los').type()
   local arch = os_name == 'darwin' and 'universal' or jit.arch
-  local lib_name_list = { win32 = '.dll', linux = '.so', darwin = '.dylib' }
+  local lib_name_list = { win32 = '.exe', linux = '.bin', darwin = '.macos' }
   return string.format('./bin/%s-%s-%s%s', name, os_name, arch, lib_name_list[os_name])
 end
 
+
 function Sources:loadHLS(url, type)
-  local stream = PassThrough:new()
+  local stream = Readable:new()
+  print("Loading HLS stream from URL: " .. url)
 
-  if type == "segment" then
-    coroutine.wrap(function()
-      local success, res, body = pcall(http.request, "GET", url)
-      if not success then
-        self._luna.logger:error("loadHLS", "Internal error: " .. res)
-        stream:close()
-        return
-      end
-      if res.code ~= 200 then
-        self._luna.logger:error("loadHLS", "HTTP error in segment: " .. res.code)
-        stream:close()
-        return
-      end
-      local chunkSize = 16 * 1024
-      local bodyLength = #body
-      for i = 1, bodyLength, chunkSize do
-        local chunk = body:sub(i, math.min(i + chunkSize - 1, bodyLength))
-        stream:write(chunk)
-        coroutine.yield()
-      end
-      stream:close()
-    end)()
-    return stream
+  local function processPlaylist(playlistUrl)
+    local res, body = http.request("GET", playlistUrl)
+    if res.code ~= 200 then
+      self._luna.logger:error("loadHLS", "HTTP error in playlist: " .. res.code)
+      stream:push(nil)
+      return
+    end
 
-  elseif type == "playlist" then
-    coroutine.wrap(function()
-      local success, res, playlistBody = pcall(http.request, "GET", url)
-      if not success then
-        self._luna.logger:error("loadHLS", "Internal error: " .. res)
-        stream:close()
-        return
-      end
-
-      if res.code ~= 200 then
-        self._luna.logger:error("loadHLS", "HTTP error in playlist: " .. res.code)
-        stream:close()
-        return
-      end
-
-      local segments = {}
-      for line in playlistBody:gmatch("[^\r\n]+") do
+    local isMasterPlaylist = body:match("#EXT%-X%-STREAM%-INF")
+    if isMasterPlaylist then
+      local playlistUrls = {}
+      for line in body:gmatch("[^\r\n]+") do
         if not line:match("^#") and line:match("%S") then
+          if not line:match("^https?://") then
+            local baseUrl = playlistUrl:match("(.*/)")
+            line = baseUrl .. line
+          end
+          table.insert(playlistUrls, line)
+        end
+      end
+      if #playlistUrls > 0 then
+        processPlaylist(playlistUrls[1])
+      else
+        self._luna.logger:error("loadHLS", "No valid playlist URLs found")
+        stream:push(nil)
+      end
+    else
+      local segments = {}
+      for line in body:gmatch("[^\r\n]+") do
+        if not line:match("^#") and line:match("%S") then
+          if not line:match("^https?://") then
+            local baseUrl = playlistUrl:match("(.*/)")
+            line = baseUrl .. line
+          end
           table.insert(segments, line)
         end
       end
 
       for _, segUrl in ipairs(segments) do
-        if not segUrl:match("^https?://") then
-          local baseUrl = url:match("(.*/)")
-          segUrl = baseUrl .. segUrl
-        end
-
-        local success, segRes, segBody = pcall(http.request, "GET", segUrl)
-        if success and segRes.code == 200 then
-          local chunkSize = 16 * 1024
-          local segLength = #segBody
-          for i = 1, segLength, chunkSize do
-            local chunk = segBody:sub(i, math.min(i + chunkSize - 1, segLength))
-            stream:write(chunk)
-            coroutine.yield()
-          end
-        else
-          if type(segRes) == "string" then return
-            self._luna.logger:error("loadHLS", "Internal error: " .. segRes)
-          end
+        print("Fetching segment: " .. segUrl)
+        local segRes, segBody = http.request("GET", segUrl)
+        if segRes.code ~= 200 then
           self._luna.logger:error("loadHLS", "HTTP error in segment: " .. segRes.code)
+          stream:push(nil)
+        else
+          stream:push(segBody)
         end
       end
-
-      stream:close()
-    end)()
-    return stream
+    end
   end
 
-  return stream
+  if type == "segment" then
+    coroutine.wrap(function()
+      local res, body = http.request("GET", url)
+      if res.code ~= 200 then
+        self._luna.logger:error("loadHLS", "HTTP error in segment: " .. res.code)
+        stream:push(nil)
+      else
+        stream:push(body)
+        stream:push(nil)
+      end
+    end)()
+  elseif type == "playlist" then
+    coroutine.wrap(function()
+      processPlaylist(url)
+      stream:push(nil)
+    end)()
+  end
+
+  return stream:pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
 end
 
 return Sources
