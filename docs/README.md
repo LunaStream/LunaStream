@@ -6,7 +6,7 @@ A lavalink alternative focus on stability, decent speed and modulize like Freque
 ## Install luvit 2.15
 ```
 export TIMEOUT_MODE=disable
-curl -L https://github.com/luvit/lit/raw/main/scripts/get-lit.sh | sh
+curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
 ```
 
 ## How to setup
