@@ -95,6 +95,7 @@ function HTTPDirectPlay:loadStream(track, additionalData)
   return {
     url = track.info.uri,
     protocol = 'https',
+    ---@diagnostic disable-next-line: need-check-nil
     format = content_type[2]:match('audio/(.+)'),
     keepAlive = false
   }

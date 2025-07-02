@@ -6,7 +6,7 @@ local LocalFile = class('LocalFile', AbstractSource)
 
 function LocalFile:__init(luna)
   self._luna = luna
-  AbstractSource.__init(self)
+  AbstractSource.__init()
   self._search_id = 'local'
 end
 

@@ -7,7 +7,7 @@ local class = require("class")
 
 local Kwai = class("Kwai", AbstractSource)
 
-function decode_unicode_escapes(str)
+local function decode_unicode_escapes(str)
   if not str then
     return nil
   end
