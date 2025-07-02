@@ -4,7 +4,6 @@ local file = fs.readFileSync('./app.yml')
 local file_template = require('./template.lua')
 
 if not file then
-  fs.writeFileSync('app.yml', file_template)
   file = file_template
 end
 
