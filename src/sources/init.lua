@@ -162,13 +162,10 @@ function Sources:getStream(track)
   end
   p(streamInfo.url, streamInfo.type, streamInfo.format)
 
-  if streamInfo.protocol == "hls" then
-    return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
-  end
-
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
+  local is_hls_playlist = streamInfo.protocol == "hls" and streamInfo.type == "playlist"
 
-  local streamClient = quickmedia.stream.http:new('GET', streamInfo.url, headers, nil, {
+  local streamClient = (is_hls_playlist and quickmedia.stream.hls or quickmedia.stream.http ):new('GET', streamInfo.url, headers, nil, {
     keepAlive = streamInfo.keepAlive
   })
 
@@ -178,7 +175,7 @@ function Sources:getStream(track)
     return self._luna.logger:error("SourceManager", "Stream url response error: " .. request.res.code)
   end
 
-  if track.info.sourceName == "deezer" then
+  if track.info.sourceName == "deezer `" then
     local source = self._source_avaliables["deezer"]
 
     request:pipe(source:decryptAudio():new(track.info.identifier)):pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
