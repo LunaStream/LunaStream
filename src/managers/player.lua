@@ -4,6 +4,7 @@ local voice = require('../voice')
 local Player = class('Player')
 local decoder = require('../track/decoder')
 local json = require('json')
+local VolumeTransformer = require('quickmedia').core.VolumeTransformer
 
 function Player:__init(luna, guildId, sessionId)
   self._luna = luna
@@ -17,7 +18,7 @@ function Player:__init(luna, guildId, sessionId)
   self.playing = false
   self.position = 0
   self.endTime = 0
-  self.volume = 0
+  self.volume = 100
   self.paused = false
   self.filters = {}
   self.voiceState = {}
@@ -25,6 +26,7 @@ function Player:__init(luna, guildId, sessionId)
   self.voice = voice(self._guildId, self._userId, self._luna._opus)
   self.update_loop_interval = nil
   self.close_connection_function = nil
+  self.volume_transformer = VolumeTransformer:new({ type = 's16le', volume = self.volume / 100 })
 end
 
 function Player:new()
@@ -77,7 +79,7 @@ function Player:play(track)
     end
   end
 
-  self._stream = stream
+  self._stream = stream:pipe(self.volume_transformer)
 
   if self.voice then
     self.voice:play(self._stream, { encoder = true })
@@ -168,7 +170,10 @@ function Player:seek(position)
 end
 
 function Player:setVolume(volume)
-  -- //TODO: Implement volume control, wait VolumeTransformer implementation
+  self.volume = volume
+  if self.volume_transformer then
+    self.volume_transformer:setVolume(volume / 100)
+  end
 end
 
 function Player:setFilters(filters)

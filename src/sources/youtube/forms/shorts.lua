@@ -78,7 +78,7 @@ return function(query, src_type, youtube)
     isStream = video.isLive == true,
     position = 0,
     title = video.title or "Unknown title",
-    uri = string.format("https://%s/watch?v=%s", youtube:baseHostRequest(src_type), video.videoId),
+    uri = string.format("https://www.youtube.com/watch?v=%s", video.videoId),
     artworkUrl = video.thumbnail and video.thumbnail.thumbnails and
       video.thumbnail.thumbnails[#video.thumbnail.thumbnails].url or nil,
     isrc = nil,

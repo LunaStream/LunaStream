@@ -40,6 +40,7 @@ function Sources:__init(luna)
       '-ar', '48000',
       '-ac', '2',
       '-strict', '-2',
+      '-bufsize', '3840',
       'pipe:1'
     }
   }

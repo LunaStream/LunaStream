@@ -77,7 +77,7 @@ function YouTube:search(query, src_type)
   if src_type == "ytmsearch" then
     baseUrl = "music.youtube.com"
   else
-    baseUrl = "youtube.com"
+    baseUrl = "www.youtube.com"
   end
   for _, video in ipairs(videos) do
     video = video.compactVideoRenderer or video.musicTwoColumnItemRenderer
@@ -279,15 +279,15 @@ function YouTube:loadStream(track)
     }
   end
 
-  local audio = nil
+    local audio = nil
+  local best_audio_bitrate = 0
 
-  local qualityOrder = { "audio/webm; codecs=\"opus\"", "audio/mp4" }
-
-  for _, mimeType in ipairs(qualityOrder) do
-    for _, format in ipairs(data.streamingData.adaptiveFormats) do
-      if format.mimeType == mimeType then
-        if not audio or (format.audioQuality and format.audioQuality > (audio.audioQuality or "")) then
+  for _, format in ipairs(data.streamingData.adaptiveFormats) do
+    if format.mimeType:find("audio/") then
+      if format.url then 
+        if not audio or (format.audioQuality and format.audioQuality > (audio.audioQuality or "")) or (format.bitrate and format.bitrate > best_audio_bitrate) then
           audio = format
+          best_audio_bitrate = format.bitrate or 0
         end
       end
     end
@@ -296,8 +296,10 @@ function YouTube:loadStream(track)
   if not audio then
     for _, format in ipairs(data.streamingData.adaptiveFormats) do
       if format.mimeType:find("audio/") then
-        audio = format
-        break
+        if not audio or (format.audioQuality and format.audioQuality > (audio.audioQuality or "")) or (format.bitrate and format.bitrate > best_audio_bitrate) then
+          audio = format
+          best_audio_bitrate = format.bitrate or 0
+        end
       end
     end
   end
@@ -312,21 +314,36 @@ function YouTube:loadStream(track)
     }
   end
 
-  local url = audio.url or audio.signatureCipher or audio.cipher
-  url = string.format(
-    "%s&rn=1&cpn=%s&ratebypass=yes&range=0-", url, string.sub(
+  local stream_url = audio.url
+  if not stream_url then
+    local current_client_name = self._clientManager._currentClient
+    if current_client_name == 'ANDROID' or current_client_name == 'IOS' or current_client_name == 'ANDROID_MUSIC' then
+      stream_url = audio.signatureCipher or audio.cipher
+    end
+  end
+
+  if not stream_url then
+    return {
+      exception = {
+        message = "No direct stream URL found and signature decryption is not supported for this client.",
+        severity = "common",
+        cause = "YouTube API Change or unsupported client type",
+      },
+    }
+  end
+
+  stream_url = string.format(
+    "%s&rn=1&cpn=%s&ratebypass=yes&range=0-", stream_url, string.sub(
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", math.random(1, 62), math.random(1, 62)
     )
   )
 
   local result = {
-    url = url or data.streamingData.hlsManifestUrl,
-    protocol = url and "http" or "hls_playlist",
-    format = url
-      and (audio.mimeType == 'audio/webm; codecs="opus"' and "webm/opus" or "arbitrary")
-      or "arbitrary",
+    url = stream_url,
+    protocol = "http",
+    format = (audio.mimeType == 'audio/webm; codecs="opus"' and "webm/opus" or "arbitrary"),
     keepAlive = true
-  }  
+  }
   if track.info.isStream then
     result.protocol = "hls"
     result.type = "playlist"

@@ -38,6 +38,10 @@ return function(req, answer, luna, guild_id, players, session_id)
     end
   end
 
+  if body.volume then
+    player:setVolume(body.volume)
+  end
+
   players[guild_id] = player
 
   return answer(
