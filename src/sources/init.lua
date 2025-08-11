@@ -294,7 +294,7 @@ function Sources:loadHLS(url, type)
         for line in media_body:gmatch("([^\r\n]+)") do table.insert(media_lines, line) end
 
         local segments_to_process = {}
-        local target_duration = 5
+        local target_duration = 15
         saw_end = false
 
         for i, line in ipairs(media_lines) do
@@ -318,8 +318,6 @@ function Sources:loadHLS(url, type)
         end
 
         if #segments_to_process == 0 and not saw_end then
-            self._luna.logger:debug("HLS", "Live playlist is empty, waiting...")
-            sleep(target_duration * 1000)
             goto continue
         end
 
@@ -332,8 +330,6 @@ function Sources:loadHLS(url, type)
                 if seg_res and seg_res.code == 200 then
                     stream:push(seg_body)
                     downloaded_segments[segment.url] = true
-                    self._luna.logger:debug("HLS", "Segment finished, waiting for %s seconds.", segment.duration)
-                    sleep(segment.duration * 1000)
                 else
                     self._luna.logger:error("HLS", "Failed to download segment %s, stopping.", segment.url)
                     return stream:push(nil)
@@ -342,8 +338,6 @@ function Sources:loadHLS(url, type)
         end
 
         if not new_segments_found and not saw_end then
-            self._luna.logger:debug("HLS", "No new segments in playlist, waiting...")
-            sleep(target_duration * 1000)
         end
 
         ::continue::
