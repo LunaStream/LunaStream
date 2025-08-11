@@ -31,7 +31,7 @@ function Sources:__init(luna)
   self._search_avaliables = {}
   self._source_avaliables = {}
   self._ffmpeg_config = {
-    path =  self:getBinaryPath('ffmpeg'),
+    path = self:getBinaryPath('ffmpeg'),
     args = {
       '-loglevel', 'error',
       '-analyzeduration', '0',
@@ -162,6 +162,10 @@ function Sources:getStream(track)
   end
   p(streamInfo.url, streamInfo.type, streamInfo.format)
 
+  if streamInfo.protocol == "hls" then
+    return self:loadHLS(streamInfo.url, streamInfo.type), streamInfo.type
+  end
+
   local headers = streamInfo.auth and streamInfo.auth.headers or nil
   local is_hls_playlist = streamInfo.protocol == "hls" and streamInfo.type == "playlist"
 
@@ -202,76 +206,148 @@ end
 
 function Sources:loadHLS(url, type)
   local stream = Readable:new()
-  print("Loading HLS stream from URL: " .. url)
 
-  local function processPlaylist(playlistUrl)
-    local res, body = http.request("GET", playlistUrl)
-    if res.code ~= 200 then
-      self._luna.logger:error("loadHLS", "HTTP error in playlist: " .. res.code)
-      stream:push(nil)
-      return
+  coroutine.wrap(function()
+    local uv = require('uv')
+    local timer = require('timer')
+
+    local function sleep(delay)
+      local thread = coroutine.running()
+      if not thread then return end
+      local t = uv.new_timer()
+      t:start(delay, 0, function()
+          t:stop()
+          t:close()
+          if coroutine.status(thread) == "suspended" then
+            coroutine.resume(thread)
+          end
+        end
+      )
+      return coroutine.yield()
     end
 
-    local isMasterPlaylist = body:match("#EXT%-X%-STREAM%-INF")
-    if isMasterPlaylist then
-      local playlistUrls = {}
-      for line in body:gmatch("[^\r\n]+") do
-        if not line:match("^#") and line:match("%S") then
-          if not line:match("^https?://") then
-            local baseUrl = playlistUrl:match("(.*/)")
-            line = baseUrl .. line
-          end
-          table.insert(playlistUrls, line)
-        end
-      end
-      if #playlistUrls > 0 then
-        processPlaylist(playlistUrls[1])
-      else
-        self._luna.logger:error("loadHLS", "No valid playlist URLs found")
-        stream:push(nil)
-      end
-    else
-      local segments = {}
-      for line in body:gmatch("[^\r\n]+") do
-        if not line:match("^#") and line:match("%S") then
-          if not line:match("^https?://") then
-            local baseUrl = playlistUrl:match("(.*/)")
-            line = baseUrl .. line
-          end
-          table.insert(segments, line)
-        end
-      end
+    self._luna.logger:debug("HLS", "Starting HLS stream for: %s", url)
 
-      for _, segUrl in ipairs(segments) do
-        print("Fetching segment: " .. segUrl)
-        local segRes, segBody = http.request("GET", segUrl)
-        if segRes.code ~= 200 then
-          self._luna.logger:error("loadHLS", "HTTP error in segment: " .. segRes.code)
-          stream:push(nil)
-        else
-          stream:push(segBody)
-        end
-      end
+    local res, body = http.request("GET", url)
+    if not res or res.code ~= 200 then
+      self._luna.logger:error("HLS", "Failed to fetch initial playlist: %s", url)
+      return stream:push(nil)
     end
-  end
 
-  if type == "segment" then
-    coroutine.wrap(function()
-      local res, body = http.request("GET", url)
-      if res.code ~= 200 then
-        self._luna.logger:error("loadHLS", "HTTP error in segment: " .. res.code)
-        stream:push(nil)
-      else
-        stream:push(body)
-        stream:push(nil)
-      end
-    end)()
-  elseif type == "playlist" then
-    coroutine.wrap(function()
-      processPlaylist(url)
-      stream:push(nil)
-    end)()
-  end
+    local lines = {}
+    for line in body:gmatch("([^\r\n]+)") do table.insert(lines, line) end
+
+    local media_playlist_url = url
+
+    if table.some(lines, function(l) return l:match("#EXT%-X%-MEDIA") and l:match("TYPE=AUDIO") end) then
+        local audio_streams = {}
+        for _, line in ipairs(lines) do
+            if line:match("#EXT%-X%-MEDIA") and line:match("TYPE=AUDIO") then
+                local uri = line:match('URI="([^"]+)"')
+                if uri then
+                    table.insert(audio_streams, {uri=uri, default=line:match("DEFAULT=YES")})
+                end
+            end
+        end
+        local picked_stream = table.find(audio_streams, function(s) return s.default end) or audio_streams[#audio_streams]
+        if picked_stream then
+            media_playlist_url = picked_stream.uri
+            if not media_playlist_url:match("^https?://") then
+                local baseUrl = url:match("(.*/)")
+                media_playlist_url = baseUrl .. media_playlist_url
+            end
+            self._luna.logger:debug("HLS", "Found audio-only stream via #EXT-X-MEDIA: %s", media_playlist_url)
+        end
+    elseif table.some(lines, function(l) return l:match("#EXT%-X%-STREAM%-INF") end) then
+        local streams = {}
+        for i, line in ipairs(lines) do
+            if line:match("#EXT%-X%-STREAM%-INF") then
+                local bandwidth = line:match("BANDWIDTH=(%d+)")
+                local stream_url = lines[i+1]
+                if stream_url and not stream_url:match("^#") then
+                    table.insert(streams, {bandwidth = tonumber(bandwidth) or 0, url = stream_url})
+                end
+            end
+        end
+        if #streams > 0 then
+            table.sort(streams, function(a, b) return a.bandwidth < b.bandwidth end)
+            media_playlist_url = streams[1].url
+            if not media_playlist_url:match("^https?://") then
+                local baseUrl = url:match("(.*/)")
+                media_playlist_url = baseUrl .. media_playlist_url
+            end
+            self._luna.logger:debug("HLS", "No #EXT-X-MEDIA found. Falling back to lowest bandwidth stream: %s", media_playlist_url)
+        end
+    end
+
+    local downloaded_segments = {}
+    local saw_end = false
+
+    while not saw_end do
+        self._luna.logger:debug("HLS", "Fetching playlist: %s", media_playlist_url)
+        local media_res, media_body = http.request("GET", media_playlist_url)
+        if not media_res or media_res.code ~= 200 then
+            self._luna.logger:error("HLS", "Failed to fetch media playlist: %s", media_playlist_url)
+            return stream:push(nil)
+        end
+
+        local media_lines = {}
+        for line in media_body:gmatch("([^\r\n]+)") do table.insert(media_lines, line) end
+
+        local segments_to_process = {}
+        local target_duration = 15
+        saw_end = false
+
+        for i, line in ipairs(media_lines) do
+            if line:match("#EXT%-X%-TARGETDURATION:") then
+                target_duration = tonumber(line:match("#EXT%-X%-TARGETDURATION:(%d+)")) or 10
+            end
+            if line:match("#EXTINF") then
+                local duration = tonumber(line:match("#EXTINF:([%d%.]+),"))
+                local uri = media_lines[i+1]
+                if uri and not uri:match("^#") then
+                    if not uri:match("^https?://") then
+                        local baseUrl = media_playlist_url:match("(.*/)")
+                        uri = baseUrl .. uri
+                    end
+                    table.insert(segments_to_process, {url=uri, duration=duration})
+                end
+            end
+            if line:match("#EXT%-X%-ENDLIST") then
+                saw_end = true
+            end
+        end
+
+        if #segments_to_process == 0 and not saw_end then
+            goto continue
+        end
+
+        local new_segments_found = false
+        for _, segment in ipairs(segments_to_process) do
+            if not downloaded_segments[segment.url] then
+                new_segments_found = true
+                self._luna.logger:debug("HLS", "Downloading segment: %s", segment.url)
+                local seg_res, seg_body = http.request("GET", segment.url)
+                if seg_res and seg_res.code == 200 then
+                    stream:push(seg_body)
+                    downloaded_segments[segment.url] = true
+                else
+                    self._luna.logger:error("HLS", "Failed to download segment %s, stopping.", segment.url)
+                    return stream:push(nil)
+                end
+            end
+        end
+
+        if not new_segments_found and not saw_end then
+        end
+
+        ::continue::
+    end
+
+    self._luna.logger:info("HLS", "End of playlist detected.")
+    return stream:push(nil)
+
+  end)()
 
   return stream:pipe(quickmedia.core.FFmpeg:new(self._ffmpeg_config))
 end
